@@ -32,36 +32,38 @@ module.exports = async function handler(req, res) {
     const decoded = await admin.auth().verifyIdToken(userToken);
     const myUid = decoded.uid;
 
-    const snap = await db.collection('users')
-      .orderBy('timeSpentSeconds', 'desc')
-      .limit(100)
+    // 1. Current user ka time nikalen
+    const myUserDoc = await db.collection('users').doc(myUid).get();
+    let myTime = 0;
+    if (myUserDoc.exists) {
+      myTime = myUserDoc.data().timeSpentSeconds || 0;
+    }
+
+    // 2. Count kitne logon ka time current user se zyada hai
+    // Efficient Firestore count query (No heavy reads)
+    const higherUsersSnap = await db.collection('users')
+      .where('timeSpentSeconds', '>', myTime)
+      .count()
       .get();
 
-    let rank = 1;
-    let found = false;
-    let totalSeconds = 0;
+    const usersAboveCount = higherUsersSnap.data().count;
+    let rankNumber = usersAboveCount + 1;
 
-    snap.docs.forEach((doc, index) => {
-      if (doc.id === myUid) {
-        rank = index + 1;
-        found = true;
-        totalSeconds = doc.data().timeSpentSeconds || 0;
-      }
-    });
-
-    if (!found) {
-      const myDoc = await db.collection('users').doc(myUid).get();
-      totalSeconds = myDoc.exists ? (myDoc.data().timeSpentSeconds || 0) : 0;
-      rank = 100;
+    let displayRank;
+    if (rankNumber <= 1000) {
+      displayRank = rankNumber;
+    } else {
+      displayRank = '1K+';
     }
 
     return res.status(200).json({
       success: true,
-      rank: found ? rank : '100+',
-      totalMinutes: Math.floor(totalSeconds / 60)
+      rank: displayRank,
+      totalSeconds: myTime,
+      totalMinutes: Math.floor(myTime / 60)
     });
   } catch (err) {
+    console.error("Rank calculation error:", err);
     return res.status(500).json({ error: err.message });
   }
 };
-
