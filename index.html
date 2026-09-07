@@ -33,7 +33,7 @@
     <!-- DOMPurify for Channel Notifications Security -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
 
-    <!-- MOZILLA PDF.JS ENGINE (Auto Page Calculation & HD Mobile Viewer) -->
+    <!-- MOZILLA PDF.JS ENGINE -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         if (window.pdfjsLib) {
@@ -50,9 +50,22 @@
     <div class="loader-screen" id="loaderScreen" style="display: flex; opacity: 1;">
         <div class="loader-logo"><img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" alt="Logo" oncontextmenu="return false;" draggable="false"></div>
         <div class="loader-title">SPIDY BOOK HUB</div>
+        
         <div class="premium-tags">
-            <div class="tag"><i class="fa-solid fa-file-pdf"></i> PDF</div>
-            <div class="tag"><i class="fa-solid fa-note-sticky"></i> NOTES</div>
+            <!-- 1 & 2: Updated Attractive PDF & Notes Icons -->
+            <div class="tag">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <text x="7" y="17" font-size="6.5" font-family="'Poppins', sans-serif" font-weight="900" fill="#ffffff" stroke="none">PDF</text>
+                </svg> 
+                PDF
+            </div>
+            
+            <div class="tag">
+                <i class="fas fa-file-lines" style="color: #ffffff; font-size: 11px;"></i> NOTES
+            </div>
+            
             <div class="tag"><i class="fa-solid fa-square-root-variable"></i> FORMULA</div>
             <div class="tag"><i class="fa-solid fa-layer-group"></i> MORE</div>
         </div>
@@ -164,22 +177,22 @@
                 <div class="sidebar-scroll-area">
                     <div class="menu-section">
                         <div class="section-title">MAIN MENU</div>
-                        <a href="#" class="menu-item active" id="menu-home-side" onclick="updateHeaderForTab('home')"><i class="fas fa-home"></i><span>Home</span></a>
+                        <a href="#" class="menu-item active" id="menu-home-side"><i class="fas fa-home"></i><span>Home</span></a>
                         <a href="https://t.me/SpidyBookHub_Bot" target="_blank" class="menu-item normal" id="menu-contact"><i class="fas fa-envelope"></i><span>Contact</span></a>
                         <a href="#" class="menu-item normal" id="menu-bookmarks"><i class="far fa-bookmark"></i><span>Bookmarks</span></a>
                         <a href="#" class="menu-item normal" id="menu-dmca"><i class="fas fa-shield-halved"></i><span>DMCA Request</span></a>
                     </div>
                     <div class="menu-section">
                         <div class="section-title">COMMUNITY</div>
-                        <a href="https://www.instagram.com/PRINCE YADAV _3030" target="_blank" class="menu-item card-link card-insta" id="link-insta"><i class="fab fa-instagram"></i><span>Instagram</span><i class="fas fa-external-link-square-alt external"></i></a>
-                        <a href="https://youtube.com/@PRINCE YADAV " target="_blank" class="menu-item card-link card-youtube" id="link-youtube"><i class="fab fa-youtube"></i><span>YouTube Channel</span><i class="fas fa-external-link-square-alt external"></i></a>
+                        <a href="https://www.instagram.com/PRINCE_YADAV_3030" target="_blank" class="menu-item card-link card-insta" id="link-insta"><i class="fab fa-instagram"></i><span>Instagram</span><i class="fas fa-external-link-square-alt external"></i></a>
+                        <a href="https://youtube.com/@PRINCE_YADAV" target="_blank" class="menu-item card-link card-youtube" id="link-youtube"><i class="fab fa-youtube"></i><span>YouTube Channel</span><i class="fas fa-external-link-square-alt external"></i></a>
                         <a href="https://t.me/MultiverseBooks" target="_blank" class="menu-item card-link card-telegram" id="link-telegram"><i class="fab fa-telegram-plane"></i><span>Join Telegram</span><i class="fas fa-external-link-square-alt external"></i></a>
                         <a href="https://whatsapp.com/channel/0029Vb6NBZx1yT2GByTTVf2A" target="_blank" class="menu-item card-link card-whatsapp" id="link-whatsapp"><i class="fab fa-whatsapp"></i><span>Join WhatsApp</span><i class="fas fa-external-link-square-alt external"></i></a>
                     </div>
                 </div>
                 <div class="sidebar-footer">
                     <div class="system-status"><div class="dot"></div>SYSTEM SECURE</div>
-                    <div class="credits">SPIDY BOOK HUB • PRINCE YADAV </div>
+                    <div class="credits">SPIDY BOOK HUB • PRINCE YADAV</div>
                 </div>
             </div>
 
@@ -226,7 +239,7 @@
                             <div class="no-results-icon"><i class="fas fa-book-open"></i></div>
                             <h2 class="no-results-title">BOOK NOT FOUND</h2>
                             <p class="no-results-desc">Sorry, we couldn't find any book matching your search.</p>
-                            <div class="no-results-badge">❁ POWERED BY : PRINCE YADAV  ❁</div>
+                            <div class="no-results-badge">❁ POWERED BY : PRINCE YADAV ❁</div>
                         </div>
                     </div>
                     
@@ -248,7 +261,7 @@
                         </div>
                     </div>
 
-                    <div class="adm-content-area" style="padding: 20px 15px 0;">
+                    <div class="adm-content-area" id="admContentArea" style="padding: 20px 15px 0;">
                         <div id="sectionAddBook" class="adm-section active">
                             <form id="addBookForm" class="seamless-form-container">
                                 
@@ -259,7 +272,6 @@
                                     <h2 style="font-size: 1.25rem; font-weight: 800; color: #fff; letter-spacing: 0.5px; margin: 0; font-family: 'Poppins', sans-serif;">Enter Book Details</h2>
                                 </div>
 
-                                <!-- Book Title with Left Icon (book-bookmark) -->
                                 <div class="adm-form-group">
                                     <label class="adm-label">Book Title</label>
                                     <div class="adm-input-icon-wrapper">
@@ -268,7 +280,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Author Name with Left Icon -->
                                 <div class="adm-form-group">
                                     <label class="adm-label">Author Name</label>
                                     <div class="adm-input-icon-wrapper">
@@ -286,7 +297,6 @@
                                     <select id="inLang" class="adm-input"><option value="Hindi">Hindi</option><option value="English">English</option><option value="Bilingual">Bilingual</option></select>
                                 </div>
 
-                                <!-- Exam Relevance with Left Icon -->
                                 <div class="adm-form-group">
                                     <label class="adm-label">Exam Relevance</label>
                                     <div class="adm-input-icon-wrapper">
@@ -370,10 +380,10 @@
 
                             <div class="hero-content-wrapper">
                                 <div class="social-bar-left">
-                                    <a href="https://github.com/PRINCE YADAV " target="_blank" class="hero-soc-btn"><i class="fab fa-github"></i></a>
+                                    <a href="https://github.com/PRINCE_YADAV" target="_blank" class="hero-soc-btn"><i class="fab fa-github"></i></a>
                                     <a href="https://t.me/MultiverseBooks" target="_blank" class="hero-soc-btn"><i class="fab fa-telegram-plane"></i></a>
-                                    <a href="https://www.instagram.com/PRINCE YADAV _3030" target="_blank" class="hero-soc-btn"><i class="fab fa-instagram"></i></a>
-                                    <a href="https://youtube.com/@PRINCE YADAV " target="_blank" class="hero-soc-btn"><i class="fab fa-youtube"></i></a>
+                                    <a href="https://www.instagram.com/PRINCE_YADAV_3030" target="_blank" class="hero-soc-btn"><i class="fab fa-instagram"></i></a>
+                                    <a href="https://youtube.com/@PRINCE_YADAV" target="_blank" class="hero-soc-btn"><i class="fab fa-youtube"></i></a>
                                 </div>
 
                                 <div class="profile-avatar-container">
@@ -433,15 +443,15 @@
 
             <!-- PERSISTENT BOTTOM NAVIGATION BAR -->
             <nav class="bottom-nav-bar">
-                <div class="bottom-nav-item active" id="nav-home" onclick="updateHeaderForTab('home')">
+                <div class="bottom-nav-item active" id="nav-home">
                     <div class="nav-icon-pill"><i class="fas fa-home"></i></div>
                     <span class="nav-label">𝐇𝐨𝐦𝐞</span>
                 </div>
-                <div class="bottom-nav-item" id="nav-upload" onclick="updateHeaderForTab('upload')">
+                <div class="bottom-nav-item" id="nav-upload">
                     <div class="nav-icon-pill"><i class="fas fa-cloud-upload-alt"></i></div>
                     <span class="nav-label">𝐔𝐩𝐥𝐨𝐚𝐝</span>
                 </div>
-                <div class="bottom-nav-item" id="nav-dev" onclick="updateHeaderForTab('about')">
+                <div class="bottom-nav-item" id="nav-dev">
                     <div class="nav-icon-pill"><i class="fas fa-user-tie"></i></div>
                     <span class="nav-label">𝐌𝐞</span>
                 </div>
@@ -496,7 +506,7 @@
                         <div class="dl-img-wrapper-outer">
                             <div class="dl-img-container">
                                 <img id="dlPreviewImage" class="dl-preview-image" src="" oncontextmenu="return false;" draggable="false">
-                                <div class="dl-powered-badge disable-long-press">POWERED BY : PRINCE YADAV </div>
+                                <div class="dl-powered-badge disable-long-press">POWERED BY : PRINCE YADAV</div>
                             </div>
                         </div>
                         
@@ -566,8 +576,8 @@
 
                         <div class="dl-social-container">
                             <div class="dev-social-row">
-                                <a href="https://youtube.com/@PRINCE YADAV " target="_blank" class="dev-soc-btn dev-yt"><i class="fab fa-youtube"></i></a>
-                                <a href="https://www.instagram.com/PRINCE YADAV _3030" target="_blank" class="dev-soc-btn dev-ig"><i class="fab fa-instagram"></i></a>
+                                <a href="https://youtube.com/@PRINCE_YADAV" target="_blank" class="dev-soc-btn dev-yt"><i class="fab fa-youtube"></i></a>
+                                <a href="https://www.instagram.com/PRINCE_YADAV_3030" target="_blank" class="dev-soc-btn dev-ig"><i class="fab fa-instagram"></i></a>
                                 <a href="https://t.me/MultiverseBooks" target="_blank" class="dev-soc-btn dev-tg"><i class="fab fa-telegram-plane"></i></a>
                                 <a href="https://whatsapp.com/channel/0029Vb6NBZx1yT2GByTTVf2A" target="_blank" class="dev-soc-btn dev-wa"><i class="fab fa-whatsapp"></i></a>
                             </div>
@@ -575,7 +585,7 @@
                     </div>
                     
                     <div style="margin-top: auto; width: 100%; padding: 15px 10px 20px; background: transparent; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: center; align-items: center; font-size: clamp(8px, 2.5vw, 10px); font-weight: 800; color: #a1a1aa; letter-spacing: 0.5px; flex-shrink: 0; box-sizing: border-box; text-align: center;">
-                        © 2026 SPIDY BOOK HUB <span style="color: #3f3f46; margin: 0 6px;">|</span> MADE WITH <i class="fas fa-heart" style="color: #ff4757; margin: 0 3px;"></i> BY PRINCE YADAV 
+                        © 2026 SPIDY BOOK HUB <span style="color: #3f3f46; margin: 0 6px;">|</span> MADE WITH <i class="fas fa-heart" style="color: #ff4757; margin: 0 3px;"></i> BY PRINCE YADAV
                     </div>
                 </div>
             </div>
@@ -605,7 +615,7 @@
                     </div>
                     
                     <div style="margin-top: auto; width: 100%; padding: 20px 10px; background: transparent; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: center; align-items: center; font-size: clamp(8px, 2.5vw, 10px); font-weight: 800; color: #a1a1aa; letter-spacing: 0.5px; flex-shrink: 0; box-sizing: border-box; text-align: center;">
-                        © 2026 SPIDY BOOK HUB <span style="color: #3f3f46; margin: 0 6px;">|</span> MADE WITH <i class="fas fa-heart" style="color: #ff4757; margin: 0 3px;"></i> BY PRINCE YADAV 
+                        © 2026 SPIDY BOOK HUB <span style="color: #3f3f46; margin: 0 6px;">|</span> MADE WITH <i class="fas fa-heart" style="color: #ff4757; margin: 0 3px;"></i> BY PRINCE YADAV
                     </div>
                 </div>
             </div>
@@ -707,7 +717,7 @@
                     </div>
                     
                     <div style="margin-top: auto; width: 100%; padding: 20px 10px; background: transparent; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: center; align-items: center; font-size: clamp(8px, 2.5vw, 10px); font-weight: 800; color: #a1a1aa; letter-spacing: 0.5px; flex-shrink: 0; box-sizing: border-box; text-align: center;">
-                        © 2026 SPIDY BOOK HUB <span style="color: #3f3f46; margin: 0 6px;">|</span> MADE WITH <i class="fas fa-heart" style="color: #ff4757; margin: 0 3px;"></i> BY PRINCE YADAV 
+                        © 2026 SPIDY BOOK HUB <span style="color: #3f3f46; margin: 0 6px;">|</span> MADE WITH <i class="fas fa-heart" style="color: #ff4757; margin: 0 3px;"></i> BY PRINCE YADAV
                     </div>
                 </div>
             </div>
@@ -778,11 +788,11 @@
                 </div>
             </div>
 
-            <!-- IN-APP DIRECT PDF VIEWER WITH SEARCH BAR & SCREEN-EDGE FLOATING BADGE -->
+            <!-- IN-APP DIRECT PDF VIEWER (Fixed Stack Layout & Smooth Scrolling) -->
             <div id="pdfViewerOverlay" class="pdf-viewer-overlay" style="display:none; position:fixed; inset:0; background:#09090b; z-index:999999; flex-direction:column;">
                 
-                <!-- Main Header -->
-                <div class="pdf-viewer-header" style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; background:#18181b; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0;">
+                <!-- Main Header (High z-index to stay above canvas) -->
+                <div class="pdf-viewer-header" style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; background:#18181b; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; position:relative; z-index:1000000;">
                     <div style="display:flex; align-items:center; gap:10px; max-width:70%; overflow:hidden;">
                         <i class="fas fa-book-open" style="color:#10b981; font-size:16px;"></i>
                         <h3 id="pdfViewerTitle" class="pdf-viewer-title" style="color:#ffffff; font-size:15px; font-weight:700; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Reading Book...</h3>
@@ -794,7 +804,7 @@
                 </div>
 
                 <!-- Interactive Document Search Bar -->
-                <div id="pdfSearchBar" style="display:none; align-items:center; gap:10px; padding:10px 16px; background:#121214; border-bottom:1px solid rgba(255,255,255,0.1); flex-shrink:0;">
+                <div id="pdfSearchBar" style="display:none; align-items:center; gap:10px; padding:10px 16px; background:#121214; border-bottom:1px solid rgba(255,255,255,0.1); flex-shrink:0; position:relative; z-index:999999;">
                     <div style="position:relative; flex:1; display:flex; align-items:center;">
                         <i class="fas fa-search" style="position:absolute; left:12px; color:#71717a; font-size:13px;"></i>
                         <input type="text" id="pdfSearchInput" placeholder="Find words (e.g. श्रीराम, Chapter)..." autocomplete="off" style="width:100%; background:#1c1c20; border:1px solid rgba(255,255,255,0.15); border-radius:20px; padding:8px 45px 8px 34px; color:#ffffff; font-size:13px; outline:none;">
@@ -809,8 +819,8 @@
                 <div id="pdfContainer" class="pdf-viewer-container" style="flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; align-items:center; padding:15px 10px; background:#000000; -webkit-overflow-scrolling:touch; position:relative;">
                     <div id="pdfScrollContainer" style="width:100%; display:flex; flex-direction:column; align-items:center;"></div>
                     
-                    <!-- Floating Screen-Edge Right-Attached Badge (Initially Hidden) -->
-                    <div id="pdfPageBadge" title="Click to jump to page" style="display:none; position:fixed; right:0; top:45%; transform:translateY(-50%); background:#000000; color:#ffffff; border:1.5px solid rgba(255,255,255,0.4); border-right:none; border-radius:24px 0 0 24px; padding:8px 14px 8px 12px; font-size:13px; font-weight:900; font-family:'Inter', sans-serif; cursor:pointer; z-index:100; box-shadow:-4px 6px 18px rgba(0,0,0,0.85); align-items:center; justify-content:center; letter-spacing:0.5px; backdrop-filter:blur(10px);">
+                    <!-- 3: Floating Screen-Edge Badge (Ultra-thin border & Smooth position) -->
+                    <div id="pdfPageBadge" title="Click to jump to page" style="display:none; position:fixed; right:0; top:45%; transform:translateY(-50%); background:rgba(0,0,0,0.85); color:#ffffff; border:1px solid rgba(255, 255, 255, 0.22); border-right:none; border-radius:20px 0 0 20px; padding:7px 12px 7px 10px; font-size:12.5px; font-weight:800; font-family:'Inter', sans-serif; cursor:pointer; z-index:9999; box-shadow:-4px 4px 15px rgba(0,0,0,0.8); align-items:center; justify-content:center; letter-spacing:0.5px; backdrop-filter:blur(10px); transition: top 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease;">
                         <span id="pdfCurrentPageNum">1</span>
                     </div>
                 </div>
@@ -915,7 +925,7 @@
                     💡 <span class="highlight">Aapki share ki hui ek book</span> kisi student ka exam clear karwa sakti hai! Apna study material yahan upload karo aur dusron ki safalta ka hissa bano. 💖
                 </div>
                 
-                <button class="ug-action-btn" onclick="window.open('https://youtube.com/@PRINCE YADAV ', '_blank')">
+                <button class="ug-action-btn" onclick="window.open('https://youtube.com/@PRINCE_YADAV', '_blank')">
                     <svg class="upload-icon" viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke: #000000; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                         <polyline points="17 8 12 3 7 8"></polyline>
@@ -971,7 +981,7 @@
           <div class="progress-fill" id="syncProgressFill"></div>
         </div>
 
-        <!-- Live Pipeline Feedback Stage -->
+        <!-- 4: Live Pipeline Feedback Stage (Smooth Circular Loader) -->
         <div class="live-stage">
           <div class="stage-spinner" id="syncStageSpinner"></div>
           <div class="stage-info">
@@ -1004,28 +1014,7 @@
         </div>
     </div>
 
-    <!-- Header Tab Switching Script -->
-    <script>
-        function updateHeaderForTab(tab) {
-            const headerEl = document.getElementById('main-header');
-            const titleEl = document.getElementById('dynamic-header-title');
-            const iconsEl = document.getElementById('dynamic-header-icons');
-            
-            if(tab === 'home') {
-                headerEl.style.display = 'flex';
-                titleEl.innerText = 'SPIDY BOOK HUB';
-                iconsEl.style.display = 'flex';
-            } else if(tab === 'upload') {
-                headerEl.style.display = 'flex';
-                titleEl.innerText = 'UPLOAD BOOKS';
-                iconsEl.style.display = 'none';
-            } else if(tab === 'about') {
-                headerEl.style.display = 'none';
-            }
-        }
-    </script>
-
     <!-- App Logic JS -->
     <script type="module" src="./app.js"></script>
 </body>
-    </html>
+</html>
