@@ -190,7 +190,7 @@ function showToast(message, type = 'success') {
 
     globalToastTimeout = setTimeout(() => {
         toast.classList.remove('show');
-    }, 2000);
+    }, 2500);
 }
 
 function generateDeviceFingerprint() {
@@ -225,13 +225,12 @@ function initParticles(containerId) {
     }
 }
 
-// ADVANCED MULTILINGUAL UNICODE NORMALIZATION (HINDI & ENGLISH SMART SEARCH)
 function cleanUnicodeTextForSearch(str) {
     if (!str) return "";
     return str
         .normalize("NFD")
-        .replace(/[\u200B-\u200D\uFEFF]/g, "") // Remove Zero-Width Joiners/Non-Joiners
-        .replace(/[^\p{L}\p{M}\p{N}]/gu, "")  // Remove punctuations, spaces, symbols
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        .replace(/[^\p{L}\p{M}\p{N}]/gu, "")
         .toLowerCase();
 }
 
@@ -324,7 +323,7 @@ function initPromoCarousel() {
 }
 
 // ==========================================
-// PREMIUM DUAL POPUPS LOGIC (MAYBE LATER ONLY)
+// PREMIUM DUAL POPUPS LOGIC
 // ==========================================
 let popupsInitialized = false;
 function initPremiumPopups() {
@@ -1567,7 +1566,7 @@ function cleanupPdfResources() {
 }
 
 // =========================================================================
-// HIGH-DEFINITION (RETINA HD) PDF RENDER ENGINE + REAL-TIME SEARCH + JUMP
+// RETINA HD PDF RENDER ENGINE
 // =========================================================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -1598,17 +1597,14 @@ async function renderPdfInModal(pdfUrl) {
         const targetCssWidth = Math.min(screenWidth - 20, 720);
         const pixelRatio = window.devicePixelRatio || 2; 
 
-        // First 5 pages render
         const initialBatch = Math.min(pdf.numPages, 5);
         for (let pageNum = 1; pageNum <= initialBatch; pageNum++) {
             await renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio, scrollContainer);
         }
 
-        // Book load hone par page counter badge show hoga
         const pageBadge = document.getElementById('pdfPageBadge');
         if (pageBadge) pageBadge.style.display = 'flex';
 
-        // Pre-cache text content for Hindi & English Search
         (async () => {
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 if (document.getElementById('pdfViewerOverlay').style.display === 'none') break;
@@ -1617,7 +1613,6 @@ async function renderPdfInModal(pdfUrl) {
                 const textContent = await page.getTextContent();
                 const rawItems = textContent.items.map(item => item.str);
                 
-                // Normal + Stripped for Hindi and English exact matching
                 const combinedRaw = rawItems.join(" ");
                 const combinedClean = cleanUnicodeTextForSearch(combinedRaw);
                 
@@ -1636,12 +1631,12 @@ async function renderPdfInModal(pdfUrl) {
 
     } catch (err) {
         console.error("PDF Rendering Failed:", err);
+        // Direct stream button permanently removed here
         scrollContainer.innerHTML = `
             <div style="color: #ef4444; margin-top: 50px; text-align: center; padding: 25px;">
                 <i class="fas fa-triangle-exclamation" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
                 <strong>Failed to load book pages</strong>
-                <p style="font-size: 13px; color: #a1a1aa; margin: 10px 0 20px 0;">The network interrupted the download process.</p>
-                <a href="${pdfUrl}" target="_blank" style="color: #00d2ff; background: rgba(0,210,255,0.15); padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">Open Direct Stream</a>
+                <p style="font-size: 13px; color: #a1a1aa; margin: 10px 0 0 0;">The network interrupted the download process or book is unavailable.</p>
             </div>`;
     }
 }
@@ -1664,7 +1659,6 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio, cont
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d', { alpha: false });
     
-    // HD Retina Scaling
     canvas.width = Math.floor(viewport.width * pixelRatio);
     canvas.height = Math.floor(viewport.height * pixelRatio);
     canvas.style.width = `${targetCssWidth}px`;
@@ -1682,7 +1676,6 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio, cont
     await page.render(renderContext).promise;
 }
 
-// SCROLL TRACKER FOR RIGHT-ATTACHED FLOATING PAGE BADGE
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
@@ -1766,7 +1759,7 @@ async function jumpToPdfPage(pageNum) {
     }
 }
 
-// SMART MULTILINGUAL IN-DOCUMENT SEARCH CONTROLLER (HINDI + ENGLISH)
+// IN-DOCUMENT SEARCH CONTROLLER
 const pdfSearchToggleBtn = document.getElementById('pdfSearchToggleBtn');
 const pdfSearchBar = document.getElementById('pdfSearchBar');
 const pdfSearchCloseBtn = document.getElementById('pdfSearchCloseBtn');
@@ -1829,7 +1822,6 @@ async function executePdfTextSearch(query) {
             }
         }
 
-        // Multi-level Match: Exact raw match OR normalized unicode match (Hindi diacritics/no-space)
         const matchFound = cached.raw.toLowerCase().includes(lowerRawQuery) || 
                            (cleanQuery.length > 0 && cached.clean.includes(cleanQuery));
 
@@ -2227,12 +2219,21 @@ document.getElementById('verifyBtn').addEventListener('click', async () => {
 });
 
 // =========================================================================
-// UNIFIED REAL-TIME UPLOAD PIPELINE CONTROLLER (LIVE PERCENT & STAGES)
+// REAL-TIME UPLOAD PIPELINE CONTROLLER (ENCODING & CORS SAFE)
 // =========================================================================
 function uploadSingleFileTracked(file, type, onProgress) {
     return new Promise(async (resolve, reject) => {
         const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
-        const uniqueFileName = `${folderPrefix}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`;
+        
+        // Clean safe alphanumeric filename generation to prevent S3 signature hash corruption
+        const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
+        const rawSafeName = file.name
+            .replace(/\.[^/.]+$/, "")
+            .replace(/[^a-zA-Z0-9_-]/g, "")
+            .slice(0, 25);
+            
+        const safeFilePayload = `${folderPrefix}/${Date.now()}_${rawSafeName || 'file'}.${fileExt}`;
+        const determinedContentType = file.type || (type === 'image' ? 'image/jpeg' : 'application/pdf');
 
         try {
             const userToken = await auth.currentUser.getIdToken(true);
@@ -2240,18 +2241,20 @@ function uploadSingleFileTracked(file, type, onProgress) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    fileName: uniqueFileName, 
-                    fileType: file.type, 
+                    fileName: safeFilePayload, 
+                    fileType: determinedContentType, 
                     userToken: userToken 
                 })
             });
+            
             const authData = await authResponse.json();
-
-            if (!authResponse.ok) throw new Error(authData.error || "Permission Denied");
+            if (!authResponse.ok) {
+                throw new Error(authData.error || "Permission Denied by Backend Server");
+            }
 
             const xhr = new XMLHttpRequest(); 
             xhr.open("PUT", authData.uploadUrl, true); 
-            xhr.setRequestHeader("Content-Type", file.type); 
+            xhr.setRequestHeader("Content-Type", determinedContentType); 
 
             xhr.upload.addEventListener("progress", (e) => {
                 if (e.lengthComputable && onProgress) { 
@@ -2261,14 +2264,16 @@ function uploadSingleFileTracked(file, type, onProgress) {
 
             xhr.onload = function() {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(authData.fileKey || uniqueFileName);
+                    resolve(authData.fileKey || safeFilePayload);
                 } else { 
-                    reject(new Error("Storage Upload Failed")); 
+                    reject(new Error(`Storage rejected upload with status: ${xhr.status}`)); 
                 }
             };
+
             xhr.onerror = function() { 
-                reject(new Error("Network Transmission Interrupted")); 
+                reject(new Error("R2 upload connection blocked. Please verify network or CORS setup.")); 
             }; 
+
             xhr.send(file);
 
         } catch (error) {
@@ -2277,7 +2282,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
     });
 }
 
-// REAL LIVE PUBLISH BOOK CONTROLLER
+// PUBLISH BOOK CONTROLLER
 document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     e.preventDefault(); 
     
@@ -2297,12 +2302,10 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     const defaultCoverIcon = document.getElementById('syncDefaultCoverIcon');
     const spinner = document.getElementById('syncStageSpinner');
 
-    // 1. Fill Initial Metadata in Pipeline UI
     const inputTitle = document.getElementById('inTitle').value.trim() || selectedPdfFile.name;
     dynamicTitle.innerText = inputTitle;
     dynamicPdfSize.innerText = `PDF Size: ${(selectedPdfFile.size / (1024 * 1024)).toFixed(2)} MB`;
 
-    // Local Cover Preview
     const coverReader = new FileReader();
     coverReader.onload = function(evt) {
         liveCoverImg.src = evt.target.result;
@@ -2311,7 +2314,6 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     };
     coverReader.readAsDataURL(selectedCoverFile);
 
-    // Initial Telemetry Setup
     const totalBytesToUpload = selectedCoverFile.size + selectedPdfFile.size;
     const totalMB = (totalBytesToUpload / (1024 * 1024)).toFixed(2);
     
@@ -2337,7 +2339,6 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
         progressFill.style.width = `${percent}%`;
         transferredBytes.innerText = `${currentMB} MB / ${totalMB} MB`;
 
-        // Real-time speed calculation
         const now = Date.now();
         const timeDiff = (now - lastTime) / 1000;
         if (timeDiff >= 0.5) {
@@ -2361,21 +2362,18 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     }
 
     try {
-        // Upload Cover First
         stageTitle.innerText = "Transferring Cover Image...";
         const coverKey = await uploadSingleFileTracked(selectedCoverFile, 'image', (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        // Upload PDF Second
         stageTitle.innerText = "Transferring PDF Manuscript...";
         const pdfKey = await uploadSingleFileTracked(selectedPdfFile, 'pdf', (loaded) => {
             pdfLoaded = loaded;
             updateTelemetry();
         });
 
-        // Save Book Document into Firestore
         stageTitle.innerText = "Registering Book in Database...";
         stageSub.innerText = "Writing catalog details to Firebase Firestore";
         speedVal.innerText = "Syncing...";
@@ -2400,7 +2398,6 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
 
         await addDoc(collection(db, "books"), newBook);
 
-        // Upload Complete Feedback
         percentDisplay.innerHTML = `100<span class="percent-symbol">%</span>`;
         progressFill.style.width = `100%`;
         transferredBytes.innerText = `${totalMB} MB / ${totalMB} MB`;
@@ -2417,7 +2414,6 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
             spinner.innerHTML = `<i class="fas fa-check" style="color:#000; font-size:10px;"></i>`;
         }
 
-        // Wait, Clear Form, and Route to Home Tab
         setTimeout(() => {
             pipelineOverlay.style.display = 'none';
             e.target.reset(); 
@@ -2433,11 +2429,7 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
 
     } catch (error) {
         pipelineOverlay.style.display = 'none';
-        if (error.message && error.message.includes("Missing or insufficient permissions")) {
-            showToast("Failed: Firebase Security Rules Blocked Save!", "error"); 
-        } else {
-            showToast("Upload Error: " + error.message, "error"); 
-        }
+        showToast("Upload Error: " + error.message, "error"); 
     }
 });
 
