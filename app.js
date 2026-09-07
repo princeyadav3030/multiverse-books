@@ -73,7 +73,7 @@ let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
 let isChannelDataReady = false;
 
-// PDF ENGINE & ADVANCED MULTILINGUAL SEARCH STATE
+// PDF ENGINE & DYNAMIC ADOBE SCROLLER STATE
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let pdfTextCache = [];
@@ -81,7 +81,7 @@ let searchMatches = [];
 let currentSearchMatchIndex = -1;
 
 // ==========================================
-// UTILITY FUNCTIONS & TOAST NOTIFICATIONS
+// RIGHT-SLIDE TOAST WITH INNER GLOW
 // ==========================================
 function sanitizeHTML(str) {
     if (typeof str !== 'string') return str;
@@ -178,18 +178,44 @@ function showToast(message, type = 'success') {
     
     clearTimeout(globalToastTimeout);
     
-    toast.innerHTML = type === 'success' 
-        ? `<i class="fas fa-circle-check" style="color: #10b981; font-size: 16px;"></i> ${sanitizeHTML(message)}`
-        : `<i class="fas fa-circle-exclamation" style="color: #ef4444; font-size: 16px;"></i> ${sanitizeHTML(message)}`;
-    
-    toast.style.borderLeft = type === 'success' ? '4px solid #10b981' : '4px solid #ef4444';
+    // Right-Slide Styles with Inner Neon Glow
+    toast.style.position = "fixed";
+    toast.style.bottom = "35px";
+    toast.style.right = "16px";
+    toast.style.left = "auto";
+    toast.style.maxWidth = "88vw";
+    toast.style.zIndex = "999999999";
+    toast.style.transition = "transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease";
+    toast.style.borderRadius = "14px";
+    toast.style.padding = "12px 18px";
+    toast.style.backdropFilter = "blur(12px)";
+    toast.style.background = "rgba(18, 18, 22, 0.96)";
 
-    toast.classList.remove('show');
+    if (type === 'success') {
+        toast.innerHTML = `<i class="fas fa-circle-check" style="color: #10b981; font-size: 16px;"></i> <span style="color:#ffffff; font-weight:700;">${sanitizeHTML(message)}</span>`;
+        toast.style.border = "1px solid rgba(16, 185, 129, 0.4)";
+        toast.style.borderLeft = "4px solid #10b981";
+        toast.style.boxShadow = "inset 0 0 25px rgba(16, 185, 129, 0.25), 0 10px 30px rgba(0,0,0,0.85)";
+    } else {
+        toast.innerHTML = `<i class="fas fa-circle-exclamation" style="color: #ef4444; font-size: 16px;"></i> <span style="color:#ffffff; font-weight:700;">${sanitizeHTML(message)}</span>`;
+        toast.style.border = "1px solid rgba(239, 68, 68, 0.4)";
+        toast.style.borderLeft = "4px solid #ef4444";
+        toast.style.boxShadow = "inset 0 0 25px rgba(239, 68, 68, 0.25), 0 10px 30px rgba(0,0,0,0.85)";
+    }
+
+    // Right-slide in
+    toast.style.transform = "translateX(120%)";
+    toast.style.opacity = "0";
+    toast.style.display = "flex";
     void toast.offsetWidth; 
-    toast.classList.add('show');
+    
+    toast.style.transform = "translateX(0)";
+    toast.style.opacity = "1";
 
+    // Right-slide out back
     globalToastTimeout = setTimeout(() => {
-        toast.classList.remove('show');
+        toast.style.transform = "translateX(120%)";
+        toast.style.opacity = "0";
     }, 2500);
 }
 
@@ -234,7 +260,7 @@ function cleanUnicodeTextForSearch(str) {
         .toLowerCase();
 }
 
-// ACTIVE TIME SPENT HEARTBEAT
+// ACTIVE TIME-SPENT HEARTBEAT
 setInterval(async () => {
     if (document.visibilityState === 'visible' && auth.currentUser) {
         try {
@@ -718,7 +744,6 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         let quoteHTML = '';
         if (post.quote) {
             const targetId = post.quote.targetPostId || '';
-            // Quote Header Title set to SPIDY BOOK HUB
             const cleanAuthor = 'SPIDY BOOK HUB';
             const cleanSnippet = sanitizeHTML(stripMarkdown(post.quote.text || ''));
             quoteHTML = `
@@ -779,7 +804,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
     }
 }
 
-// 1 USER = 1 REACTION WITH SWITCH/CHANGE ALLOWED
+// SILENT REACTION TOGGLE / SWITCH WITHOUT ANNOYING TOASTS
 async function applyReaction(postId, newEmoji) {
     if (!auth.currentUser) {
         showToast("Please login to react!", "error");
@@ -788,7 +813,7 @@ async function applyReaction(postId, newEmoji) {
     
     const existing = getUserReaction(postId);
     if (existing === newEmoji) {
-        showToast("Already reacted with this emoji!", "error");
+        // Silent block - do not show toast, do not remove reaction
         return;
     }
 
@@ -801,13 +826,11 @@ async function applyReaction(postId, newEmoji) {
         });
         
         const data = await res.json();
-        if (!res.ok) {
-            showToast(data.error || "Reaction failed", "error");
-        } else {
+        if (res.ok) {
             setUserReaction(postId, newEmoji);
-            showToast("Reaction updated!", "success");
             if (navigator.vibrate) navigator.vibrate(15);
             
+            // Local optimistic view update
             const pIdx = livePosts.findIndex(p => p.id === postId);
             if (pIdx !== -1) {
                 livePosts[pIdx].reactions = livePosts[pIdx].reactions || {};
@@ -819,11 +842,11 @@ async function applyReaction(postId, newEmoji) {
             }
         }
     } catch (e) {
-        showToast("Network Error", "error");
+        console.warn("Reaction update skipped:", e);
     }
 }
 
-// CONTEXT MENU LISTENERS
+// CONTEXT MENU LISTENERS (COPY / REPORT ONLY TRIGGERS TOAST)
 if (contextOverlay) {
     contextOverlay.addEventListener('click', (e) => {
         if (e.target === contextOverlay) contextOverlay.classList.remove('show');
@@ -860,7 +883,7 @@ if (contextOverlay) {
         const url = `${window.location.origin}${window.location.pathname}#/post/${activePost.id}`;
         const cleanText = stripMarkdown(activePost.text);
         if (navigator.share) {
-            navigator.share({ title: 'Spidy Book Hub Official', text: cleanText, url: url }).catch(() => {});
+            navigator.share({ title: 'SPIDY BOOK HUB', text: cleanText, url: url }).catch(() => {});
         } else {
             navigator.clipboard.writeText(url);
             showToast("Link Copied for Share!", "success");
@@ -1556,7 +1579,7 @@ function cleanupPdfResources() {
 }
 
 // =========================================================================
-// RETINA HD PDF RENDER ENGINE + DYNAMIC FLOATING PROGRESS PAGE BADGE
+// ADOBE-STYLE FLOATING PAGE BADGE ON REAL-TIME RENDERED PROGRESS
 // =========================================================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -1595,7 +1618,7 @@ async function renderPdfInModal(pdfUrl) {
         const pageBadge = document.getElementById('pdfPageBadge');
         if (pageBadge) {
             pageBadge.style.display = 'flex';
-            pageBadge.style.top = '15%'; // Starts near the top
+            pageBadge.style.top = '12%'; // Starts at top like Adobe Acrobat
         }
 
         (async () => {
@@ -1668,7 +1691,7 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio, cont
     await page.render(renderContext).promise;
 }
 
-// DYNAMIC VERTICALLY-MOVING PAGE BADGE ON SCROLL
+// ADOBE-STYLE MATHEMATICALLY ACCURATE VERTICAL SCROLL TRACKER
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
@@ -1677,24 +1700,24 @@ function initPdfScrollTracker() {
     container.addEventListener('scroll', () => {
         const wrappers = container.querySelectorAll('.pdf-page-wrapper');
         const containerCenter = container.getBoundingClientRect().top + (container.clientHeight / 3);
+        let currentPageNum = 1;
 
         for (let wrap of wrappers) {
             const rect = wrap.getBoundingClientRect();
             if (rect.top <= containerCenter && rect.bottom >= containerCenter) {
-                const pNum = wrap.dataset.pageNum;
-                if (badge.innerText !== pNum) {
-                    badge.innerText = pNum;
+                currentPageNum = parseInt(wrap.dataset.pageNum, 10);
+                if (badge.innerText !== wrap.dataset.pageNum) {
+                    badge.innerText = wrap.dataset.pageNum;
                 }
                 break;
             }
         }
 
-        // Move badge down as the user scrolls
-        const scrollRange = container.scrollHeight - container.clientHeight;
-        if (scrollRange > 0 && badgeWrap) {
-            const scrollFraction = container.scrollTop / scrollRange;
-            const topPercent = 15 + (scrollFraction * 70); // moves between 15% and 85%
-            badgeWrap.style.top = `${topPercent}%`;
+        // True Adobe Progress Formula: Top (12%) to Bottom (85%) proportionally
+        if (pdfTotalPagesCount > 1 && badgeWrap) {
+            const pageRatio = (currentPageNum - 1) / (pdfTotalPagesCount - 1);
+            const calculatedTop = 12 + (pageRatio * 73); 
+            badgeWrap.style.top = `${calculatedTop}%`;
         }
     }, { passive: true });
 }
@@ -1758,6 +1781,12 @@ async function jumpToPdfPage(pageNum) {
     if (targetWrapper) {
         targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
         document.getElementById('pdfCurrentPageNum').innerText = pageNum.toString();
+        
+        // Instant sync of badge position
+        if (pdfTotalPagesCount > 1 && pdfPageBadge) {
+            const pageRatio = (pageNum - 1) / (pdfTotalPagesCount - 1);
+            pdfPageBadge.style.top = `${12 + (pageRatio * 73)}%`;
+        }
     }
 }
 
@@ -1856,7 +1885,7 @@ pdfSearchPrevBtn.addEventListener('click', () => {
 });
 
 // ==========================================
-// SECURE READ ONLINE
+// SECURE READ ONLINE (LIMIT CONTROLLER)
 // ==========================================
 const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
 if (detectTokenFromUrl) {
@@ -2086,7 +2115,7 @@ submitReportBtn.addEventListener('click', async () => {
 
         submitReportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Successfully Reported';
         submitReportBtn.style.background = '#10b981';
-        submitReportBtn.style.boxShadow = '0 4px 15px rgba(16, 185, 129, 0.4)';
+        submitReportBtn.style.boxShadow = "inset 0 0 20px rgba(16, 185, 129, 0.4), 0 4px 15px rgba(16, 185, 129, 0.3)";
         
         setTimeout(() => {
             document.getElementById('reportModalOverlay').classList.remove('active');
@@ -2232,11 +2261,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
             .slice(0, 25);
             
         const safeFilePayload = `${folderPrefix}/${Date.now()}_${rawSafeName || 'file'}.${fileExt}`;
-        
-        // Exact matching MIME type
-        const determinedContentType = (type === 'image') 
-            ? (file.type || 'image/jpeg') 
-            : 'application/pdf';
+        const determinedContentType = (type === 'image') ? (file.type || 'image/jpeg') : 'application/pdf';
 
         try {
             const userToken = await auth.currentUser.getIdToken(true);
@@ -2274,7 +2299,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
             };
 
             xhr.onerror = function() { 
-                reject(new Error("R2 connection error. Check CORS configuration in Cloudflare dashboard.")); 
+                reject(new Error("R2 upload blocked. Please verify CORS in Cloudflare dashboard.")); 
             }; 
 
             xhr.send(file);
@@ -2401,7 +2426,6 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
 
         await addDoc(collection(db, "books"), newBook);
 
-        // Update user's last upload timestamp for Firestore 1-day rule
         const userDocRef = doc(db, "users", auth.currentUser.uid);
         await setDoc(userDocRef, { 
             lastBookUploadTime: Date.now() 
