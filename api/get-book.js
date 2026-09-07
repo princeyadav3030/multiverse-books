@@ -1,5 +1,4 @@
 const admin = require('firebase-admin');
-const crypto = require('crypto');
 
 // Firebase Admin Initialize (Sirf ek baar)
 if (!admin.apps.length) {
@@ -20,7 +19,7 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 module.exports = async function handler(req, res) {
-  // CORS Headers lagayein
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -56,49 +55,66 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // 2. Admin Check
+    // 2. Super Admin Check
     let isSuperAdmin = false;
     if (userEmail) {
       const adminDoc = await db.collection('admins').doc(userEmail).get();
       isSuperAdmin = adminDoc.exists;
     }
 
-    // 3. User Daily Limit Check (24 Hours)
+    // 3. User Daily Unique 20 Limit Logic (Last 24 Hours)
     const userRef = db.collection('users').doc(uid);
     const userSnap = await userRef.get();
-    let recentDownloadsArr = [];
+    
     let now = Date.now();
-    let accessedSlugs = new Set();
+    let oneDayAgo = now - (24 * 60 * 60 * 1000);
+    let validHistory = [];
+    let uniqueAccessedSlugs = new Set();
 
     if (userSnap.exists) {
       let userData = userSnap.data();
       let rawDownloads = userData.recentDownloads || [];
 
       rawDownloads.forEach(item => {
-        let time = typeof item === 'number' ? item : item.time;
+        let itemTime = typeof item === 'number' ? item : item.time;
         let itemSlug = typeof item === 'number' ? null : item.slug;
-        if (now - time < 24 * 60 * 60 * 1000) {
-          recentDownloadsArr.push(item);
-          if (itemSlug) accessedSlugs.add(itemSlug);
+
+        // Sirf pichhle 24 ghante ke records rakhna
+        if (itemTime && (now - itemTime < 24 * 60 * 60 * 1000)) {
+          validHistory.push({ slug: itemSlug, time: itemTime });
+          if (itemSlug) uniqueAccessedSlugs.add(itemSlug);
         }
       });
-
-      let totalRecentCount = accessedSlugs.size + recentDownloadsArr.filter(i => typeof i === 'number').length;
-
-      // Super Admin ke liye limit bypass rahegi
-      if (totalRecentCount >= 20 && !accessedSlugs.has(bookSlug) && !isSuperAdmin) {
-        return res.status(403).json({ error: 'Daily limit reached! Max 20 books in 24 hours.' });
-      }
     }
 
-    // User session update
-    recentDownloadsArr.push({ slug: bookSlug, time: now });
-    await userRef.set({
-      recentDownloads: recentDownloadsArr,
-      lifetimeDownloads: admin.firestore.FieldValue.increment(1)
-    }, { merge: true });
+    const isAlreadyOpened = uniqueAccessedSlugs.has(bookSlug);
 
-    // 4. Book Data fetch
+    // Agar nayi book hai aur already 20 unique books open ho chuki hain
+    if (!isAlreadyOpened && !isSuperAdmin) {
+      if (uniqueAccessedSlugs.size >= 20) {
+        return res.status(403).json({ 
+          success: false,
+          error: 'Aapka 24 ghante ka limit (20 books) pura ho gaya hai! Aap wahi books open kar sakte hain jo aaj pehle open ki thi.' 
+        });
+      }
+
+      // Nayi book ko record mein add karein
+      validHistory.push({ slug: bookSlug, time: now });
+      uniqueAccessedSlugs.add(bookSlug);
+
+      // Database update (Sirf nayi book par lifetime count badhega)
+      await userRef.set({
+        recentDownloads: validHistory,
+        lifetimeDownloads: admin.firestore.FieldValue.increment(1)
+      }, { merge: true });
+    } else {
+      // Purani book repeat open hui hai, array clean karke save karein
+      await userRef.set({
+        recentDownloads: validHistory
+      }, { merge: true });
+    }
+
+    // 4. Book Data Fetch
     const bookDoc = await db.collection('books').doc(bookId).get();
     if (!bookDoc.exists) {
       return res.status(404).json({ error: 'Book not found in database!' });
@@ -109,17 +125,17 @@ module.exports = async function handler(req, res) {
       return res.status(404).json({ error: 'PDF file link missing for this book!' });
     }
 
-    // 5. Cloudflare Worker URL
+    // 5. Cloudflare Worker Secure Stream URL
     const workerBaseUrl = (process.env.WORKER_URL || "https://spidy-proxy.spidybookhub-backend.workers.dev").replace(/\/+$/, "");
-
-    // Path bina double encoding ke direct stream route mein bhejein
     const cleanKey = fileKey.replace(/^\/+/, '');
-    const secureWorkerUrl = `${workerBaseUrl}/stream?file=${cleanKey}`;
+    const secureWorkerUrl = `${workerBaseUrl}/stream?file=${encodeURIComponent(cleanKey)}`;
+
+    let remainingCredits = isSuperAdmin ? 9999 : Math.max(0, 20 - uniqueAccessedSlugs.size);
 
     return res.status(200).json({ 
       success: true, 
       pdfLink: secureWorkerUrl,
-      rawKey: fileKey 
+      remainingCredits: remainingCredits
     });
 
   } catch (error) {
