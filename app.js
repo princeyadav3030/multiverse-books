@@ -81,7 +81,7 @@ let searchMatches = [];
 let currentSearchMatchIndex = -1;
 
 // ==========================================
-// RIGHT-SLIDE TOAST WITH INNER GLOW
+// HELPER FUNCTIONS & SANITIZATION
 // ==========================================
 function sanitizeHTML(str) {
     if (typeof str !== 'string') return str;
@@ -362,7 +362,7 @@ function initPromoCarousel() {
 }
 
 // ==========================================
-// PREMIUM DUAL POPUPS LOGIC
+// POPUPS LOGIC (Telegram 1m, WhatsApp 5m)
 // ==========================================
 let popupsInitialized = false;
 function initPremiumPopups() {
@@ -380,14 +380,33 @@ function initPremiumPopups() {
     if(tgMaybeLaterBtn) tgMaybeLaterBtn.addEventListener('click', closeTgPopup);
     if(waMaybeLaterBtn) waMaybeLaterBtn.addEventListener('click', closeWaPopup);
 
+    // 1 Minute (60 seconds) ke baad Telegram Popup
     setTimeout(() => {
         if(telegramPopup) telegramPopup.classList.remove('hide');
-    }, 30000); 
+    }, 60000); 
 
+    // 5 Minutes (300 seconds) ke baad WhatsApp Popup
     setTimeout(() => {
         if(telegramPopup) telegramPopup.classList.add('hide'); 
         if(whatsappPopup) whatsappPopup.classList.remove('hide');
-    }, 100000); 
+    }, 300000); 
+}
+
+// ==========================================
+// UPLOAD TUTORIAL POPUP (1 HOUR LIMIT)
+// ==========================================
+function checkAndShowUploadTutorialPopup() {
+    const uploadPopup = document.getElementById('uploadPopup');
+    if (!uploadPopup) return;
+
+    const lastShown = localStorage.getItem('spidy_last_upload_popup_time');
+    const now = Date.now();
+    const ONE_HOUR = 60 * 60 * 1000;
+
+    if (!lastShown || (now - parseInt(lastShown, 10)) >= ONE_HOUR) {
+        uploadPopup.classList.remove('hidden');
+        localStorage.setItem('spidy_last_upload_popup_time', now.toString());
+    }
 }
 
 // ==========================================
@@ -524,7 +543,6 @@ async function syncProfileAndRankUI() {
             const remaining = Math.max(0, 20 - uniqueSlugs.size);
             updateLiveCredits(remaining);
 
-            // Read count sync (Always reflects actual total lifetime downloads)
             document.getElementById('profile-downloads').innerText = data.lifetimeDownloads || 0;
         }
 
@@ -560,7 +578,7 @@ async function syncProfileAndRankUI() {
 }
 
 // ==========================================
-// CHANNEL UPDATES & NOTIFICATIONS (NO SHAKE & LAG-FREE)
+// CHANNEL UPDATES & NOTIFICATIONS
 // ==========================================
 const chatBody = document.getElementById('chatBody');
 const contextOverlay = document.getElementById('contextOverlay');
@@ -569,7 +587,6 @@ const scrollDownBtn = document.getElementById('scrollDownBtn');
 const unreadBadge = document.getElementById('unreadBadge');
 const closeNotiBtn = document.getElementById('close-noti-btn');
 
-// Optimize smooth scrolling
 if (chatBody) {
     chatBody.style.willChange = 'transform, scroll-position';
     chatBody.style.transform = 'translateZ(0)';
@@ -678,7 +695,7 @@ function updateReactionInDOM(postId) {
         reactionsContainer.querySelectorAll('.reaction-pill').forEach(pill => {
             pill.addEventListener('click', (e) => {
                 e.preventDefault();
-                e.stopPropagation(); // Prevents entire bubble movement/shake
+                e.stopPropagation();
                 applyReaction(postId, pill.dataset.emoji);
             });
         });
@@ -741,7 +758,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         bubble.className = 'message-bubble';
         bubble.id = `post_${post.id}`;
         bubble.dataset.postId = post.id;
-        bubble.style.transform = "none"; // Stabilize post from shaking
+        bubble.style.transform = "none";
 
         let imageHTML = post.imageUrl 
             ? `<img src="${sanitizeHTML(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image">` 
@@ -776,7 +793,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         bubble.querySelectorAll('.reaction-pill').forEach(pill => {
             pill.addEventListener('click', (e) => {
                 e.preventDefault();
-                e.stopPropagation(); // Completely stops post from moving/jumping
+                e.stopPropagation();
                 applyReaction(post.id, pill.dataset.emoji);
             });
         });
@@ -811,7 +828,6 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
     }
 }
 
-// REACTION INSTANT TOGGLE WITHOUT TOAST OR SHAKE
 async function applyReaction(postId, newEmoji) {
     if (!auth.currentUser) {
         showToast("Please login to react!", "error");
@@ -819,11 +835,8 @@ async function applyReaction(postId, newEmoji) {
     }
     
     const existing = getUserReaction(postId);
-    if (existing === newEmoji) {
-        return; // Silent block: same reaction click does nothing and does not remove
-    }
+    if (existing === newEmoji) return;
 
-    // 1. Instant Optimistic Front-End Update (Zero Lag)
     setUserReaction(postId, newEmoji);
     const pIdx = livePosts.findIndex(p => p.id === postId);
     if (pIdx !== -1) {
@@ -836,7 +849,6 @@ async function applyReaction(postId, newEmoji) {
     }
     if (navigator.vibrate) navigator.vibrate(15);
 
-    // 2. Silent Serverless Background Execution
     try {
         const token = await auth.currentUser.getIdToken(false);
         await fetch('/api/channel-action', {
@@ -1511,10 +1523,12 @@ function switchTab(tabId) {
         setTimeout(() => target.classList.add('active'), 10); 
     } 
 }
+
 function setNavActive(id) { 
     document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active')); 
     document.getElementById(id).classList.add('active'); 
 }
+
 function closeAllPanels() { 
     document.getElementById('noti-panel').classList.remove('active'); 
     document.getElementById('sidebar').classList.remove('active'); 
@@ -1524,10 +1538,29 @@ function closeAllPanels() {
     document.getElementById('search-box').classList.remove('active'); 
 }
 
+window.updateHeaderForTab = function(tab) {
+    const headerEl = document.getElementById('main-header');
+    const titleEl = document.getElementById('dynamic-header-title');
+    const iconsEl = document.getElementById('dynamic-header-icons');
+    
+    if(tab === 'home') {
+        headerEl.style.display = 'flex';
+        titleEl.innerText = 'SPIDY BOOK HUB';
+        iconsEl.style.display = 'flex';
+    } else if(tab === 'upload') {
+        headerEl.style.display = 'flex';
+        titleEl.innerText = 'UPLOAD BOOKS';
+        iconsEl.style.display = 'none';
+    } else if(tab === 'about') {
+        headerEl.style.display = 'none';
+    }
+};
+
 document.getElementById('nav-home').addEventListener('click', () => { 
     setNavActive('nav-home'); 
     closeAllPanels(); 
     switchTab('tab-home'); 
+    window.updateHeaderForTab('home');
     window.history.replaceState({}, '', window.location.pathname); 
 });
 
@@ -1541,7 +1574,12 @@ document.getElementById('nav-upload').addEventListener('click', () => {
     setNavActive('nav-upload'); 
     closeAllPanels(); 
     switchTab('tab-upload'); 
-    setTimeout(() => { document.getElementById('uploadPopup')?.classList.remove('hidden'); }, 300);
+    window.updateHeaderForTab('upload');
+    
+    // Check 1-hour interval for tutorial popup
+    setTimeout(() => { 
+        checkAndShowUploadTutorialPopup(); 
+    }, 300);
 });
 
 document.getElementById('nav-dev').addEventListener('click', () => { 
@@ -1553,6 +1591,7 @@ document.getElementById('nav-dev').addEventListener('click', () => {
     setNavActive('nav-dev'); 
     closeAllPanels(); 
     switchTab('tab-about'); 
+    window.updateHeaderForTab('about');
     initParticles('particlesTabMe');
     syncProfileAndRankUI();
 });
@@ -1622,7 +1661,7 @@ async function renderPdfInModal(pdfUrl) {
         const pageBadge = document.getElementById('pdfPageBadge');
         if (pageBadge) {
             pageBadge.style.display = 'flex';
-            pageBadge.style.top = '12%'; 
+            pageBadge.style.top = '14%'; 
         }
 
         (async () => {
@@ -1718,8 +1757,10 @@ function initPdfScrollTracker() {
         }
 
         if (pdfTotalPagesCount > 1 && badgeWrap) {
+            const isSearchBarOpen = document.getElementById('pdfSearchBar')?.style.display === 'flex';
+            const baseTop = isSearchBarOpen ? 20 : 14; 
             const pageRatio = (currentPageNum - 1) / (pdfTotalPagesCount - 1);
-            const calculatedTop = 12 + (pageRatio * 73); 
+            const calculatedTop = baseTop + (pageRatio * 68); 
             badgeWrap.style.top = `${calculatedTop}%`;
         }
     }, { passive: true });
@@ -1786,8 +1827,10 @@ async function jumpToPdfPage(pageNum) {
         document.getElementById('pdfCurrentPageNum').innerText = pageNum.toString();
         
         if (pdfTotalPagesCount > 1 && pdfPageBadge) {
+            const isSearchBarOpen = document.getElementById('pdfSearchBar')?.style.display === 'flex';
+            const baseTop = isSearchBarOpen ? 20 : 14;
             const pageRatio = (pageNum - 1) / (pdfTotalPagesCount - 1);
-            pdfPageBadge.style.top = `${12 + (pageRatio * 73)}%`;
+            pdfPageBadge.style.top = `${baseTop + (pageRatio * 68)}%`;
         }
     }
 }
@@ -1804,8 +1847,10 @@ const pdfSearchPrevBtn = document.getElementById('pdfSearchPrevBtn');
 pdfSearchToggleBtn.addEventListener('click', () => {
     if (pdfSearchBar.style.display === 'flex') {
         pdfSearchBar.style.display = 'none';
+        if (pdfPageBadge) pdfPageBadge.style.top = '14%';
     } else {
         pdfSearchBar.style.display = 'flex';
+        if (pdfPageBadge) pdfPageBadge.style.top = '20%';
         pdfSearchInput.focus();
     }
 });
@@ -1816,6 +1861,7 @@ pdfSearchCloseBtn.addEventListener('click', () => {
     searchMatches = [];
     currentSearchMatchIndex = -1;
     pdfSearchCount.innerText = '0/0';
+    if (pdfPageBadge) pdfPageBadge.style.top = '14%';
 });
 
 let pdfSearchTimer;
@@ -1887,7 +1933,7 @@ pdfSearchPrevBtn.addEventListener('click', () => {
 });
 
 // ==========================================
-// SECURE READ ONLINE (SPEED FAST + READY STATUS)
+// SECURE READ ONLINE
 // ==========================================
 const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
 if (detectTokenFromUrl) {
@@ -1964,7 +2010,6 @@ function openDownloadPageLocal(slug, skipPushState = false) {
              return; 
         }
         
-        // Exact "Ready" status indicator with fast responsive spinner
         btn.innerHTML = `<i class="fas fa-circle-notch fa-spin" style="font-size:16px;"></i> Ready`; 
         btn.disabled = true;
 
@@ -1984,12 +2029,10 @@ function openDownloadPageLocal(slug, skipPushState = false) {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                // UI credits counter update from backend calculation
                 if (typeof data.remainingCredits !== 'undefined') {
                     updateLiveCredits(data.remainingCredits);
                 }
 
-                // Instant Read and Profile sync
                 syncProfileAndRankUI();
 
                 const pdfViewer = document.getElementById('pdfViewerOverlay');
@@ -2315,7 +2358,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
     });
 }
 
-// PUBLISH BOOK CONTROLLER (WITH 1-DAY USER LIMIT TRACKER)
+// PUBLISH BOOK CONTROLLER (Fixed: Spinner first, Static Checkmark on 100%)
 document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     e.preventDefault(); 
     
@@ -2334,6 +2377,17 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     const liveCoverImg = document.getElementById('syncLiveCoverImg');
     const defaultCoverIcon = document.getElementById('syncDefaultCoverIcon');
     const spinner = document.getElementById('syncStageSpinner');
+
+    // Reset Stage Icon to Spinner initially
+    if (spinner) {
+        spinner.className = "stage-spinner";
+        spinner.innerHTML = "";
+        spinner.style.border = "2px solid rgba(255, 255, 255, 0.15)";
+        spinner.style.borderTopColor = "#ffffff";
+        spinner.style.background = "transparent";
+        spinner.style.width = "17px";
+        spinner.style.height = "17px";
+    }
 
     const inputTitle = document.getElementById('inTitle').value.trim() || selectedPdfFile.name;
     dynamicTitle.innerText = inputTitle;
@@ -2436,6 +2490,7 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
             lastBookUploadTime: Date.now() 
         }, { merge: true });
 
+        // Completed 100% State (Static Green Checkmark without spinning)
         percentDisplay.innerHTML = `100<span class="percent-symbol">%</span>`;
         progressFill.style.width = `100%`;
         transferredBytes.innerText = `${totalMB} MB / ${totalMB} MB`;
@@ -2444,12 +2499,17 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
         stageSub.innerText = "Live and ready for all readers";
         
         if (spinner) {
+            spinner.className = "";
             spinner.style.border = "none";
             spinner.style.background = "#10b981";
+            spinner.style.width = "22px";
+            spinner.style.height = "22px";
+            spinner.style.borderRadius = "50%";
             spinner.style.display = "flex";
             spinner.style.alignItems = "center";
             spinner.style.justifyContent = "center";
-            spinner.innerHTML = `<i class="fas fa-check" style="color:#000; font-size:10px;"></i>`;
+            spinner.style.boxShadow = "0 0 10px rgba(16, 185, 129, 0.6)";
+            spinner.innerHTML = `<i class="fas fa-check" style="color:#000000; font-size:12px; font-weight:900;"></i>`;
         }
 
         setTimeout(() => {
@@ -2471,7 +2531,9 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     }
 });
 
-// ADMIN SECTION TABS SWITCHER
+// ==========================================
+// ADMIN SECTION TABS SWITCHER (WITH SCROLL RESET)
+// ==========================================
 document.querySelectorAll('.adm-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => { 
         let tab = btn.id === 'admTabPrompt' ? 'prompt' : 'add'; 
@@ -2482,6 +2544,13 @@ document.querySelectorAll('.adm-tab-btn').forEach(btn => {
 function switchAdminTabLocal(tabName) {
     document.querySelectorAll('.adm-section').forEach(el => el.classList.remove('active')); 
     document.querySelectorAll('.adm-tab-btn').forEach(el => el.classList.remove('active'));
+    
+    // Switch hone par scroll bar turant top par reset ho jayega
+    const contentArea = document.getElementById('admContentArea');
+    if (contentArea) {
+        contentArea.scrollTop = 0;
+    }
+
     if(tabName === 'add') { 
         document.getElementById('sectionAddBook').classList.add('active'); 
         document.getElementById('admTabAdd').classList.add('active'); 
