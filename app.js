@@ -234,9 +234,7 @@ function cleanUnicodeTextForSearch(str) {
         .toLowerCase();
 }
 
-// ==========================================
-// ACTIVE USER TIME TRACKER (HEARTBEAT)
-// ==========================================
+// ACTIVE TIME SPENT HEARTBEAT
 setInterval(async () => {
     if (document.visibilityState === 'visible' && auth.currentUser) {
         try {
@@ -446,7 +444,7 @@ function tryTransition() {
 }
 
 // ==========================================
-// CREDITS & RANKING SYSTEM (SYNCED WITH SERVER)
+// CREDITS & RANKING SYSTEM
 // ==========================================
 function updateLiveCredits(remainingCount) {
     if (IS_SUPER_ADMIN) {
@@ -488,7 +486,6 @@ async function syncProfileAndRankUI() {
     syncAndSanitizeBookmarks();
 
     try {
-        // 1. Fetch User Lifetime Downloads & Credits Left
         const userRef = doc(db, "users", auth.currentUser.uid);
         const userSnap = await getDoc(userRef);
         
@@ -507,7 +504,6 @@ async function syncProfileAndRankUI() {
             document.getElementById('profile-downloads').innerText = data.lifetimeDownloads || 0;
         }
 
-        // 2. Fetch Active Time Rank from Backend Server
         const userToken = await auth.currentUser.getIdToken(false);
         const rankRes = await fetch('/api/get-rank', {
             method: 'POST',
@@ -658,7 +654,6 @@ function updateReactionInDOM(postId) {
     }
 }
 
-// 1 USER = 1 VIEW BACKEND CALL
 async function registerUniqueView(postId) {
     if (!auth.currentUser) return;
     try {
@@ -723,7 +718,8 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         let quoteHTML = '';
         if (post.quote) {
             const targetId = post.quote.targetPostId || '';
-            const cleanAuthor = sanitizeHTML(post.quote.author || 'Spidy Book Hub Official');
+            // Quote Header Title set to SPIDY BOOK HUB
+            const cleanAuthor = 'SPIDY BOOK HUB';
             const cleanSnippet = sanitizeHTML(stripMarkdown(post.quote.text || ''));
             quoteHTML = `
             <div class="msg-quote" onclick="event.stopPropagation(); window.scrollToChannelPost('${targetId}')">
@@ -783,7 +779,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
     }
 }
 
-// 1 USER = 1 PERMANENT LOCKED REACTION
+// 1 USER = 1 REACTION WITH SWITCH/CHANGE ALLOWED
 async function applyReaction(postId, newEmoji) {
     if (!auth.currentUser) {
         showToast("Please login to react!", "error");
@@ -791,8 +787,8 @@ async function applyReaction(postId, newEmoji) {
     }
     
     const existing = getUserReaction(postId);
-    if (existing) {
-        showToast("Aap is post par pehle hi react kar chuke hain!", "error");
+    if (existing === newEmoji) {
+        showToast("Already reacted with this emoji!", "error");
         return;
     }
 
@@ -809,13 +805,15 @@ async function applyReaction(postId, newEmoji) {
             showToast(data.error || "Reaction failed", "error");
         } else {
             setUserReaction(postId, newEmoji);
-            showToast("Reaction recorded permanently!", "success");
+            showToast("Reaction updated!", "success");
             if (navigator.vibrate) navigator.vibrate(15);
             
-            // Local optimistic view update
             const pIdx = livePosts.findIndex(p => p.id === postId);
             if (pIdx !== -1) {
                 livePosts[pIdx].reactions = livePosts[pIdx].reactions || {};
+                if (existing && livePosts[pIdx].reactions[existing]) {
+                    livePosts[pIdx].reactions[existing] = Math.max(0, livePosts[pIdx].reactions[existing] - 1);
+                }
                 livePosts[pIdx].reactions[newEmoji] = (livePosts[pIdx].reactions[newEmoji] || 0) + 1;
                 updateReactionInDOM(postId);
             }
@@ -968,7 +966,6 @@ onAuthStateChanged(auth, async (user) => {
     isAppReady.auth = true; 
     tryTransition();
 
-    // PROMPTS LISTENER
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if(!container) return;
@@ -991,7 +988,6 @@ onAuthStateChanged(auth, async (user) => {
         });
     });
 
-    // BOOKS LISTENER
     const q = query(collection(db, "books"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
         booksData = [];
@@ -1010,7 +1006,6 @@ onAuthStateChanged(auth, async (user) => {
         tryTransition();
     });
 
-    // CHANNEL UPDATES LISTENER
     renderChannelLoader();
     const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
     onSnapshot(channelQuery, (snapshot) => {
@@ -1179,7 +1174,6 @@ if (confirmLogoutBtn) {
     });
 }
 
-// UPLOAD TUTORIAL CLOSE HANDLER
 const uploadPopup = document.getElementById('uploadPopup');
 const closeUploadPopupBtn = document.getElementById('closeUploadPopupBtn');
 
@@ -1562,7 +1556,7 @@ function cleanupPdfResources() {
 }
 
 // =========================================================================
-// RETINA HD PDF RENDER ENGINE
+// RETINA HD PDF RENDER ENGINE + DYNAMIC FLOATING PROGRESS PAGE BADGE
 // =========================================================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -1599,7 +1593,10 @@ async function renderPdfInModal(pdfUrl) {
         }
 
         const pageBadge = document.getElementById('pdfPageBadge');
-        if (pageBadge) pageBadge.style.display = 'flex';
+        if (pageBadge) {
+            pageBadge.style.display = 'flex';
+            pageBadge.style.top = '15%'; // Starts near the top
+        }
 
         (async () => {
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
@@ -1671,9 +1668,11 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio, cont
     await page.render(renderContext).promise;
 }
 
+// DYNAMIC VERTICALLY-MOVING PAGE BADGE ON SCROLL
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
+    const badgeWrap = document.getElementById('pdfPageBadge');
 
     container.addEventListener('scroll', () => {
         const wrappers = container.querySelectorAll('.pdf-page-wrapper');
@@ -1688,6 +1687,14 @@ function initPdfScrollTracker() {
                 }
                 break;
             }
+        }
+
+        // Move badge down as the user scrolls
+        const scrollRange = container.scrollHeight - container.clientHeight;
+        if (scrollRange > 0 && badgeWrap) {
+            const scrollFraction = container.scrollTop / scrollRange;
+            const topPercent = 15 + (scrollFraction * 70); // moves between 15% and 85%
+            badgeWrap.style.top = `${topPercent}%`;
         }
     }, { passive: true });
 }
@@ -1849,7 +1856,7 @@ pdfSearchPrevBtn.addEventListener('click', () => {
 });
 
 // ==========================================
-// SECURE READ ONLINE (SERVERLESS MANAGED LIMIT)
+// SECURE READ ONLINE
 // ==========================================
 const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
 if (detectTokenFromUrl) {
@@ -1945,7 +1952,6 @@ function openDownloadPageLocal(slug, skipPushState = false) {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                // UI credits counter update from backend calculation
                 if (typeof data.remainingCredits !== 'undefined') {
                     updateLiveCredits(data.remainingCredits);
                 }
@@ -2226,7 +2232,11 @@ function uploadSingleFileTracked(file, type, onProgress) {
             .slice(0, 25);
             
         const safeFilePayload = `${folderPrefix}/${Date.now()}_${rawSafeName || 'file'}.${fileExt}`;
-        const determinedContentType = file.type || (type === 'image' ? 'image/jpeg' : 'application/pdf');
+        
+        // Exact matching MIME type
+        const determinedContentType = (type === 'image') 
+            ? (file.type || 'image/jpeg') 
+            : 'application/pdf';
 
         try {
             const userToken = await auth.currentUser.getIdToken(true);
@@ -2264,7 +2274,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
             };
 
             xhr.onerror = function() { 
-                reject(new Error("R2 upload connection blocked. Please verify network or CORS setup.")); 
+                reject(new Error("R2 connection error. Check CORS configuration in Cloudflare dashboard.")); 
             }; 
 
             xhr.send(file);
@@ -2275,7 +2285,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
     });
 }
 
-// PUBLISH BOOK CONTROLLER
+// PUBLISH BOOK CONTROLLER (WITH 1-DAY USER LIMIT TRACKER)
 document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     e.preventDefault(); 
     
@@ -2390,6 +2400,12 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
         };
 
         await addDoc(collection(db, "books"), newBook);
+
+        // Update user's last upload timestamp for Firestore 1-day rule
+        const userDocRef = doc(db, "users", auth.currentUser.uid);
+        await setDoc(userDocRef, { 
+            lastBookUploadTime: Date.now() 
+        }, { merge: true });
 
         percentDisplay.innerHTML = `100<span class="percent-symbol">%</span>`;
         progressFill.style.width = `100%`;
