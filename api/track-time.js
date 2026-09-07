@@ -18,19 +18,26 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   const { userToken } = req.body;
-  if (!userToken) return res.status(400).json({ error: 'Missing token' });
+  if (!userToken) return res.status(400).json({ error: 'Missing userToken' });
 
+  let uid;
   try {
     const decoded = await admin.auth().verifyIdToken(userToken);
-    const uid = decoded.uid;
+    uid = decoded.uid;
+  } catch (authErr) {
+    return res.status(401).json({ error: 'Token expired or invalid' });
+  }
+
+  try {
     const userRef = db.collection('users').doc(uid);
 
     await userRef.set({
@@ -38,9 +45,9 @@ module.exports = async function handler(req, res) {
       lastSeen: Date.now()
     }, { merge: true });
 
-    return res.status(200).json({ success: true });
-  } catch (err) {
-    return res.status(401).json({ error: 'Token expired or invalid' });
+    return res.status(200).json({ success: true, message: 'Time logged successfully' });
+  } catch (dbErr) {
+    console.error("Database write error:", dbErr);
+    return res.status(500).json({ error: 'Failed to record time: ' + dbErr.message });
   }
 };
-
