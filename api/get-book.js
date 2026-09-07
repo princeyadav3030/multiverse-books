@@ -1,6 +1,6 @@
 const admin = require('firebase-admin');
 
-// Firebase Admin Initialize (Sirf ek baar)
+// Firebase Admin Initialize
 if (!admin.apps.length) {
   try {
     admin.initializeApp({
@@ -19,7 +19,6 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 module.exports = async function handler(req, res) {
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -28,13 +27,8 @@ module.exports = async function handler(req, res) {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   const { bookId, userToken, bookSlug } = req.body;
   if (!bookId || !userToken || !bookSlug) {
@@ -50,7 +44,6 @@ module.exports = async function handler(req, res) {
     uid = decodedToken.uid;
     userEmail = (decodedToken.email || "").toLowerCase().trim();
   } catch (authErr) {
-    console.error("Token verification failed:", authErr.message);
     return res.status(401).json({ error: 'Session Expired! Please re-login.' });
   }
 
@@ -62,24 +55,25 @@ module.exports = async function handler(req, res) {
       isSuperAdmin = adminDoc.exists;
     }
 
-    // 3. User Daily Unique 20 Limit Logic (Last 24 Hours)
+    // 3. User History & Read Count Calculation
     const userRef = db.collection('users').doc(uid);
     const userSnap = await userRef.get();
     
     let now = Date.now();
-    let oneDayAgo = now - (24 * 60 * 60 * 1000);
     let validHistory = [];
     let uniqueAccessedSlugs = new Set();
+    let currentLifetimeDownloads = 0;
 
     if (userSnap.exists) {
       let userData = userSnap.data();
       let rawDownloads = userData.recentDownloads || [];
+      currentLifetimeDownloads = userData.lifetimeDownloads || 0;
 
       rawDownloads.forEach(item => {
         let itemTime = typeof item === 'number' ? item : item.time;
         let itemSlug = typeof item === 'number' ? null : item.slug;
 
-        // Sirf pichhle 24 ghante ke records rakhna
+        // Last 24 hours retention
         if (itemTime && (now - itemTime < 24 * 60 * 60 * 1000)) {
           validHistory.push({ slug: itemSlug, time: itemTime });
           if (itemSlug) uniqueAccessedSlugs.add(itemSlug);
@@ -89,26 +83,25 @@ module.exports = async function handler(req, res) {
 
     const isAlreadyOpened = uniqueAccessedSlugs.has(bookSlug);
 
-    // Agar nayi book hai aur already 20 unique books open ho chuki hain
-    if (!isAlreadyOpened && !isSuperAdmin) {
-      if (uniqueAccessedSlugs.size >= 20) {
-        return res.status(403).json({ 
-          success: false,
-          error: 'Aapka 24 ghante ka limit (20 books) pura ho gaya hai! Aap wahi books open kar sakte hain jo aaj pehle open ki thi.' 
-        });
-      }
+    // 20 unique books daily limit check (Regular users only)
+    if (!isAlreadyOpened && !isSuperAdmin && uniqueAccessedSlugs.size >= 20) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'Aapka 24 ghante ka limit (20 books) pura ho gaya hai!' 
+      });
+    }
 
-      // Nayi book ko record mein add karein
+    // Agar nayi unique book kholi gayi hai, chahe Normal user ho ya Super Admin, Read count badhega
+    if (!isAlreadyOpened) {
       validHistory.push({ slug: bookSlug, time: now });
       uniqueAccessedSlugs.add(bookSlug);
+      currentLifetimeDownloads += 1;
 
-      // Database update (Sirf nayi book par lifetime count badhega)
       await userRef.set({
         recentDownloads: validHistory,
         lifetimeDownloads: admin.firestore.FieldValue.increment(1)
       }, { merge: true });
     } else {
-      // Purani book repeat open hui hai, array clean karke save karein
       await userRef.set({
         recentDownloads: validHistory
       }, { merge: true });
@@ -122,10 +115,9 @@ module.exports = async function handler(req, res) {
 
     const fileKey = bookDoc.data().pdfLink;
     if (!fileKey) {
-      return res.status(404).json({ error: 'PDF file link missing for this book!' });
+      return res.status(404).json({ error: 'PDF file link missing!' });
     }
 
-    // 5. Cloudflare Worker Secure Stream URL
     const workerBaseUrl = (process.env.WORKER_URL || "https://spidy-proxy.spidybookhub-backend.workers.dev").replace(/\/+$/, "");
     const cleanKey = fileKey.replace(/^\/+/, '');
     const secureWorkerUrl = `${workerBaseUrl}/stream?file=${encodeURIComponent(cleanKey)}`;
@@ -135,11 +127,12 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ 
       success: true, 
       pdfLink: secureWorkerUrl,
-      remainingCredits: remainingCredits
+      remainingCredits: remainingCredits,
+      lifetimeDownloads: currentLifetimeDownloads
     });
 
   } catch (error) {
     console.error("Backend Error:", error);
-    return res.status(500).json({ error: 'Server Error: ' + (error.message || 'Verification Failed') });
+    return res.status(500).json({ error: 'Server Error: ' + (error.message || 'Failed') });
   }
 };
