@@ -73,7 +73,7 @@ let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
 let isChannelDataReady = false;
 
-// PDF ENGINE & DYNAMIC ADOBE SCROLLER STATE
+// PDF ENGINE & ADOBE-STYLE SCROLLER STATE
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let pdfTextCache = [];
@@ -178,7 +178,6 @@ function showToast(message, type = 'success') {
     
     clearTimeout(globalToastTimeout);
     
-    // Right-Slide Styles with Inner Neon Glow
     toast.style.position = "fixed";
     toast.style.bottom = "35px";
     toast.style.right = "16px";
@@ -203,7 +202,6 @@ function showToast(message, type = 'success') {
         toast.style.boxShadow = "inset 0 0 25px rgba(239, 68, 68, 0.25), 0 10px 30px rgba(0,0,0,0.85)";
     }
 
-    // Right-slide in
     toast.style.transform = "translateX(120%)";
     toast.style.opacity = "0";
     toast.style.display = "flex";
@@ -212,7 +210,6 @@ function showToast(message, type = 'success') {
     toast.style.transform = "translateX(0)";
     toast.style.opacity = "1";
 
-    // Right-slide out back
     globalToastTimeout = setTimeout(() => {
         toast.style.transform = "translateX(120%)";
         toast.style.opacity = "0";
@@ -260,7 +257,7 @@ function cleanUnicodeTextForSearch(str) {
         .toLowerCase();
 }
 
-// ACTIVE TIME-SPENT HEARTBEAT
+// ACTIVE TIME SPENT HEARTBEAT
 setInterval(async () => {
     if (document.visibilityState === 'visible' && auth.currentUser) {
         try {
@@ -477,7 +474,7 @@ function updateLiveCredits(remainingCount) {
         document.getElementById('profile-credits').innerHTML = `<span style="font-size: 24px;">&infin;</span>`; 
         return;
     }
-    const safeCount = Math.max(0, remainingCount || 0);
+    const safeCount = Math.max(0, remainingCount !== undefined ? remainingCount : 0);
     document.getElementById('profile-credits').innerText = safeCount;
 }
 
@@ -527,6 +524,7 @@ async function syncProfileAndRankUI() {
             const remaining = Math.max(0, 20 - uniqueSlugs.size);
             updateLiveCredits(remaining);
 
+            // Read count sync (Always reflects actual total lifetime downloads)
             document.getElementById('profile-downloads').innerText = data.lifetimeDownloads || 0;
         }
 
@@ -562,7 +560,7 @@ async function syncProfileAndRankUI() {
 }
 
 // ==========================================
-// CHANNEL UPDATES & NOTIFICATIONS
+// CHANNEL UPDATES & NOTIFICATIONS (NO SHAKE & LAG-FREE)
 // ==========================================
 const chatBody = document.getElementById('chatBody');
 const contextOverlay = document.getElementById('contextOverlay');
@@ -570,6 +568,12 @@ const scrollDownWrapper = document.getElementById('scrollDownWrapper');
 const scrollDownBtn = document.getElementById('scrollDownBtn');
 const unreadBadge = document.getElementById('unreadBadge');
 const closeNotiBtn = document.getElementById('close-noti-btn');
+
+// Optimize smooth scrolling
+if (chatBody) {
+    chatBody.style.willChange = 'transform, scroll-position';
+    chatBody.style.transform = 'translateZ(0)';
+}
 
 function renderChannelLoader() {
     if (!chatBody) return;
@@ -629,7 +633,7 @@ if (chatBody) {
             unreadBadge.innerText = '0';
             unreadBadge.classList.remove('active');
         }
-    });
+    }, { passive: true });
 }
 
 window.scrollToChannelPost = function(postId) {
@@ -654,7 +658,7 @@ function buildReactionsHTML(reactionsObj, userSelectedEmoji) {
     sortedReactions.forEach(([emoji, count]) => {
         const isActive = userSelectedEmoji === emoji ? 'active' : '';
         pillsHTML += `
-            <div class="reaction-pill ${isActive}" data-emoji="${emoji}">
+            <div class="reaction-pill ${isActive}" data-emoji="${emoji}" style="transition: transform 0.15s ease;">
                 <span class="emoji">${emoji}</span>
                 <span class="count">${formatReactionCount(count)}</span>
             </div>`;
@@ -673,7 +677,8 @@ function updateReactionInDOM(postId) {
         reactionsContainer.innerHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
         reactionsContainer.querySelectorAll('.reaction-pill').forEach(pill => {
             pill.addEventListener('click', (e) => {
-                e.stopPropagation();
+                e.preventDefault();
+                e.stopPropagation(); // Prevents entire bubble movement/shake
                 applyReaction(postId, pill.dataset.emoji);
             });
         });
@@ -736,6 +741,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         bubble.className = 'message-bubble';
         bubble.id = `post_${post.id}`;
         bubble.dataset.postId = post.id;
+        bubble.style.transform = "none"; // Stabilize post from shaking
 
         let imageHTML = post.imageUrl 
             ? `<img src="${sanitizeHTML(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image">` 
@@ -769,7 +775,8 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
 
         bubble.querySelectorAll('.reaction-pill').forEach(pill => {
             pill.addEventListener('click', (e) => {
-                e.stopPropagation();
+                e.preventDefault();
+                e.stopPropagation(); // Completely stops post from moving/jumping
                 applyReaction(post.id, pill.dataset.emoji);
             });
         });
@@ -804,7 +811,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
     }
 }
 
-// SILENT REACTION TOGGLE / SWITCH WITHOUT ANNOYING TOASTS
+// REACTION INSTANT TOGGLE WITHOUT TOAST OR SHAKE
 async function applyReaction(postId, newEmoji) {
     if (!auth.currentUser) {
         showToast("Please login to react!", "error");
@@ -813,47 +820,44 @@ async function applyReaction(postId, newEmoji) {
     
     const existing = getUserReaction(postId);
     if (existing === newEmoji) {
-        // Silent block - do not show toast, do not remove reaction
-        return;
+        return; // Silent block: same reaction click does nothing and does not remove
     }
 
+    // 1. Instant Optimistic Front-End Update (Zero Lag)
+    setUserReaction(postId, newEmoji);
+    const pIdx = livePosts.findIndex(p => p.id === postId);
+    if (pIdx !== -1) {
+        livePosts[pIdx].reactions = livePosts[pIdx].reactions || {};
+        if (existing && livePosts[pIdx].reactions[existing]) {
+            livePosts[pIdx].reactions[existing] = Math.max(0, livePosts[pIdx].reactions[existing] - 1);
+        }
+        livePosts[pIdx].reactions[newEmoji] = (livePosts[pIdx].reactions[newEmoji] || 0) + 1;
+        updateReactionInDOM(postId);
+    }
+    if (navigator.vibrate) navigator.vibrate(15);
+
+    // 2. Silent Serverless Background Execution
     try {
         const token = await auth.currentUser.getIdToken(false);
-        const res = await fetch('/api/channel-action', {
+        await fetch('/api/channel-action', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'reaction', postId, emoji: newEmoji, userToken: token })
         });
-        
-        const data = await res.json();
-        if (res.ok) {
-            setUserReaction(postId, newEmoji);
-            if (navigator.vibrate) navigator.vibrate(15);
-            
-            // Local optimistic view update
-            const pIdx = livePosts.findIndex(p => p.id === postId);
-            if (pIdx !== -1) {
-                livePosts[pIdx].reactions = livePosts[pIdx].reactions || {};
-                if (existing && livePosts[pIdx].reactions[existing]) {
-                    livePosts[pIdx].reactions[existing] = Math.max(0, livePosts[pIdx].reactions[existing] - 1);
-                }
-                livePosts[pIdx].reactions[newEmoji] = (livePosts[pIdx].reactions[newEmoji] || 0) + 1;
-                updateReactionInDOM(postId);
-            }
-        }
     } catch (e) {
-        console.warn("Reaction update skipped:", e);
+        console.warn("Reaction background sync error:", e);
     }
 }
 
-// CONTEXT MENU LISTENERS (COPY / REPORT ONLY TRIGGERS TOAST)
+// CONTEXT MENU LISTENERS
 if (contextOverlay) {
     contextOverlay.addEventListener('click', (e) => {
         if (e.target === contextOverlay) contextOverlay.classList.remove('show');
     });
 
     document.querySelectorAll('.cm-emoji').forEach(el => {
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
             const emoji = el.getAttribute('data-emoji');
             if (activePost && emoji) {
                 applyReaction(activePost.id, emoji);
@@ -1586,7 +1590,7 @@ async function renderPdfInModal(pdfUrl) {
     scrollContainer.innerHTML = `
         <div id="pdfLoadingStatus" style="color: #38bdf8; margin-top: 50px; font-size: 15px; font-weight: 600; text-align: center;">
             <i class="fas fa-spinner fa-spin" style="font-size: 26px; margin-bottom: 12px; display: block;"></i>
-            Loading book in Ultra-HD...
+            Loading book...
         </div>`;
 
     cleanupPdfResources();
@@ -1618,7 +1622,7 @@ async function renderPdfInModal(pdfUrl) {
         const pageBadge = document.getElementById('pdfPageBadge');
         if (pageBadge) {
             pageBadge.style.display = 'flex';
-            pageBadge.style.top = '12%'; // Starts at top like Adobe Acrobat
+            pageBadge.style.top = '12%'; 
         }
 
         (async () => {
@@ -1634,7 +1638,7 @@ async function renderPdfInModal(pdfUrl) {
                 
                 pdfTextCache[pageNum] = {
                     raw: combinedRaw,
-                    clean: combinedClean
+                    clean: cleanUnicodeTextForSearch(combinedRaw)
                 };
 
                 if (pageNum > initialBatch) {
@@ -1691,7 +1695,7 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio, cont
     await page.render(renderContext).promise;
 }
 
-// ADOBE-STYLE MATHEMATICALLY ACCURATE VERTICAL SCROLL TRACKER
+// ADOBE-STYLE PROPORTIONAL VERTICAL PROGRESS TRACKER
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
@@ -1713,7 +1717,6 @@ function initPdfScrollTracker() {
             }
         }
 
-        // True Adobe Progress Formula: Top (12%) to Bottom (85%) proportionally
         if (pdfTotalPagesCount > 1 && badgeWrap) {
             const pageRatio = (currentPageNum - 1) / (pdfTotalPagesCount - 1);
             const calculatedTop = 12 + (pageRatio * 73); 
@@ -1782,7 +1785,6 @@ async function jumpToPdfPage(pageNum) {
         targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
         document.getElementById('pdfCurrentPageNum').innerText = pageNum.toString();
         
-        // Instant sync of badge position
         if (pdfTotalPagesCount > 1 && pdfPageBadge) {
             const pageRatio = (pageNum - 1) / (pdfTotalPagesCount - 1);
             pdfPageBadge.style.top = `${12 + (pageRatio * 73)}%`;
@@ -1885,7 +1887,7 @@ pdfSearchPrevBtn.addEventListener('click', () => {
 });
 
 // ==========================================
-// SECURE READ ONLINE (LIMIT CONTROLLER)
+// SECURE READ ONLINE (SPEED FAST + READY STATUS)
 // ==========================================
 const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
 if (detectTokenFromUrl) {
@@ -1962,7 +1964,8 @@ function openDownloadPageLocal(slug, skipPushState = false) {
              return; 
         }
         
-        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Opening...`; 
+        // Exact "Ready" status indicator with fast responsive spinner
+        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin" style="font-size:16px;"></i> Ready`; 
         btn.disabled = true;
 
         try {
@@ -1981,10 +1984,12 @@ function openDownloadPageLocal(slug, skipPushState = false) {
             const data = await response.json();
 
             if (response.ok && data.success) {
+                // UI credits counter update from backend calculation
                 if (typeof data.remainingCredits !== 'undefined') {
                     updateLiveCredits(data.remainingCredits);
                 }
 
+                // Instant Read and Profile sync
                 syncProfileAndRankUI();
 
                 const pdfViewer = document.getElementById('pdfViewerOverlay');
