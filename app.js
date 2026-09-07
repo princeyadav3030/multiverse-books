@@ -235,6 +235,24 @@ function cleanUnicodeTextForSearch(str) {
 }
 
 // ==========================================
+// ACTIVE USER TIME TRACKER (HEARTBEAT)
+// ==========================================
+setInterval(async () => {
+    if (document.visibilityState === 'visible' && auth.currentUser) {
+        try {
+            const token = await auth.currentUser.getIdToken(false);
+            await fetch('/api/track-time', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userToken: token })
+            });
+        } catch (e) {
+            console.warn("Time sync skipped:", e);
+        }
+    }
+}, 60000);
+
+// ==========================================
 // PROMO CAROUSEL LOGIC
 // ==========================================
 let currentPromoIndex = 0;
@@ -428,16 +446,15 @@ function tryTransition() {
 }
 
 // ==========================================
-// CREDITS & RANKING SYSTEM
+// CREDITS & RANKING SYSTEM (SYNCED WITH SERVER)
 // ==========================================
-function updateLiveCredits(recentDownloadsCount) {
+function updateLiveCredits(remainingCount) {
     if (IS_SUPER_ADMIN) {
         document.getElementById('profile-credits').innerHTML = `<span style="font-size: 24px;">&infin;</span>`; 
         return;
     }
-    let remainingCredits = 20 - recentDownloadsCount;
-    if (remainingCredits < 0) remainingCredits = 0;
-    document.getElementById('profile-credits').innerText = remainingCredits;
+    const safeCount = Math.max(0, remainingCount || 0);
+    document.getElementById('profile-credits').innerText = safeCount;
 }
 
 function syncAndSanitizeBookmarks() {
@@ -454,9 +471,7 @@ async function syncProfileAndRankUI() {
     
     const formattedNameHTML = formatNameSerifSmallCaps(CURRENT_ADMIN_NAME);
     const profileNameEl = document.getElementById('profile-name-ui');
-    if (profileNameEl) {
-        profileNameEl.innerHTML = formattedNameHTML;
-    }
+    if (profileNameEl) profileNameEl.innerHTML = formattedNameHTML;
     
     const emailEl = document.getElementById('profile-email-ui');
     if (emailEl) {
@@ -473,58 +488,51 @@ async function syncProfileAndRankUI() {
     syncAndSanitizeBookmarks();
 
     try {
+        // 1. Fetch User Lifetime Downloads & Credits Left
         const userRef = doc(db, "users", auth.currentUser.uid);
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
             const data = userSnap.data();
-            let now = Date.now();
-            let validDownloads = [];
-            let accessedSlugs = new Set();
-            (data.recentDownloads || []).forEach(item => {
-                let time = typeof item === 'number' ? item : item.time;
-                let slug = typeof item === 'number' ? null : item.slug;
-                if (now - time < 24 * 60 * 60 * 1000) {
-                    validDownloads.push(item);
-                    if(slug) accessedSlugs.add(slug);
-                }
+            const now = Date.now();
+            const validDownloads = (data.recentDownloads || []).filter(item => {
+                const time = typeof item === 'number' ? item : item.time;
+                return (now - time) < 24 * 60 * 60 * 1000;
             });
-            let legacyCount = validDownloads.filter(i => typeof i === 'number').length;
-            updateLiveCredits(accessedSlugs.size + legacyCount);
+            
+            const uniqueSlugs = new Set(validDownloads.map(i => i.slug).filter(Boolean));
+            const remaining = Math.max(0, 20 - uniqueSlugs.size);
+            updateLiveCredits(remaining);
 
             document.getElementById('profile-downloads').innerText = data.lifetimeDownloads || 0;
         }
 
-        const topUsersQuery = query(collection(db, "users"), orderBy("lifetimeDownloads", "desc"), limit(100));
-        const querySnapshot = await getDocs(topUsersQuery);
-        let allUsers = [];
-        querySnapshot.forEach((docSnap) => {
-            allUsers.push({ id: docSnap.id, ...docSnap.data() });
+        // 2. Fetch Active Time Rank from Backend Server
+        const userToken = await auth.currentUser.getIdToken(false);
+        const rankRes = await fetch('/api/get-rank', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken })
         });
         
-        let rank = 1;
-        let found = false;
-        for (let i = 0; i < allUsers.length; i++) {
-            if (allUsers[i].id === auth.currentUser.uid) {
-                rank = i + 1;
-                found = true;
-                break;
-            }
-        }
-
+        const rankData = await rankRes.json();
         const rankElement = document.getElementById('profile-rank');
-        if (!found) {
-            rankElement.style.color = "#ffffff";
-            rankElement.innerText = "#100+";
-        } else if (rank === 1) {
-            rankElement.style.color = "#fbbf24";
-            rankElement.innerHTML = `<i class="fas fa-crown"></i> #1`;
-        } else if (rank <= 3) {
-            rankElement.style.color = rank === 2 ? "#9ca3af" : "#b45309";
-            rankElement.innerText = "#" + rank;
-        } else {
-            rankElement.style.color = "#ffffff";
-            rankElement.innerText = "#" + rank;
+
+        if (rankElement && rankData.success) {
+            const rank = rankData.rank;
+            if (rank === 1) {
+                rankElement.style.color = "#fbbf24";
+                rankElement.innerHTML = `<i class="fas fa-crown"></i> #1`;
+            } else if (rank <= 3) {
+                rankElement.style.color = rank === 2 ? "#9ca3af" : "#b45309";
+                rankElement.innerText = "#" + rank;
+            } else if (rank === '100+' || rank >= 100) {
+                rankElement.style.color = "#ffffff";
+                rankElement.innerText = "#100+";
+            } else {
+                rankElement.style.color = "#ffffff";
+                rankElement.innerText = "#" + rank;
+            }
         }
     } catch (error) {
         console.error("Profile rank sync error:", error);
@@ -650,27 +658,18 @@ function updateReactionInDOM(postId) {
     }
 }
 
+// 1 USER = 1 VIEW BACKEND CALL
 async function registerUniqueView(postId) {
-    if (!auth.currentUser) return; 
-    const uid = auth.currentUser.uid;
-    const viewTrackerKey = `viewed_${postId}_${uid}`;
-
-    if (localStorage.getItem(viewTrackerKey)) return; 
-
+    if (!auth.currentUser) return;
     try {
-        const postRef = doc(db, "channel_posts", postId);
-        const viewerRef = doc(db, "channel_posts", postId, "viewers", uid);
-
-        const viewerSnap = await getDoc(viewerRef);
-        if (!viewerSnap.exists()) {
-            await setDoc(viewerRef, { viewedAt: Date.now() });
-            await updateDoc(postRef, { views: increment(1) });
-            localStorage.setItem(viewTrackerKey, "true");
-        } else {
-            localStorage.setItem(viewTrackerKey, "true");
-        }
+        const token = await auth.currentUser.getIdToken(false);
+        await fetch('/api/channel-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'view', postId, userToken: token })
+        });
     } catch (err) {
-        console.error("View count register error:", err);
+        console.warn("View tracker ping skipped:", err);
     }
 }
 
@@ -784,51 +783,49 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
     }
 }
 
+// 1 USER = 1 PERMANENT LOCKED REACTION
 async function applyReaction(postId, newEmoji) {
-    const currentActive = getUserReaction(postId);
-    if (currentActive === newEmoji) return;
-
-    const postIndex = livePosts.findIndex(p => p.id === postId);
-    if (postIndex !== -1) {
-        const target = { ...livePosts[postIndex] };
-        target.reactions = { ...(target.reactions || {}) };
-
-        if (currentActive && target.reactions[currentActive]) {
-            target.reactions[currentActive] = Math.max(0, target.reactions[currentActive] - 1);
-            if (target.reactions[currentActive] === 0) delete target.reactions[currentActive];
-        }
-
-        target.reactions[newEmoji] = (target.reactions[newEmoji] || 0) + 1;
-        setUserReaction(postId, newEmoji);
-
-        livePosts[postIndex] = target;
-        updateReactionInDOM(postId);
-        if (navigator.vibrate) navigator.vibrate(15);
+    if (!auth.currentUser) {
+        showToast("Please login to react!", "error");
+        return;
+    }
+    
+    const existing = getUserReaction(postId);
+    if (existing) {
+        showToast("Aap is post par pehle hi react kar chuke hain!", "error");
+        return;
     }
 
     try {
-        const postRef = doc(db, "channel_posts", postId);
-        await runTransaction(db, async (transaction) => {
-            const postDoc = await transaction.get(postRef);
-            if (!postDoc.exists()) return;
-
-            const data = postDoc.data();
-            const reactions = data.reactions || {};
-
-            if (currentActive && reactions[currentActive]) {
-                reactions[currentActive] = Math.max(0, reactions[currentActive] - 1);
-                if (reactions[currentActive] === 0) delete reactions[currentActive];
-            }
-
-            reactions[newEmoji] = (reactions[newEmoji] || 0) + 1;
-            transaction.update(postRef, { reactions });
+        const token = await auth.currentUser.getIdToken(false);
+        const res = await fetch('/api/channel-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'reaction', postId, emoji: newEmoji, userToken: token })
         });
+        
+        const data = await res.json();
+        if (!res.ok) {
+            showToast(data.error || "Reaction failed", "error");
+        } else {
+            setUserReaction(postId, newEmoji);
+            showToast("Reaction recorded permanently!", "success");
+            if (navigator.vibrate) navigator.vibrate(15);
+            
+            // Local optimistic view update
+            const pIdx = livePosts.findIndex(p => p.id === postId);
+            if (pIdx !== -1) {
+                livePosts[pIdx].reactions = livePosts[pIdx].reactions || {};
+                livePosts[pIdx].reactions[newEmoji] = (livePosts[pIdx].reactions[newEmoji] || 0) + 1;
+                updateReactionInDOM(postId);
+            }
+        }
     } catch (e) {
-        console.error("Reaction Sync Error:", e);
+        showToast("Network Error", "error");
     }
 }
 
-// CONTEXT MENU EVENT LISTENERS
+// CONTEXT MENU LISTENERS
 if (contextOverlay) {
     contextOverlay.addEventListener('click', (e) => {
         if (e.target === contextOverlay) contextOverlay.classList.remove('show');
@@ -924,9 +921,10 @@ onAuthStateChanged(auth, async (user) => {
                     photo: CURRENT_ADMIN_PHOTO, 
                     recentDownloads: [], 
                     lifetimeDownloads: 0, 
+                    timeSpentSeconds: 0,
                     createdAt: new Date().getTime() 
                 }, { merge: true });
-                updateLiveCredits(0); 
+                updateLiveCredits(20); 
             }
 
             syncProfileAndRankUI();
@@ -979,9 +977,9 @@ onAuthStateChanged(auth, async (user) => {
             container.innerHTML = `<div style="text-align:center; padding:20px; color:#a1a1aa; font-weight:800;">No prompts available yet.</div>`; 
             return; 
         }
-        snapshot.forEach(doc => {
-            const data = doc.data(); 
-            const id = doc.id;
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data(); 
+            const id = docSnap.id;
             const safeText = sanitizeHTML(data.text);
             const safeInstruction = data.instruction ? sanitizeHTML(data.instruction).replace(/\n/g, "<br>") : "";
             const safeTitle = sanitizeHTML(data.title);
@@ -997,9 +995,9 @@ onAuthStateChanged(auth, async (user) => {
     const q = query(collection(db, "books"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
         booksData = [];
-        snapshot.forEach((doc) => {
-            let data = doc.data(); 
-            data.id = doc.id;
+        snapshot.forEach((docSnap) => {
+            let data = docSnap.data(); 
+            data.id = docSnap.id;
             data.slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
             booksData.push(data);
         });
@@ -1181,9 +1179,7 @@ if (confirmLogoutBtn) {
     });
 }
 
-// ==========================================
-// UPLOAD TUTORIAL POPUP CLOSE HANDLER
-// ==========================================
+// UPLOAD TUTORIAL CLOSE HANDLER
 const uploadPopup = document.getElementById('uploadPopup');
 const closeUploadPopupBtn = document.getElementById('closeUploadPopupBtn');
 
@@ -1631,7 +1627,6 @@ async function renderPdfInModal(pdfUrl) {
 
     } catch (err) {
         console.error("PDF Rendering Failed:", err);
-        // Direct stream button permanently removed here
         scrollContainer.innerHTML = `
             <div style="color: #ef4444; margin-top: 50px; text-align: center; padding: 25px;">
                 <i class="fas fa-triangle-exclamation" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
@@ -1854,7 +1849,7 @@ pdfSearchPrevBtn.addEventListener('click', () => {
 });
 
 // ==========================================
-// SECURE READ ONLINE (MODAL DATA & TRIGGER)
+// SECURE READ ONLINE (SERVERLESS MANAGED LIMIT)
 // ==========================================
 const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
 if (detectTokenFromUrl) {
@@ -1935,7 +1930,7 @@ function openDownloadPageLocal(slug, skipPushState = false) {
         btn.disabled = true;
 
         try {
-            const userToken = await auth.currentUser.getIdToken(true);
+            const userToken = await auth.currentUser.getIdToken(false);
 
             const response = await fetch('/api/get-book', {
                 method: 'POST',
@@ -1950,10 +1945,10 @@ function openDownloadPageLocal(slug, skipPushState = false) {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                const userRef = doc(db, "users", auth.currentUser.uid);
-                await updateDoc(userRef, {
-                    lifetimeDownloads: increment(1)
-                });
+                // UI credits counter update from backend calculation
+                if (typeof data.remainingCredits !== 'undefined') {
+                    updateLiveCredits(data.remainingCredits);
+                }
 
                 syncProfileAndRankUI();
 
@@ -1971,7 +1966,7 @@ function openDownloadPageLocal(slug, skipPushState = false) {
                     document.getElementById('tokenModalOverlay').style.display = 'flex';
                     initParticles('particles');
                 } else {
-                    showToast(data.error || "Daily limit reached or failed to load book.", "error");
+                    showToast(data.error || "Aapka 24 ghante ka limit paar ho gaya hai!", "error");
                 }
             }
 
@@ -2219,13 +2214,11 @@ document.getElementById('verifyBtn').addEventListener('click', async () => {
 });
 
 // =========================================================================
-// REAL-TIME UPLOAD PIPELINE CONTROLLER (ENCODING & CORS SAFE)
+// REAL-TIME UPLOAD PIPELINE CONTROLLER
 // =========================================================================
 function uploadSingleFileTracked(file, type, onProgress) {
     return new Promise(async (resolve, reject) => {
         const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
-        
-        // Clean safe alphanumeric filename generation to prevent S3 signature hash corruption
         const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
         const rawSafeName = file.name
             .replace(/\.[^/.]+$/, "")
