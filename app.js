@@ -73,7 +73,7 @@ let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
 let isChannelDataReady = false;
 
-// PDF ENGINE & ADOBE-STYLE SCROLLER STATE
+// PDF ENGINE & SCROLLER STATE
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let pdfTextCache = [];
@@ -172,7 +172,7 @@ function formatTime(dateObj) {
 }
 
 // ==========================================
-// TOAST NOTIFICATIONS (FIXED: POSITIONED SAFELY ABOVE BOTTOM NAV)
+// TOAST NOTIFICATIONS (SAFE HEIGHT ABOVE BOTTOM NAV)
 // ==========================================
 let globalToastTimeout;
 function showToast(message, type = 'success') {
@@ -182,7 +182,7 @@ function showToast(message, type = 'success') {
     clearTimeout(globalToastTimeout);
     
     toast.style.position = "fixed";
-    toast.style.bottom = "82px"; // Safe elevation: Bottom nav icons will never be covered
+    toast.style.bottom = "82px"; 
     toast.style.right = "16px";
     toast.style.left = "auto";
     toast.style.maxWidth = "88vw";
@@ -394,7 +394,7 @@ function initPremiumPopups() {
 }
 
 // ==========================================
-// UPLOAD TUTORIAL POPUP (1 HOUR LIMIT)
+// UPLOAD TUTORIAL POPUP (1 HOUR RATE LIMIT)
 // ==========================================
 function checkAndShowUploadTutorialPopup() {
     const uploadPopup = document.getElementById('uploadPopup');
@@ -565,9 +565,9 @@ async function syncProfileAndRankUI() {
             } else if (rank <= 3) {
                 rankElement.style.color = rank === 2 ? "#9ca3af" : "#b45309";
                 rankElement.innerText = "#" + rank;
-            } else if (rank === '100+' || rank >= 100) {
+            } else if (rank === '1K+' || rank > 1000) {
                 rankElement.style.color = "#ffffff";
-                rankElement.innerText = "#100+";
+                rankElement.innerText = "#1K+";
             } else {
                 rankElement.style.color = "#ffffff";
                 rankElement.innerText = "#" + rank;
@@ -1404,16 +1404,15 @@ document.getElementById('bookContainer').addEventListener('click', (e) => {
     }
 });
 
+// SILENT BOOKMARK TOGGLE (No Toast Message)
 function toggleBookmarkLocal(iconElement, slug) {
     const index = savedBooks.indexOf(slug);
     if (index === -1) { 
         savedBooks.push(slug); 
         if(iconElement) iconElement.className = "fas fa-bookmark"; 
-        showToast("Saved to Bookmarks!", "success");
     } else { 
         savedBooks.splice(index, 1); 
         if(iconElement) iconElement.className = "far fa-bookmark"; 
-        showToast("Removed from Bookmarks!", "success");
     }
     localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
     syncAndSanitizeBookmarks();
@@ -1577,7 +1576,6 @@ document.getElementById('nav-upload').addEventListener('click', () => {
     switchTab('tab-upload'); 
     window.updateHeaderForTab('upload');
     
-    // Check 1-hour interval for tutorial popup
     setTimeout(() => { 
         checkAndShowUploadTutorialPopup(); 
     }, 300);
@@ -1689,6 +1687,17 @@ async function renderPdfInModal(pdfUrl) {
 
         initPdfScrollTracker();
 
+        // Pichle padhe gaye page par jump karne ka auto-logic
+        const savedPage = localStorage.getItem(`last_read_${activeBookSlug}`);
+        if (savedPage) {
+            const targetPage = parseInt(savedPage, 10);
+            if (targetPage > 1 && targetPage <= pdf.numPages) {
+                setTimeout(() => {
+                    jumpToPdfPage(targetPage);
+                }, 350);
+            }
+        }
+
     } catch (err) {
         console.error("PDF Rendering Failed:", err);
         scrollContainer.innerHTML = `
@@ -1735,7 +1744,7 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio, cont
     await page.render(renderContext).promise;
 }
 
-// ADOBE-STYLE PROPORTIONAL VERTICAL PROGRESS TRACKER
+// ADOBE-STYLE PROGRESS TRACKER & LAST READ PAGE TRACKER
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
@@ -1755,6 +1764,11 @@ function initPdfScrollTracker() {
                 }
                 break;
             }
+        }
+
+        // Har scroll par current book ka exact page save hoga
+        if (activeBookSlug && currentPageNum > 0) {
+            localStorage.setItem(`last_read_${activeBookSlug}`, currentPageNum);
         }
 
         if (pdfTotalPagesCount > 1 && badgeWrap) {
@@ -1934,7 +1948,7 @@ pdfSearchPrevBtn.addEventListener('click', () => {
 });
 
 // ==========================================
-// SECURE READ ONLINE (IMAGE 2: ATTRACTIVE DOT-RING LOADER & Ready..)
+// SECURE READ ONLINE (RING DOT LOADER & Ready..)
 // ==========================================
 const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
 if (detectTokenFromUrl) {
@@ -1976,11 +1990,11 @@ function openDownloadPageLocal(slug, skipPushState = false) {
         totalPagesSub.innerText = book.totalPages ? `${book.totalPages} Pages Included` : "Complete Book Included";
     }
     
+    // Silent PDF Download click (No Toast Message)
     const dlPdfBtn = document.getElementById("dlPdfLinkBtn");
     dlPdfBtn.style.pointerEvents = "auto"; 
     dlPdfBtn.onclick = function(e) { 
         e.preventDefault(); 
-        showToast("Direct PDF download feature coming soon!", "error");
     };
 
     document.getElementById("dlReadOnlineBtn").onclick = async function() {
@@ -2011,7 +2025,7 @@ function openDownloadPageLocal(slug, skipPushState = false) {
              return; 
         }
         
-        // Image 2 Fix: Attractive Dot-Ring SVG Loader + "Ready.."
+        // Attractive Dot-Ring SVG Loader + "Ready.."
         btn.innerHTML = `
             <svg width="18" height="18" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff" style="display:inline-block; vertical-align:middle; margin-right:6px;">
                 <g fill="none" fill-rule="evenodd">
@@ -2372,7 +2386,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
     });
 }
 
-// PUBLISH BOOK CONTROLLER (Fixed: Smooth Spinner first, Static Checkmark on 100%)
+// PUBLISH BOOK CONTROLLER (Spinner first, Static Checkmark on 100%)
 document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     e.preventDefault(); 
     
@@ -2392,7 +2406,6 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     const defaultCoverIcon = document.getElementById('syncDefaultCoverIcon');
     const spinner = document.getElementById('syncStageSpinner');
 
-    // Reset Stage Icon to Spinner initially
     if (spinner) {
         spinner.className = "stage-spinner";
         spinner.innerHTML = "";
@@ -2504,7 +2517,7 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
             lastBookUploadTime: Date.now() 
         }, { merge: true });
 
-        // 100% Complete: Static Green Checkmark Badge (Ghumna band)
+        // 100% Complete: Static Green Checkmark Badge
         percentDisplay.innerHTML = `100<span class="percent-symbol">%</span>`;
         progressFill.style.width = `100%`;
         transferredBytes.innerText = `${totalMB} MB / ${totalMB} MB`;
@@ -2559,7 +2572,6 @@ function switchAdminTabLocal(tabName) {
     document.querySelectorAll('.adm-section').forEach(el => el.classList.remove('active')); 
     document.querySelectorAll('.adm-tab-btn').forEach(el => el.classList.remove('active'));
     
-    // Switch hote hi scroll bar top (0) par aa jayega
     const contentArea = document.getElementById('admContentArea');
     if (contentArea) {
         contentArea.scrollTop = 0;
