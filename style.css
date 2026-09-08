@@ -404,7 +404,7 @@ main::-webkit-scrollbar { display: none; }
 .rm-submit-btn.enabled { opacity: 1; pointer-events: auto; }
 
 /* =========================================================================
-   IN-APP HD PDF VIEWER & INTERACTIVE SEARCH & PINCH ZOOM
+   IN-APP HD PDF VIEWER & INTERACTIVE SEARCH & 2D PINCH/PAN ZOOM
    ========================================================================= */
 .pdf-viewer-overlay {
     position: fixed; inset: 0; background: #000000; z-index: 99999999;
@@ -425,7 +425,7 @@ main::-webkit-scrollbar { display: none; }
 }
 .pdf-viewer-close:active { transform: scale(0.9); color: #ffffff; }
 
-/* SEARCH BAR BAR UI */
+/* SEARCH BAR UI */
 #pdfSearchBar {
     display: none; align-items: center; gap: 10px; padding: 10px 16px;
     background: #121214; border-bottom: 1px solid rgba(255,255,255,0.1);
@@ -442,19 +442,28 @@ main::-webkit-scrollbar { display: none; }
     position: absolute; right: 12px; color: #a1a1aa; font-size: 11px; font-weight: 700;
 }
 
-/* PDF CANVAS CONTAINER & SCROLL TRACK */
+/* PDF CANVAS CONTAINER & SCROLL TRACK (ALLOWS PANNING IN ALL DIRECTIONS) */
 .pdf-viewer-container {
-    flex: 1; width: 100%; position: relative; background: #000000;
-    overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column;
-    align-items: center; padding: 15px 10px; -webkit-overflow-scrolling: touch;
-    touch-action: pan-y pinch-zoom;
+    flex: 1; 
+    width: 100%; 
+    position: relative; 
+    background: #000000;
+    overflow-y: auto; 
+    overflow-x: auto; 
+    display: flex; 
+    flex-direction: column;
+    align-items: center; 
+    padding: 15px 10px; 
+    -webkit-overflow-scrolling: touch;
+    touch-action: none; 
 }
+
 #pdfScrollContainer {
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
-    transform-origin: top center;
+    transform-origin: 0 0; 
     will-change: transform;
 }
 
@@ -982,7 +991,7 @@ main::-webkit-scrollbar { display: none; }
 .card-read .icon-box { 
     width: 40px; height: 40px; border-radius: 12px; background: rgba(16, 185, 129, 0.3); color: #34d399; font-size: 18px; 
     display: flex; justify-content: center; align-items: center; border: 1.5px solid rgba(16, 185, 129, 0.8); 
-    box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.6), 0 0 15px rgba(16, 185, 129, 0.5);
+    box-shadow: inset 0 0 100px rgba(16, 185, 129, 0.6), 0 0 15px rgba(16, 185, 129, 0.5);
 }
 
 .card-bookmark { 
@@ -1688,6 +1697,7 @@ select.adm-input { appearance: none; -webkit-appearance: none; padding-right: 40
     pointer-events: auto;
 }
 
+/* Success State: Green Glow */
 .spidy-pill-toast.success {
     background: rgba(8, 22, 14, 0.95);
     color: #4ade80;
@@ -1695,6 +1705,7 @@ select.adm-input { appearance: none; -webkit-appearance: none; padding-right: 40
     box-shadow: inset 0 0 18px rgba(74, 222, 128, 0.35), 0 10px 32px rgba(0, 0, 0, 0.88);
 }
 
+/* Error & Report Issue State: Red Glow */
 .spidy-pill-toast.error {
     background: rgba(26, 10, 12, 0.95);
     color: #f87171;
