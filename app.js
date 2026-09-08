@@ -29,9 +29,9 @@ const provider = new GoogleAuthProvider();
 const analytics = getAnalytics(app); 
 
 // ==========================================
-// 2. SECURE CLOUDFLARE PROXY BASE URL
+// 2. ASSET RESOLUTION HELPER
 // ==========================================
-const PROXY_STREAM_URL = "https://spidy-proxy.spidybookhub-backend.workers.dev/stream?file="; 
+const DEFAULT_AVATAR = "https://i.postimg.cc/D0BF1b77/file-000000000e847207a64f6711d825a859.png";
 
 function getSecureAssetUrl(fileKeyOrUrl) {
     if (!fileKeyOrUrl) return DEFAULT_AVATAR;
@@ -39,7 +39,7 @@ function getSecureAssetUrl(fileKeyOrUrl) {
         return fileKeyOrUrl;
     }
     const cleanKey = fileKeyOrUrl.replace(/^\/+/, '');
-    return `${PROXY_STREAM_URL}${cleanKey}`;
+    return `/api/stream-proxy?file=${encodeURIComponent(cleanKey)}`;
 }
 
 // ==========================================
@@ -50,12 +50,12 @@ let mainFilteredData = [];
 let loadedCount = 0; 
 let isLoadingMore = false;
 let activeBookSlug = ""; 
+let activeBookId = "";
 let activeBookTitle = "";
 
 let IS_SUPER_ADMIN = false;
 let isUserLoggedIn = false; 
 
-const DEFAULT_AVATAR = "https://i.postimg.cc/D0BF1b77/file-000000000e847207a64f6711d825a859.png";
 let CURRENT_ADMIN_NAME = "Guest User";
 let CURRENT_ADMIN_EMAIL = "";
 let CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
@@ -73,12 +73,15 @@ let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
 let isChannelDataReady = false;
 
-// PDF ENGINE & SCROLLER STATE
+// PDF ENGINE & SCROLLER STATE (VIRTUALIZED)
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let pdfTextCache = [];
 let searchMatches = [];
 let currentSearchMatchIndex = -1;
+let pageDimensions = {}; 
+let renderedPagesMap = new Map();
+let pdfVirtualObserver = null;
 
 // ==========================================
 // HELPER FUNCTIONS & SANITIZATION
@@ -172,51 +175,27 @@ function formatTime(dateObj) {
 }
 
 // ==========================================
-// TOAST NOTIFICATIONS (SAFE HEIGHT ABOVE BOTTOM NAV)
+// 3. NATIVE PILL TOAST (IMAGE 5 STYLE)
 // ==========================================
-let globalToastTimeout;
+let pillToastTimer;
 function showToast(message, type = 'success') {
-    const toast = document.getElementById('customToast');
-    if(!toast) return; 
-    
-    clearTimeout(globalToastTimeout);
-    
-    toast.style.position = "fixed";
-    toast.style.bottom = "82px"; 
-    toast.style.right = "16px";
-    toast.style.left = "auto";
-    toast.style.maxWidth = "88vw";
-    toast.style.zIndex = "999999999";
-    toast.style.transition = "transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease";
-    toast.style.borderRadius = "14px";
-    toast.style.padding = "12px 18px";
-    toast.style.backdropFilter = "blur(12px)";
-    toast.style.background = "rgba(18, 18, 22, 0.96)";
+    const toast = document.getElementById('spidyPillToast');
+    if (!toast) return;
 
-    if (type === 'success') {
-        toast.innerHTML = `<i class="fas fa-circle-check" style="color: #10b981; font-size: 16px;"></i> <span style="color:#ffffff; font-weight:700;">${sanitizeHTML(message)}</span>`;
-        toast.style.border = "1px solid rgba(16, 185, 129, 0.4)";
-        toast.style.borderLeft = "4px solid #10b981";
-        toast.style.boxShadow = "inset 0 0 25px rgba(16, 185, 129, 0.25), 0 10px 30px rgba(0,0,0,0.85)";
-    } else {
-        toast.innerHTML = `<i class="fas fa-circle-exclamation" style="color: #ef4444; font-size: 16px;"></i> <span style="color:#ffffff; font-weight:700;">${sanitizeHTML(message)}</span>`;
-        toast.style.border = "1px solid rgba(239, 68, 68, 0.4)";
-        toast.style.borderLeft = "4px solid #ef4444";
-        toast.style.boxShadow = "inset 0 0 25px rgba(239, 68, 68, 0.25), 0 10px 30px rgba(0,0,0,0.85)";
-    }
+    clearTimeout(pillToastTimer);
 
-    toast.style.transform = "translateX(120%)";
-    toast.style.opacity = "0";
-    toast.style.display = "flex";
-    void toast.offsetWidth; 
-    
-    toast.style.transform = "translateX(0)";
-    toast.style.opacity = "1";
+    toast.className = `spidy-pill-toast ${type}`;
+    const icon = type === 'success' 
+        ? '<i class="fas fa-check-circle"></i>' 
+        : '<i class="fas fa-circle-exclamation"></i>';
 
-    globalToastTimeout = setTimeout(() => {
-        toast.style.transform = "translateX(120%)";
-        toast.style.opacity = "0";
-    }, 2500);
+    toast.innerHTML = `${icon}<span>${sanitizeHTML(message)}</span>`;
+
+    toast.classList.add('active');
+
+    pillToastTimer = setTimeout(() => {
+        toast.classList.remove('active');
+    }, 2400);
 }
 
 function generateDeviceFingerprint() {
@@ -259,22 +238,6 @@ function cleanUnicodeTextForSearch(str) {
         .replace(/[^\p{L}\p{M}\p{N}]/gu, "")
         .toLowerCase();
 }
-
-// ACTIVE TIME SPENT HEARTBEAT
-setInterval(async () => {
-    if (document.visibilityState === 'visible' && auth.currentUser) {
-        try {
-            const token = await auth.currentUser.getIdToken(false);
-            await fetch('/api/track-time', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userToken: token })
-            });
-        } catch (e) {
-            console.warn("Time sync skipped:", e);
-        }
-    }
-}, 60000);
 
 // ==========================================
 // PROMO CAROUSEL LOGIC
@@ -365,7 +328,7 @@ function initPromoCarousel() {
 }
 
 // ==========================================
-// POPUPS LOGIC (Telegram 1m, WhatsApp 5m)
+// POPUPS LOGIC
 // ==========================================
 let popupsInitialized = false;
 function initPremiumPopups() {
@@ -393,9 +356,6 @@ function initPremiumPopups() {
     }, 300000); 
 }
 
-// ==========================================
-// UPLOAD TUTORIAL POPUP (1 HOUR RATE LIMIT)
-// ==========================================
 function checkAndShowUploadTutorialPopup() {
     const uploadPopup = document.getElementById('uploadPopup');
     if (!uploadPopup) return;
@@ -501,7 +461,8 @@ function updateLiveCredits(remainingCount) {
 function syncAndSanitizeBookmarks() {
     if (!booksData || booksData.length === 0) return;
     const existingSlugs = new Set(booksData.map(b => b.slug));
-    savedBooks = savedBooks.filter(slug => existingSlugs.has(slug));
+    const existingIds = new Set(booksData.map(b => b.id));
+    savedBooks = savedBooks.filter(item => existingSlugs.has(item) || existingIds.has(item));
     localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
     const savedCountEl = document.getElementById('profile-saved');
     if (savedCountEl) savedCountEl.innerText = savedBooks.length;
@@ -535,16 +496,24 @@ async function syncProfileAndRankUI() {
         if (userSnap.exists()) {
             const data = userSnap.data();
             const now = Date.now();
+            const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
             const validDownloads = (data.recentDownloads || []).filter(item => {
                 const time = typeof item === 'number' ? item : item.time;
-                return (now - time) < 24 * 60 * 60 * 1000;
+                return (now - time) < TWENTY_FOUR_HOURS;
             });
             
+            // Database clean-up if expired items existed
+            if (validDownloads.length !== (data.recentDownloads || []).length) {
+                await updateDoc(userRef, { recentDownloads: validDownloads });
+            }
+
             const uniqueSlugs = new Set(validDownloads.map(i => i.slug).filter(Boolean));
             const remaining = Math.max(0, 20 - uniqueSlugs.size);
             updateLiveCredits(remaining);
 
-            document.getElementById('profile-downloads').innerText = data.lifetimeDownloads || 0;
+            // Active 24-hr Read Counter
+            document.getElementById('profile-downloads').innerText = validDownloads.length;
         }
 
         const userToken = await auth.currentUser.getIdToken(false);
@@ -588,15 +557,10 @@ const scrollDownBtn = document.getElementById('scrollDownBtn');
 const unreadBadge = document.getElementById('unreadBadge');
 const closeNotiBtn = document.getElementById('close-noti-btn');
 
-if (chatBody) {
-    chatBody.style.willChange = 'transform, scroll-position';
-    chatBody.style.transform = 'translateZ(0)';
-}
-
 function renderChannelLoader() {
     if (!chatBody) return;
     chatBody.innerHTML = `
-        <div class="empty-loading" id="channelLoader" style="opacity: 1; transition: opacity 0.3s ease;">
+        <div class="empty-loading" id="channelLoader">
             <div class="orbit-spinner">
                 <div class="orbit-ring"></div>
                 <div class="orbit-inner-ring"></div>
@@ -613,15 +577,6 @@ function getUserReaction(postId) {
 function setUserReaction(postId, emoji) {
     if (emoji) localStorage.setItem(`reaction_${postId}`, emoji);
     else localStorage.removeItem(`reaction_${postId}`);
-}
-
-function scrollToBottomInstant() {
-    unreadPostsCount = 0;
-    if (unreadBadge) {
-        unreadBadge.innerText = '0';
-        unreadBadge.classList.remove('active');
-    }
-    chatBody.scrollTop = chatBody.scrollHeight;
 }
 
 function scrollToBottomSmooth() {
@@ -676,7 +631,7 @@ function buildReactionsHTML(reactionsObj, userSelectedEmoji) {
     sortedReactions.forEach(([emoji, count]) => {
         const isActive = userSelectedEmoji === emoji ? 'active' : '';
         pillsHTML += `
-            <div class="reaction-pill ${isActive}" data-emoji="${emoji}" style="transition: transform 0.15s ease;">
+            <div class="reaction-pill ${isActive}" data-emoji="${emoji}">
                 <span class="emoji">${emoji}</span>
                 <span class="count">${formatReactionCount(count)}</span>
             </div>`;
@@ -713,7 +668,7 @@ async function registerUniqueView(postId) {
             body: JSON.stringify({ type: 'view', postId, userToken: token })
         });
     } catch (err) {
-        console.warn("View tracker ping skipped:", err);
+        console.warn("View tracker skipped:", err);
     }
 }
 
@@ -759,7 +714,6 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         bubble.className = 'message-bubble';
         bubble.id = `post_${post.id}`;
         bubble.dataset.postId = post.id;
-        bubble.style.transform = "none";
 
         let imageHTML = post.imageUrl 
             ? `<img src="${sanitizeHTML(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image">` 
@@ -768,11 +722,10 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         let quoteHTML = '';
         if (post.quote) {
             const targetId = post.quote.targetPostId || '';
-            const cleanAuthor = 'SPIDY BOOK HUB';
             const cleanSnippet = sanitizeHTML(stripMarkdown(post.quote.text || ''));
             quoteHTML = `
             <div class="msg-quote" onclick="event.stopPropagation(); window.scrollToChannelPost('${targetId}')">
-                 <div class="quote-author">${cleanAuthor}</div>
+                 <div class="quote-author">SPIDY BOOK HUB</div>
                  <div class="quote-text">${cleanSnippet}</div>
             </div>`;
         }
@@ -862,7 +815,6 @@ async function applyReaction(postId, newEmoji) {
     }
 }
 
-// CONTEXT MENU LISTENERS
 if (contextOverlay) {
     contextOverlay.addEventListener('click', (e) => {
         if (e.target === contextOverlay) contextOverlay.classList.remove('show');
@@ -967,10 +919,6 @@ onAuthStateChanged(auth, async (user) => {
 
             syncProfileAndRankUI();
 
-            document.querySelectorAll('.message-bubble').forEach(bubble => {
-                if (bubble.dataset.postId) registerUniqueView(bubble.dataset.postId);
-            });
-
         } catch (error) { 
             console.error("Verification failed:", error); 
             IS_SUPER_ADMIN = false; 
@@ -1024,7 +972,7 @@ onAuthStateChanged(auth, async (user) => {
             if(safeInstruction) { 
                 instructionHTML = `<div style="color: #ffffff; font-weight: 600; font-size: 14px; margin-bottom: 8px; margin-left: 2px; line-height: 1.5; font-family: 'Inter', sans-serif;">${safeInstruction}</div>`; 
             }
-            container.innerHTML += `<div class="telegram-prompt-wrapper">${instructionHTML}<div class="telegram-prompt-card"><div class="telegram-prompt-header" style="display:flex; align-items:center;">${safeTitle}</div><div class="telegram-prompt-body">${safeText}</div><div class="telegram-prompt-footer"><button class="telegram-copy-btn" data-text="${encodeURIComponent(data.text)}" id="copy-btn-${id}"><i class="far fa-copy"></i> COPY CODE</button></div></div></div>`;
+            container.innerHTML += `<div class="telegram-prompt-wrapper">${instructionHTML}<div class="telegram-prompt-card"><div class="telegram-prompt-header">${safeTitle}</div><div class="telegram-prompt-body">${safeText}</div><div class="telegram-prompt-footer"><button class="telegram-copy-btn" data-text="${encodeURIComponent(data.text)}" id="copy-btn-${id}"><i class="far fa-copy"></i> COPY CODE</button></div></div></div>`;
         });
     });
 
@@ -1034,7 +982,12 @@ onAuthStateChanged(auth, async (user) => {
         snapshot.forEach((docSnap) => {
             let data = docSnap.data(); 
             data.id = docSnap.id;
-            data.slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+            
+            // Unicode-Safe Robust Slug Generator for Hindi & English
+            const rawTitle = (data.title || "").trim().toLowerCase();
+            const safeSlugCandidate = encodeURIComponent(rawTitle.replace(/\s+/g, '-'));
+            data.slug = safeSlugCandidate.length > 0 ? safeSlugCandidate : docSnap.id;
+
             booksData.push(data);
         });
         mainFilteredData = [...booksData]; 
@@ -1085,29 +1038,15 @@ onAuthStateChanged(auth, async (user) => {
         }
     }, (error) => {
         console.error("Firestore Channel error:", error);
-        if (chatBody) {
-            chatBody.innerHTML = `<div class="empty-loading" style="color:#ef4444;"><i class="fas fa-triangle-exclamation" style="font-size:24px;"></i>Failed to load channel updates.</div>`;
-        }
     });
 });
 
-// PROMPTS COPY HANDLER
 document.getElementById('promptsContainer')?.addEventListener('click', (e) => {
     const copyBtn = e.target.closest('.telegram-copy-btn');
     if (copyBtn) {
         const textToCopy = decodeURIComponent(copyBtn.getAttribute('data-text'));
         navigator.clipboard.writeText(textToCopy).then(() => {
-            const originalHtml = copyBtn.innerHTML;
-            copyBtn.innerHTML = '<i class="fas fa-check"></i> COPIED!';
-            copyBtn.style.background = 'rgba(16, 185, 129, 0.2)';
-            copyBtn.style.color = '#10b981';
-            copyBtn.style.border = '1px solid rgba(16, 185, 129, 0.4)';
-            setTimeout(() => {
-                copyBtn.innerHTML = originalHtml;
-                copyBtn.style.background = 'transparent';
-                copyBtn.style.color = '#ffffff';
-                copyBtn.style.border = 'none';
-            }, 2000);
+            showToast("Copied to clipboard.", "success");
         }).catch(() => { showToast("Failed to copy text!", "error"); });
     }
 });
@@ -1383,12 +1322,12 @@ function renderBooksUI(startIndex, count, customData = null) {
     for(let i = startIndex; i < endIndex; i++) {
         let book = dataToRender[i];
         let langClass = book.lang.toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
-        let isSaved = savedBooks.includes(book.slug);
+        let isSaved = savedBooks.includes(book.slug) || savedBooks.includes(book.id);
         let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
         
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `<div class="book-card" data-slug="${book.slug}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
+        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     }
     container.insertAdjacentHTML('beforeend', htmlChunk); 
     loadedCount = endIndex;
@@ -1397,14 +1336,13 @@ function renderBooksUI(startIndex, count, customData = null) {
 document.getElementById('bookContainer').addEventListener('click', (e) => {
     const card = e.target.closest('.book-card');
     if(card) {
-        const slug = card.getAttribute('data-slug');
+        const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
         const bookmarkBtn = e.target.closest('.bookmark-btn');
         if(bookmarkBtn) toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug); 
         else openDownloadPageLocal(slug);
     }
 });
 
-// SILENT BOOKMARK TOGGLE (No Toast Message)
 function toggleBookmarkLocal(iconElement, slug) {
     const index = savedBooks.indexOf(slug);
     if (index === -1) { 
@@ -1423,7 +1361,7 @@ function renderSavedBooksUI() {
     syncAndSanitizeBookmarks();
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
-    const savedBooksData = booksData.filter(book => savedBooks.includes(book.slug));
+    const savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
     
     if (savedBooksData.length === 0) { 
         container.innerHTML = ""; 
@@ -1436,7 +1374,7 @@ function renderSavedBooksUI() {
         let langClass = book.lang.toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `<div class="book-card" data-slug="${book.slug}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
+        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
     container.innerHTML = htmlChunk;
 }
@@ -1444,7 +1382,7 @@ function renderSavedBooksUI() {
 document.getElementById('savedBooksContainer').addEventListener('click', (e) => {
     const card = e.target.closest('.book-card');
     if(card) {
-        const slug = card.getAttribute('data-slug');
+        const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
         const bookmarkBtn = e.target.closest('.bookmark-btn');
         if(bookmarkBtn) toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug); 
         else openDownloadPageLocal(slug); 
@@ -1609,26 +1547,36 @@ window.addEventListener('popstate', () => {
 });
 
 function cleanupPdfResources() {
+    if (pdfVirtualObserver) {
+        pdfVirtualObserver.disconnect();
+        pdfVirtualObserver = null;
+    }
+    renderedPagesMap.clear();
+    pageDimensions = {};
     currentPdfDocument = null;
     pdfTextCache = [];
     searchMatches = [];
     currentSearchMatchIndex = -1;
-    document.getElementById('pdfSearchBar').style.display = 'none';
-    document.getElementById('pdfSearchInput').value = '';
-    document.getElementById('pdfSearchCount').innerText = '0/0';
+    
+    const searchBar = document.getElementById('pdfSearchBar');
+    if (searchBar) searchBar.style.display = 'none';
+    const searchInput = document.getElementById('pdfSearchInput');
+    if (searchInput) searchInput.value = '';
+    const searchCount = document.getElementById('pdfSearchCount');
+    if (searchCount) searchCount.innerText = '0/0';
     const badge = document.getElementById('pdfPageBadge');
     if (badge) badge.style.display = 'none';
 }
 
 // =========================================================================
-// ADOBE-STYLE FLOATING PAGE BADGE ON REAL-TIME RENDERED PROGRESS
+// 4. VIRTUALIZED PDF VIEWER + TEXT LAYER + PINCH ZOOM
 // =========================================================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
     scrollContainer.innerHTML = `
         <div id="pdfLoadingStatus" style="color: #38bdf8; margin-top: 50px; font-size: 15px; font-weight: 600; text-align: center;">
             <i class="fas fa-spinner fa-spin" style="font-size: 26px; margin-bottom: 12px; display: block;"></i>
-            Loading book...
+            Loading book securely...
         </div>`;
 
     cleanupPdfResources();
@@ -1652,9 +1600,21 @@ async function renderPdfInModal(pdfUrl) {
         const targetCssWidth = Math.min(screenWidth - 20, 720);
         const pixelRatio = window.devicePixelRatio || 2; 
 
-        const initialBatch = Math.min(pdf.numPages, 5);
-        for (let pageNum = 1; pageNum <= initialBatch; pageNum++) {
-            await renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio, scrollContainer);
+        // 1. Create Placeholder Wrappers for All Pages (Zero RAM Waste)
+        const firstPage = await pdf.getPage(1);
+        const firstViewport = firstPage.getViewport({ scale: 1.0 });
+        const defaultAspectRatio = firstViewport.height / firstViewport.width;
+        const defaultEstimatedHeight = targetCssWidth * defaultAspectRatio;
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'pdf-page-wrapper page-placeholder';
+            wrapper.id = `page_wrapper_${pageNum}`;
+            wrapper.dataset.pageNum = pageNum;
+            wrapper.style.width = `${targetCssWidth}px`;
+            wrapper.style.height = `${defaultEstimatedHeight}px`;
+            wrapper.innerHTML = `<span>Page ${pageNum}</span>`;
+            scrollContainer.appendChild(wrapper);
         }
 
         const pageBadge = document.getElementById('pdfPageBadge');
@@ -1663,38 +1623,34 @@ async function renderPdfInModal(pdfUrl) {
             pageBadge.style.top = '14%'; 
         }
 
+        // 2. Attach Virtualization Engine Observer
+        initVirtualizationObserver(pdf, targetCssWidth, pixelRatio);
+
+        // 3. Background Async Text Extractor for Instant Hindi/English Searching
         (async () => {
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                if (document.getElementById('pdfViewerOverlay').style.display === 'none') break;
-
-                const page = await pdf.getPage(pageNum);
-                const textContent = await page.getTextContent();
-                const rawItems = textContent.items.map(item => item.str);
-                
-                const combinedRaw = rawItems.join(" ");
-                const combinedClean = cleanUnicodeTextForSearch(combinedRaw);
-                
-                pdfTextCache[pageNum] = {
-                    raw: combinedRaw,
-                    clean: cleanUnicodeTextForSearch(combinedRaw)
-                };
-
-                if (pageNum > initialBatch) {
-                    await renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio, scrollContainer);
-                }
+                if (!currentPdfDocument) break;
+                try {
+                    const page = await pdf.getPage(pageNum);
+                    const textContent = await page.getTextContent();
+                    const rawItems = textContent.items.map(item => item.str);
+                    const combinedRaw = rawItems.join(" ");
+                    pdfTextCache[pageNum] = {
+                        raw: combinedRaw,
+                        clean: cleanUnicodeTextForSearch(combinedRaw)
+                    };
+                } catch(e) {}
             }
         })();
 
         initPdfScrollTracker();
+        initPinchToZoom();
 
-        // Pichle padhe gaye page par jump karne ka auto-logic
         const savedPage = localStorage.getItem(`last_read_${activeBookSlug}`);
         if (savedPage) {
             const targetPage = parseInt(savedPage, 10);
             if (targetPage > 1 && targetPage <= pdf.numPages) {
-                setTimeout(() => {
-                    jumpToPdfPage(targetPage);
-                }, 350);
+                setTimeout(() => { jumpToPdfPage(targetPage); }, 350);
             }
         }
 
@@ -1704,47 +1660,155 @@ async function renderPdfInModal(pdfUrl) {
             <div style="color: #ef4444; margin-top: 50px; text-align: center; padding: 25px;">
                 <i class="fas fa-triangle-exclamation" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
                 <strong>Failed to load book pages</strong>
-                <p style="font-size: 13px; color: #a1a1aa; margin: 10px 0 0 0;">The network interrupted the download process or book is unavailable.</p>
+                <p style="font-size: 13px; color: #a1a1aa; margin: 10px 0 0 0;">Network error or document unavailable.</p>
             </div>`;
     }
 }
 
-async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio, container) {
-    if (document.getElementById(`page_wrapper_${pageNum}`)) return;
+// VIRTUALIZATION ENGINE (Unload Off-Screen Canvas, Keep DOM Lightweight)
+function initVirtualizationObserver(pdf, targetCssWidth, pixelRatio) {
+    if (pdfVirtualObserver) pdfVirtualObserver.disconnect();
 
-    const page = await pdf.getPage(pageNum);
-    const unscaledViewport = page.getViewport({ scale: 1.0 });
-    const scale = targetCssWidth / unscaledViewport.width;
-    const viewport = page.getViewport({ scale: scale });
+    pdfVirtualObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const pageNum = parseInt(entry.target.dataset.pageNum, 10);
+            if (entry.isIntersecting) {
+                renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio);
+            } else {
+                unloadSinglePage(pageNum);
+            }
+        });
+    }, {
+        root: document.getElementById('pdfContainer'),
+        rootMargin: '600px 0px 600px 0px', // Buffer 2 pages ahead & behind
+        threshold: 0.01
+    });
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'pdf-page-wrapper';
-    wrapper.id = `page_wrapper_${pageNum}`;
-    wrapper.dataset.pageNum = pageNum;
-    wrapper.style.width = `${targetCssWidth}px`;
-    wrapper.style.height = `${viewport.height}px`;
-
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d', { alpha: false });
-    
-    canvas.width = Math.floor(viewport.width * pixelRatio);
-    canvas.height = Math.floor(viewport.height * pixelRatio);
-    canvas.style.width = `${targetCssWidth}px`;
-    canvas.style.height = `${viewport.height}px`;
-
-    const renderContext = {
-        canvasContext: context,
-        viewport: viewport,
-        transform: [pixelRatio, 0, 0, pixelRatio, 0, 0]
-    };
-
-    wrapper.appendChild(canvas);
-    container.appendChild(wrapper);
-
-    await page.render(renderContext).promise;
+    document.querySelectorAll('.pdf-page-wrapper').forEach(wrapper => {
+        pdfVirtualObserver.observe(wrapper);
+    });
 }
 
-// ADOBE-STYLE PROGRESS TRACKER & LAST READ PAGE TRACKER
+async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
+    if (renderedPagesMap.has(pageNum)) return; 
+    renderedPagesMap.set(pageNum, true);
+
+    const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
+    if (!wrapper) return;
+
+    try {
+        const page = await pdf.getPage(pageNum);
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+        const scale = targetCssWidth / unscaledViewport.width;
+        const viewport = page.getViewport({ scale: scale });
+
+        wrapper.classList.remove('page-placeholder');
+        wrapper.innerHTML = ''; 
+        wrapper.style.height = `${viewport.height}px`;
+
+        // Canvas Layer
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d', { alpha: false });
+        canvas.width = Math.floor(viewport.width * pixelRatio);
+        canvas.height = Math.floor(viewport.height * pixelRatio);
+        canvas.style.width = `${targetCssWidth}px`;
+        canvas.style.height = `${viewport.height}px`;
+
+        wrapper.appendChild(canvas);
+
+        await page.render({
+            canvasContext: context,
+            viewport: viewport,
+            transform: [pixelRatio, 0, 0, pixelRatio, 0, 0]
+        }).promise;
+
+        // Interactive TextLayer (For Exact Character Matching & Blue Underline)
+        const textContent = await page.getTextContent();
+        const textLayerDiv = document.createElement('div');
+        textLayerDiv.className = 'textLayer';
+        textLayerDiv.style.width = `${targetCssWidth}px`;
+        textLayerDiv.style.height = `${viewport.height}px`;
+        wrapper.appendChild(textLayerDiv);
+
+        if (window.pdfjsLib && window.pdfjsLib.renderTextLayer) {
+            await window.pdfjsLib.renderTextLayer({
+                textContentSource: textContent,
+                container: textLayerDiv,
+                viewport: viewport,
+                textDivs: []
+            }).promise;
+        }
+
+        // Apply active search highlights if user has an ongoing search
+        const currentQuery = document.getElementById('pdfSearchInput')?.value.trim();
+        if (currentQuery) {
+            highlightMatchesInPage(textLayerDiv, currentQuery);
+        }
+
+    } catch (e) {
+        renderedPagesMap.delete(pageNum);
+    }
+}
+
+function unloadSinglePage(pageNum) {
+    if (!renderedPagesMap.has(pageNum)) return;
+    const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
+    if (!wrapper) return;
+
+    wrapper.classList.add('page-placeholder');
+    wrapper.innerHTML = `<span>Page ${pageNum}</span>`;
+    renderedPagesMap.delete(pageNum);
+}
+
+// ADOBE STYLE PINCH-TO-ZOOM & DOUBLE-TAP CONTROLLER
+function initPinchToZoom() {
+    const container = document.getElementById('pdfContainer');
+    const scroller = document.getElementById('pdfScrollContainer');
+    if (!container || !scroller) return;
+
+    let currentScale = 1;
+    let initialDistance = 0;
+    let lastTap = 0;
+
+    container.addEventListener('touchstart', (e) => {
+        // Double-tap Reset (Adobe Reader behavior)
+        const now = Date.now();
+        if (e.touches.length === 1 && (now - lastTap) < 300) {
+            currentScale = 1;
+            scroller.style.transform = `scale(1)`;
+            return;
+        }
+        lastTap = now;
+
+        if (e.touches.length === 2) {
+            initialDistance = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+        }
+    }, { passive: true });
+
+    container.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && initialDistance > 0) {
+            const currentDistance = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            const factor = currentDistance / initialDistance;
+            let newScale = Math.min(Math.max(currentScale * factor, 1), 3.2); // 1x to 3.2x zoom
+            scroller.style.transform = `scale(${newScale})`;
+        }
+    }, { passive: true });
+
+    container.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2 && initialDistance !== 0) {
+            const match = scroller.style.transform.match(/scale\(([^)]+)\)/);
+            if (match) currentScale = parseFloat(match[1]);
+            initialDistance = 0;
+        }
+    });
+}
+
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
@@ -1766,7 +1830,6 @@ function initPdfScrollTracker() {
             }
         }
 
-        // Har scroll par current book ka exact page save hoga
         if (activeBookSlug && currentPageNum > 0) {
             localStorage.setItem(`last_read_${activeBookSlug}`, currentPageNum);
         }
@@ -1822,21 +1885,6 @@ function executeGoToPage() {
 
 async function jumpToPdfPage(pageNum) {
     let targetWrapper = document.getElementById(`page_wrapper_${pageNum}`);
-    
-    if (!targetWrapper && currentPdfDocument) {
-        const screenWidth = window.innerWidth;
-        const targetCssWidth = Math.min(screenWidth - 20, 720);
-        const pixelRatio = window.devicePixelRatio || 2;
-        const scrollContainer = document.getElementById('pdfScrollContainer');
-
-        for (let i = 1; i <= pageNum; i++) {
-            if (!document.getElementById(`page_wrapper_${i}`)) {
-                await renderSingleHdPage(currentPdfDocument, i, targetCssWidth, pixelRatio, scrollContainer);
-            }
-        }
-        targetWrapper = document.getElementById(`page_wrapper_${pageNum}`);
-    }
-
     if (targetWrapper) {
         targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
         document.getElementById('pdfCurrentPageNum').innerText = pageNum.toString();
@@ -1850,7 +1898,7 @@ async function jumpToPdfPage(pageNum) {
     }
 }
 
-// IN-DOCUMENT SEARCH CONTROLLER
+// IN-DOCUMENT SEARCH CONTROLLER WITH BLUE UNDERLINE
 const pdfSearchToggleBtn = document.getElementById('pdfSearchToggleBtn');
 const pdfSearchBar = document.getElementById('pdfSearchBar');
 const pdfSearchCloseBtn = document.getElementById('pdfSearchCloseBtn');
@@ -1876,6 +1924,7 @@ pdfSearchCloseBtn.addEventListener('click', () => {
     searchMatches = [];
     currentSearchMatchIndex = -1;
     pdfSearchCount.innerText = '0/0';
+    clearAllHighlights();
     if (pdfPageBadge) pdfPageBadge.style.top = '14%';
 });
 
@@ -1887,9 +1936,30 @@ pdfSearchInput.addEventListener('input', () => {
     }, 250);
 });
 
+function clearAllHighlights() {
+    document.querySelectorAll('.highlight-match').forEach(span => {
+        span.classList.remove('highlight-match', 'active-focus');
+    });
+}
+
+function highlightMatchesInPage(textLayerDiv, query) {
+    if (!query || !textLayerDiv) return;
+    const cleanQ = cleanUnicodeTextForSearch(query);
+    const spans = textLayerDiv.querySelectorAll('span');
+    
+    spans.forEach(span => {
+        const rawText = span.textContent || "";
+        const cleanText = cleanUnicodeTextForSearch(rawText);
+        if (rawText.toLowerCase().includes(query.toLowerCase()) || (cleanQ && cleanText.includes(cleanQ))) {
+            span.classList.add('highlight-match');
+        }
+    });
+}
+
 async function executePdfTextSearch(query) {
     searchMatches = [];
     currentSearchMatchIndex = -1;
+    clearAllHighlights();
 
     if (!query || query.length < 1 || !currentPdfDocument) {
         pdfSearchCount.innerText = '0/0';
@@ -1901,20 +1971,7 @@ async function executePdfTextSearch(query) {
 
     for (let pageNum = 1; pageNum <= pdfTotalPagesCount; pageNum++) {
         let cached = pdfTextCache[pageNum];
-        if (!cached) {
-            try {
-                const page = await currentPdfDocument.getPage(pageNum);
-                const content = await page.getTextContent();
-                const rawCombined = content.items.map(item => item.str).join(" ");
-                cached = {
-                    raw: rawCombined,
-                    clean: cleanUnicodeTextForSearch(rawCombined)
-                };
-                pdfTextCache[pageNum] = cached;
-            } catch (e) {
-                continue;
-            }
-        }
+        if (!cached) continue;
 
         const matchFound = cached.raw.toLowerCase().includes(lowerRawQuery) || 
                            (cleanQuery.length > 0 && cached.clean.includes(cleanQuery));
@@ -1923,6 +1980,11 @@ async function executePdfTextSearch(query) {
             searchMatches.push(pageNum);
         }
     }
+
+    // Highlight spans in currently mounted text layers
+    document.querySelectorAll('.textLayer').forEach(layer => {
+        highlightMatchesInPage(layer, query);
+    });
 
     if (searchMatches.length > 0) {
         currentSearchMatchIndex = 0;
@@ -1948,7 +2010,7 @@ pdfSearchPrevBtn.addEventListener('click', () => {
 });
 
 // ==========================================
-// SECURE READ ONLINE (RING DOT LOADER & Ready..)
+// 5. SECURE READ ONLINE CONTROLLER
 // ==========================================
 const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
 if (detectTokenFromUrl) {
@@ -1958,13 +2020,13 @@ if (detectTokenFromUrl) {
     initParticles('particles');
 }
 
-function openDownloadPageLocal(slug, skipPushState = false) {
+function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
         document.getElementById('loginOverlay').style.display = 'flex'; 
         setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10); 
         return;
     }
-    const book = booksData.find(b => b.slug === slug); 
+    const book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
     if(!book) return;
     
     document.getElementById("downloadModal").style.display = "flex";
@@ -1990,7 +2052,6 @@ function openDownloadPageLocal(slug, skipPushState = false) {
         totalPagesSub.innerText = book.totalPages ? `${book.totalPages} Pages Included` : "Complete Book Included";
     }
     
-    // Silent PDF Download click (No Toast Message)
     const dlPdfBtn = document.getElementById("dlPdfLinkBtn");
     dlPdfBtn.style.pointerEvents = "auto"; 
     dlPdfBtn.onclick = function(e) { 
@@ -2025,7 +2086,6 @@ function openDownloadPageLocal(slug, skipPushState = false) {
              return; 
         }
         
-        // Attractive Dot-Ring SVG Loader + "Ready.."
         btn.innerHTML = `
             <svg width="18" height="18" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff" style="display:inline-block; vertical-align:middle; margin-right:6px;">
                 <g fill="none" fill-rule="evenodd">
@@ -2044,12 +2104,13 @@ function openDownloadPageLocal(slug, skipPushState = false) {
         try {
             const userToken = await auth.currentUser.getIdToken(false);
 
+            // Passes bookId and safe slug fallback
             const response = await fetch('/api/get-book', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     bookId: book.id, 
-                    bookSlug: book.slug, 
+                    bookSlug: book.slug || book.id, 
                     userToken: userToken 
                 })
             });
@@ -2067,8 +2128,8 @@ function openDownloadPageLocal(slug, skipPushState = false) {
                 const title = document.getElementById('pdfViewerTitle');
                 
                 title.innerText = sanitizeHTML(book.title);
-                
                 pdfViewer.style.display = 'flex';
+                
                 renderPdfInModal(data.pdfLink);
 
             } else {
@@ -2101,11 +2162,13 @@ function openDownloadPageLocal(slug, skipPushState = false) {
 
     let examsArray = (book.exams || "General").split(',').map(item => sanitizeHTML(item.trim()));
     document.getElementById("dlModalTags").innerHTML = examsArray.map(exam => `<div class="dl-modal-tag">${exam}</div>`).join('');
-    activeBookSlug = book.slug; 
+    
+    activeBookSlug = book.slug || book.id; 
+    activeBookId = book.id;
     activeBookTitle = book.title;
     
     if (!skipPushState) { 
-        history.pushState({ popup: 'book' }, '', '?book=' + book.slug); 
+        history.pushState({ popup: 'book' }, '', '?book=' + (book.slug || book.id)); 
     }
 }
 
@@ -2191,14 +2254,12 @@ submitReportBtn.addEventListener('click', async () => {
 
         submitReportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Successfully Reported';
         submitReportBtn.style.background = '#10b981';
-        submitReportBtn.style.boxShadow = "inset 0 0 20px rgba(16, 185, 129, 0.4), 0 4px 15px rgba(16, 185, 129, 0.3)";
         
         setTimeout(() => {
             document.getElementById('reportModalOverlay').classList.remove('active');
             setTimeout(() => {
                 submitReportBtn.innerHTML = 'Submit Report';
                 submitReportBtn.style.background = '#ef4444';
-                submitReportBtn.style.boxShadow = '0 4px 15px rgba(239, 68, 68, 0.3)';
                 submitReportBtn.classList.remove('enabled');
                 reportOptions.forEach(o => o.classList.remove('selected'));
             }, 400);
@@ -2244,7 +2305,6 @@ document.getElementById('verifyBtn').addEventListener('click', async () => {
     }
 
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
-
     const currentFingerprint = generateDeviceFingerprint();
 
     try {
@@ -2317,16 +2377,12 @@ document.getElementById('verifyBtn').addEventListener('click', async () => {
                     statusP.innerText = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB})`;
                 }
             } catch (err) {
-                console.warn("Could not calculate pages:", err);
                 statusP.innerText = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB})`;
             }
         }
     });
 });
 
-// =========================================================================
-// REAL-TIME UPLOAD PIPELINE CONTROLLER
-// =========================================================================
 function uploadSingleFileTracked(file, type, onProgress) {
     return new Promise(async (resolve, reject) => {
         const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
@@ -2375,7 +2431,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
             };
 
             xhr.onerror = function() { 
-                reject(new Error("R2 upload blocked. Please verify CORS in Cloudflare dashboard.")); 
+                reject(new Error("R2 upload blocked. Please verify CORS settings.")); 
             }; 
 
             xhr.send(file);
@@ -2386,7 +2442,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
     });
 }
 
-// PUBLISH BOOK CONTROLLER (Spinner first, Static Checkmark on 100%)
+// PUBLISH BOOK CONTROLLER
 document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     e.preventDefault(); 
     
@@ -2517,7 +2573,6 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
             lastBookUploadTime: Date.now() 
         }, { merge: true });
 
-        // 100% Complete: Static Green Checkmark Badge
         percentDisplay.innerHTML = `100<span class="percent-symbol">%</span>`;
         progressFill.style.width = `100%`;
         transferredBytes.innerText = `${totalMB} MB / ${totalMB} MB`;
@@ -2559,7 +2614,7 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
 });
 
 // ==========================================
-// ADMIN SECTION TABS SWITCHER (WITH SCROLL RESET)
+// ADMIN SECTION TABS SWITCHER
 // ==========================================
 document.querySelectorAll('.adm-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => { 
