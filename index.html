@@ -30,10 +30,11 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     
-    <!-- DOMPurify for Channel Notifications Security -->
+    <!-- DOMPurify for Security -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
 
-    <!-- MOZILLA PDF.JS ENGINE -->
+    <!-- Mozilla PDF.js Engine & TextLayer CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         if (window.pdfjsLib) {
@@ -52,7 +53,6 @@
         <div class="loader-title">SPIDY BOOK HUB</div>
         
         <div class="premium-tags">
-            <!-- 1 & 2: Updated Attractive PDF & Notes Icons -->
             <div class="tag">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -148,7 +148,7 @@
         </div>
 
         <div class="app-container">
-            <!-- PERSISTENT TOP HEADER -->
+            <!-- Persistent Header -->
             <header id="main-header">
                 <div class="header-left">
                     <div class="icon-box" id="open-menu"><i class="fas fa-bars"></i></div>
@@ -164,7 +164,7 @@
                 </div>
             </header>
 
-            <!-- SIDEBAR -->
+            <!-- Sidebar -->
             <div class="sidebar-overlay" id="sidebar-overlay"></div>
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-header-new" id="sidebarHeader">
@@ -196,7 +196,7 @@
                 </div>
             </div>
 
-            <!-- MAIN CONTENT AREA -->
+            <!-- Main Content Area -->
             <main id="mainContentArea">
                 
                 <!-- TAB 1: HOME -->
@@ -363,7 +363,7 @@
                     <div class="nav-scroll-spacer"></div>
                 </div>
 
-                <!-- TAB 3: ME (MY PROFILE) -->
+                <!-- TAB 3: ME (My Profile) -->
                 <div id="tab-about" class="app-tab" style="display: none; padding: 0; position: relative; overflow: hidden;">
                     <div class="premium-bg">
                         <div class="grid-overlay"></div>
@@ -441,7 +441,7 @@
                 </div>
             </main>
 
-            <!-- PERSISTENT BOTTOM NAVIGATION BAR -->
+            <!-- Bottom Navigation Bar -->
             <nav class="bottom-nav-bar">
                 <div class="bottom-nav-item active" id="nav-home">
                     <div class="nav-icon-pill"><i class="fas fa-home"></i></div>
@@ -457,7 +457,7 @@
                 </div>
             </nav>
 
-            <!-- DUAL FILTER BOTTOM SHEET -->
+            <!-- Dual Filter Bottom Sheet -->
             <div class="filter-bottom-overlay" id="filterBottomOverlay">
                 <div class="filter-bottom-sheet" id="filterBottomSheet">
                     <div class="f-drag-handle"></div>
@@ -491,7 +491,7 @@
                 </div>
             </div>
 
-            <!-- DOWNLOAD MODAL -->
+            <!-- Download Modal -->
             <div class="download-modal" id="downloadModal" style="display: none; flex-direction: column;">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
@@ -620,7 +620,7 @@
                 </div>
             </div>
 
-            <!-- OFFICIAL NOTIFICATIONS CHANNEL PANEL -->
+            <!-- Notifications Channel Panel -->
             <div class="notifications-panel" id="noti-panel">
                 <div class="noti-header-premium">
                     <div class="noti-header-left">
@@ -722,7 +722,7 @@
                 </div>
             </div>
 
-            <!-- TOKEN VERIFICATION OVERLAY -->
+            <!-- Token Verification Overlay -->
             <div id="tokenModalOverlay" class="modal-overlay-token" style="display: none;">
                 <div class="premium-bg">
                     <div class="grid-overlay"></div>
@@ -788,10 +788,10 @@
                 </div>
             </div>
 
-            <!-- IN-APP DIRECT PDF VIEWER (Fixed Stack Layout & Smooth Scrolling) -->
+            <!-- PDF Viewer with Zoom & Search Layer -->
             <div id="pdfViewerOverlay" class="pdf-viewer-overlay" style="display:none; position:fixed; inset:0; background:#09090b; z-index:999999; flex-direction:column;">
                 
-                <!-- Main Header (High z-index to stay above canvas) -->
+                <!-- Main Header -->
                 <div class="pdf-viewer-header" style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; background:#18181b; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; position:relative; z-index:1000000;">
                     <div style="display:flex; align-items:center; gap:10px; max-width:70%; overflow:hidden;">
                         <i class="fas fa-book-open" style="color:#10b981; font-size:16px;"></i>
@@ -803,11 +803,11 @@
                     </div>
                 </div>
 
-                <!-- Interactive Document Search Bar -->
+                <!-- Search Bar -->
                 <div id="pdfSearchBar" style="display:none; align-items:center; gap:10px; padding:10px 16px; background:#121214; border-bottom:1px solid rgba(255,255,255,0.1); flex-shrink:0; position:relative; z-index:999999;">
                     <div style="position:relative; flex:1; display:flex; align-items:center;">
                         <i class="fas fa-search" style="position:absolute; left:12px; color:#71717a; font-size:13px;"></i>
-                        <input type="text" id="pdfSearchInput" placeholder="Find words (e.g. श्रीराम, Chapter)..." autocomplete="off" style="width:100%; background:#1c1c20; border:1px solid rgba(255,255,255,0.15); border-radius:20px; padding:8px 45px 8px 34px; color:#ffffff; font-size:13px; outline:none;">
+                        <input type="text" id="pdfSearchInput" placeholder="Find words in Hindi / English..." autocomplete="off" style="width:100%; background:#1c1c20; border:1px solid rgba(255,255,255,0.15); border-radius:20px; padding:8px 45px 8px 34px; color:#ffffff; font-size:13px; outline:none;">
                         <span id="pdfSearchCount" style="position:absolute; right:12px; color:#a1a1aa; font-size:11px; font-weight:700;">0/0</span>
                     </div>
                     <button id="pdfSearchPrevBtn" title="Previous" style="background:#1c1c20; border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer;"><i class="fas fa-chevron-up"></i></button>
@@ -815,11 +815,11 @@
                     <button id="pdfSearchCloseBtn" title="Close Search" style="background:transparent; border:none; color:#71717a; font-size:16px; cursor:pointer; padding:5px;"><i class="fas fa-times"></i></button>
                 </div>
 
-                <!-- Canvas Scrolling Viewport -->
-                <div id="pdfContainer" class="pdf-viewer-container" style="flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; align-items:center; padding:15px 10px; background:#000000; -webkit-overflow-scrolling:touch; position:relative;">
-                    <div id="pdfScrollContainer" style="width:100%; display:flex; flex-direction:column; align-items:center;"></div>
+                <!-- Canvas Scrolling Viewport (Pinch-Zoom Supported) -->
+                <div id="pdfContainer" class="pdf-viewer-container" style="flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; align-items:center; padding:15px 10px; background:#000000; -webkit-overflow-scrolling:touch; position:relative; touch-action: pan-y pinch-zoom;">
+                    <div id="pdfScrollContainer" style="width:100%; display:flex; flex-direction:column; align-items:center; transform-origin: top center; transition: transform 0.05s ease-out;"></div>
                     
-                    <!-- 3: Floating Screen-Edge Badge (Ultra-thin border & Smooth position) -->
+                    <!-- Floating Screen-Edge Badge -->
                     <div id="pdfPageBadge" title="Click to jump to page" style="display:none; position:fixed; right:0; top:45%; transform:translateY(-50%); background:rgba(0,0,0,0.85); color:#ffffff; border:1px solid rgba(255, 255, 255, 0.22); border-right:none; border-radius:20px 0 0 20px; padding:7px 12px 7px 10px; font-size:12.5px; font-weight:800; font-family:'Inter', sans-serif; cursor:pointer; z-index:9999; box-shadow:-4px 4px 15px rgba(0,0,0,0.8); align-items:center; justify-content:center; letter-spacing:0.5px; backdrop-filter:blur(10px); transition: top 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease;">
                         <span id="pdfCurrentPageNum">1</span>
                     </div>
@@ -840,7 +840,7 @@
 
             </div>
 
-            <!-- REPORT ISSUE MODAL -->
+            <!-- Report Issue Modal -->
             <div class="report-modal-overlay" id="reportModalOverlay">
                 <div class="report-modal-box">
                     <div class="rm-header">
@@ -875,7 +875,7 @@
         </div>
     </div>
 
-    <!-- NOTIFICATION CONTEXT MENU OVERLAY -->
+    <!-- Notification Context Menu -->
     <div class="context-overlay" id="contextOverlay">
         <div class="context-menu" id="contextMenu">
             <div class="cm-reactions">
@@ -900,11 +900,10 @@
         </div>
     </div>
 
-    <!-- TOAST CONTAINERS -->
-    <div id="toast"></div>
-    <div id="customToast"></div>
+    <!-- Ultra-Clean Native Toast Pill Container (Red/Green Glow) -->
+    <div id="spidyPillToast" class="spidy-pill-toast"></div>
 
-    <!-- UPLOAD TUTORIAL POPUP -->
+    <!-- Upload Tutorial Popup -->
     <div class="ug-overlay hidden" id="uploadPopup">
         <div class="ug-card">
             <button class="ug-close-btn" id="closeUploadPopupBtn">✕</button>
@@ -937,18 +936,16 @@
         </div>
     </div>
 
-    <!-- 🌟 LIVE PIPELINE SYNCHRONIZATION OVERLAY 🌟 -->
+    <!-- Live Pipeline Synchronization Overlay -->
     <div id="uploadPipelineOverlay" class="upload-pipeline-screen" style="display: none;">
       <div class="ambient-glow"></div>
       <div class="sync-container">
         
-        <!-- Live Indicator Pill with Bhojpuri Text -->
         <div class="sync-chip">
           <span class="green-dot"></span>
           <span class="bhojpuri-text">Kitab upload ho rahal baaaa...<span class="action-emoji">✨️📚</span></span>
         </div>
 
-        <!-- Read-Only Book Metadata Capsule -->
         <div class="dotted-box">
           <div class="book-cover-wrap">
             <svg id="syncDefaultCoverIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -965,23 +962,19 @@
           </div>
         </div>
 
-        <!-- Big Center Progress Display -->
         <div class="percentage-wrap">
           <div class="percentage-text" id="syncPercentDisplay">0<span class="percent-symbol">%</span></div>
         </div>
 
-        <!-- Live Transferred Bytes & Speed Metrics -->
         <div class="progress-meta-row">
           <span id="syncTransferredBytes">0.0 MB / 0.0 MB</span>
           <span id="syncSpeedVal">Calculating...</span>
         </div>
 
-        <!-- Shimmering Progress Bar -->
         <div class="progress-track">
           <div class="progress-fill" id="syncProgressFill"></div>
         </div>
 
-        <!-- 4: Live Pipeline Feedback Stage (Smooth Circular Loader) -->
         <div class="live-stage">
           <div class="stage-spinner" id="syncStageSpinner"></div>
           <div class="stage-info">
@@ -990,7 +983,6 @@
           </div>
         </div>
 
-        <!-- Verified Digital Shield Note -->
         <div class="footer-note">
           <svg viewBox="0 0 24 24">
             <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
@@ -1001,7 +993,7 @@
       </div>
     </div>
     
-    <!-- CUSTOM LOGOUT MODAL -->
+    <!-- Custom Logout Modal -->
     <div class="custom-logout-overlay" id="customLogoutOverlay">
         <div class="custom-logout-card">
             <div class="logout-icon-wrapper"><i class="fas fa-sign-out-alt"></i></div>
