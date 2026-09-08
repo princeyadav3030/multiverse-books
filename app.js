@@ -79,9 +79,9 @@ let pdfTotalPagesCount = 0;
 let pdfTextCache = [];
 let searchMatches = [];
 let currentSearchMatchIndex = -1;
-let pageDimensions = {}; 
 let renderedPagesMap = new Map();
 let pdfVirtualObserver = null;
+let activeSearchKeyword = "";
 
 // ==========================================
 // HELPER FUNCTIONS & SANITIZATION
@@ -179,8 +179,13 @@ function formatTime(dateObj) {
 // ==========================================
 let pillToastTimer;
 function showToast(message, type = 'success') {
-    const toast = document.getElementById('spidyPillToast');
-    if (!toast) return;
+    let toast = document.getElementById('spidyPillToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'spidyPillToast';
+        toast.className = 'spidy-pill-toast';
+        document.body.appendChild(toast);
+    }
 
     clearTimeout(pillToastTimer);
 
@@ -190,12 +195,15 @@ function showToast(message, type = 'success') {
         : '<i class="fas fa-circle-exclamation"></i>';
 
     toast.innerHTML = `${icon}<span>${sanitizeHTML(message)}</span>`;
-
+    
+    // Ensure visibility
+    toast.style.display = "flex";
+    void toast.offsetWidth;
     toast.classList.add('active');
 
     pillToastTimer = setTimeout(() => {
         toast.classList.remove('active');
-    }, 2400);
+    }, 2800);
 }
 
 function generateDeviceFingerprint() {
@@ -503,7 +511,6 @@ async function syncProfileAndRankUI() {
                 return (now - time) < TWENTY_FOUR_HOURS;
             });
             
-            // Database clean-up if expired items existed
             if (validDownloads.length !== (data.recentDownloads || []).length) {
                 await updateDoc(userRef, { recentDownloads: validDownloads });
             }
@@ -512,7 +519,6 @@ async function syncProfileAndRankUI() {
             const remaining = Math.max(0, 20 - uniqueSlugs.size);
             updateLiveCredits(remaining);
 
-            // Active 24-hr Read Counter
             document.getElementById('profile-downloads').innerText = validDownloads.length;
         }
 
@@ -983,10 +989,10 @@ onAuthStateChanged(auth, async (user) => {
             let data = docSnap.data(); 
             data.id = docSnap.id;
             
-            // Unicode-Safe Robust Slug Generator for Hindi & English
+            // Unicode-Safe Robust Slug Fallback for Hindi/English
             const rawTitle = (data.title || "").trim().toLowerCase();
-            const safeSlugCandidate = encodeURIComponent(rawTitle.replace(/\s+/g, '-'));
-            data.slug = safeSlugCandidate.length > 0 ? safeSlugCandidate : docSnap.id;
+            const safeCandidate = encodeURIComponent(rawTitle.replace(/\s+/g, '-'));
+            data.slug = (safeCandidate && safeCandidate !== "%20") ? safeCandidate : docSnap.id;
 
             booksData.push(data);
         });
@@ -1552,11 +1558,11 @@ function cleanupPdfResources() {
         pdfVirtualObserver = null;
     }
     renderedPagesMap.clear();
-    pageDimensions = {};
     currentPdfDocument = null;
     pdfTextCache = [];
     searchMatches = [];
     currentSearchMatchIndex = -1;
+    activeSearchKeyword = "";
     
     const searchBar = document.getElementById('pdfSearchBar');
     if (searchBar) searchBar.style.display = 'none';
@@ -1569,7 +1575,7 @@ function cleanupPdfResources() {
 }
 
 // =========================================================================
-// 4. VIRTUALIZED PDF VIEWER + TEXT LAYER + PINCH ZOOM
+// 4. ROBUST VIRTUALIZED PDF VIEWER + ACCURATE HIGHLIGHTING + ZOOM
 // =========================================================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -1600,11 +1606,10 @@ async function renderPdfInModal(pdfUrl) {
         const targetCssWidth = Math.min(screenWidth - 20, 720);
         const pixelRatio = window.devicePixelRatio || 2; 
 
-        // 1. Create Placeholder Wrappers for All Pages (Zero RAM Waste)
+        // Initial Estimated aspect ratio
         const firstPage = await pdf.getPage(1);
         const firstViewport = firstPage.getViewport({ scale: 1.0 });
-        const defaultAspectRatio = firstViewport.height / firstViewport.width;
-        const defaultEstimatedHeight = targetCssWidth * defaultAspectRatio;
+        const defaultHeight = targetCssWidth * (firstViewport.height / firstViewport.width);
 
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const wrapper = document.createElement('div');
@@ -1612,7 +1617,7 @@ async function renderPdfInModal(pdfUrl) {
             wrapper.id = `page_wrapper_${pageNum}`;
             wrapper.dataset.pageNum = pageNum;
             wrapper.style.width = `${targetCssWidth}px`;
-            wrapper.style.height = `${defaultEstimatedHeight}px`;
+            wrapper.style.height = `${defaultHeight}px`;
             wrapper.innerHTML = `<span>Page ${pageNum}</span>`;
             scrollContainer.appendChild(wrapper);
         }
@@ -1623,10 +1628,9 @@ async function renderPdfInModal(pdfUrl) {
             pageBadge.style.top = '14%'; 
         }
 
-        // 2. Attach Virtualization Engine Observer
         initVirtualizationObserver(pdf, targetCssWidth, pixelRatio);
 
-        // 3. Background Async Text Extractor for Instant Hindi/English Searching
+        // Pre-cache full text for accurate search matching
         (async () => {
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 if (!currentPdfDocument) break;
@@ -1660,12 +1664,11 @@ async function renderPdfInModal(pdfUrl) {
             <div style="color: #ef4444; margin-top: 50px; text-align: center; padding: 25px;">
                 <i class="fas fa-triangle-exclamation" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
                 <strong>Failed to load book pages</strong>
-                <p style="font-size: 13px; color: #a1a1aa; margin: 10px 0 0 0;">Network error or document unavailable.</p>
+                <p style="font-size: 13px; color: #a1a1aa; margin: 10px 0 0 0;">Network interrupted or document unavailable.</p>
             </div>`;
     }
 }
 
-// VIRTUALIZATION ENGINE (Unload Off-Screen Canvas, Keep DOM Lightweight)
 function initVirtualizationObserver(pdf, targetCssWidth, pixelRatio) {
     if (pdfVirtualObserver) pdfVirtualObserver.disconnect();
 
@@ -1680,7 +1683,7 @@ function initVirtualizationObserver(pdf, targetCssWidth, pixelRatio) {
         });
     }, {
         root: document.getElementById('pdfContainer'),
-        rootMargin: '600px 0px 600px 0px', // Buffer 2 pages ahead & behind
+        rootMargin: '700px 0px 700px 0px',
         threshold: 0.01
     });
 
@@ -1706,7 +1709,7 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
         wrapper.innerHTML = ''; 
         wrapper.style.height = `${viewport.height}px`;
 
-        // Canvas Layer
+        // 1. Canvas Layer
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d', { alpha: false });
         canvas.width = Math.floor(viewport.width * pixelRatio);
@@ -1722,7 +1725,7 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
             transform: [pixelRatio, 0, 0, pixelRatio, 0, 0]
         }).promise;
 
-        // Interactive TextLayer (For Exact Character Matching & Blue Underline)
+        // 2. Interactive TextLayer (Accurate Character Mapping)
         const textContent = await page.getTextContent();
         const textLayerDiv = document.createElement('div');
         textLayerDiv.className = 'textLayer';
@@ -1739,10 +1742,9 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
             }).promise;
         }
 
-        // Apply active search highlights if user has an ongoing search
-        const currentQuery = document.getElementById('pdfSearchInput')?.value.trim();
-        if (currentQuery) {
-            highlightMatchesInPage(textLayerDiv, currentQuery);
+        // Apply active search highlights immediately after text render
+        if (activeSearchKeyword) {
+            highlightMatchesInPage(textLayerDiv, activeSearchKeyword);
         }
 
     } catch (e) {
@@ -1760,7 +1762,7 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// ADOBE STYLE PINCH-TO-ZOOM & DOUBLE-TAP CONTROLLER
+// TOUCH PINCH-TO-ZOOM CONTROLLER
 function initPinchToZoom() {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
@@ -1771,8 +1773,8 @@ function initPinchToZoom() {
     let lastTap = 0;
 
     container.addEventListener('touchstart', (e) => {
-        // Double-tap Reset (Adobe Reader behavior)
         const now = Date.now();
+        // Double-Tap to Reset
         if (e.touches.length === 1 && (now - lastTap) < 300) {
             currentScale = 1;
             scroller.style.transform = `scale(1)`;
@@ -1795,7 +1797,7 @@ function initPinchToZoom() {
                 e.touches[0].pageY - e.touches[1].pageY
             );
             const factor = currentDistance / initialDistance;
-            let newScale = Math.min(Math.max(currentScale * factor, 1), 3.2); // 1x to 3.2x zoom
+            let newScale = Math.min(Math.max(currentScale * factor, 1), 3.5);
             scroller.style.transform = `scale(${newScale})`;
         }
     }, { passive: true });
@@ -1838,8 +1840,7 @@ function initPdfScrollTracker() {
             const isSearchBarOpen = document.getElementById('pdfSearchBar')?.style.display === 'flex';
             const baseTop = isSearchBarOpen ? 20 : 14; 
             const pageRatio = (currentPageNum - 1) / (pdfTotalPagesCount - 1);
-            const calculatedTop = baseTop + (pageRatio * 68); 
-            badgeWrap.style.top = `${calculatedTop}%`;
+            badgeWrap.style.top = `${baseTop + (pageRatio * 68)}%`;
         }
     }, { passive: true });
 }
@@ -1923,6 +1924,7 @@ pdfSearchCloseBtn.addEventListener('click', () => {
     pdfSearchInput.value = '';
     searchMatches = [];
     currentSearchMatchIndex = -1;
+    activeSearchKeyword = "";
     pdfSearchCount.innerText = '0/0';
     clearAllHighlights();
     if (pdfPageBadge) pdfPageBadge.style.top = '14%';
@@ -1960,6 +1962,7 @@ async function executePdfTextSearch(query) {
     searchMatches = [];
     currentSearchMatchIndex = -1;
     clearAllHighlights();
+    activeSearchKeyword = query;
 
     if (!query || query.length < 1 || !currentPdfDocument) {
         pdfSearchCount.innerText = '0/0';
@@ -1981,7 +1984,7 @@ async function executePdfTextSearch(query) {
         }
     }
 
-    // Highlight spans in currently mounted text layers
+    // Highlight all visible text layers immediately
     document.querySelectorAll('.textLayer').forEach(layer => {
         highlightMatchesInPage(layer, query);
     });
@@ -2104,7 +2107,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         try {
             const userToken = await auth.currentUser.getIdToken(false);
 
-            // Passes bookId and safe slug fallback
             const response = await fetch('/api/get-book', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2383,6 +2385,7 @@ document.getElementById('verifyBtn').addEventListener('click', async () => {
     });
 });
 
+// ROBUST TRACKED UPLOAD (Safe against timeouts and network rejections)
 function uploadSingleFileTracked(file, type, onProgress) {
     return new Promise(async (resolve, reject) => {
         const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
@@ -2407,9 +2410,14 @@ function uploadSingleFileTracked(file, type, onProgress) {
                 })
             });
             
-            const authData = await authResponse.json();
             if (!authResponse.ok) {
-                throw new Error(authData.error || "Permission Denied by Backend Server");
+                const errData = await authResponse.json().catch(() => ({}));
+                return reject(new Error(errData.error || `Upload URL request failed with status ${authResponse.status}`));
+            }
+
+            const authData = await authResponse.json();
+            if (!authData.uploadUrl) {
+                return reject(new Error("Storage upload URL not provided by server"));
             }
 
             const xhr = new XMLHttpRequest(); 
@@ -2431,7 +2439,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
             };
 
             xhr.onerror = function() { 
-                reject(new Error("R2 upload blocked. Please verify CORS settings.")); 
+                reject(new Error("Network / CORS error: Upload to storage failed.")); 
             }; 
 
             xhr.send(file);
@@ -2442,7 +2450,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
     });
 }
 
-// PUBLISH BOOK CONTROLLER
+// PUBLISH BOOK CONTROLLER (Fixed: Pipeline Hides Gracefully on Error & Error Pill Shows)
 document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     e.preventDefault(); 
     
@@ -2609,7 +2617,8 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
 
     } catch (error) {
         pipelineOverlay.style.display = 'none';
-        showToast("Upload Error: " + error.message, "error"); 
+        console.error("Upload error caught:", error);
+        showToast(error.message || "Upload Failed! Server connection interrupted.", "error"); 
     }
 });
 
