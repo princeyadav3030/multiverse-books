@@ -30,9 +30,15 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-  const { bookId, userToken, bookSlug } = req.body;
-  if (!bookId || !userToken || !bookSlug) {
-    return res.status(400).json({ error: 'Missing parameters: bookId, userToken, or bookSlug' });
+  let { bookId, userToken, bookSlug } = req.body;
+
+  // Agar Hindi slug frontend se blank aaye toh bookId ko slug bana do taaki error na aaye
+  if (!bookSlug || String(bookSlug).trim() === "") {
+    bookSlug = bookId;
+  }
+
+  if (!bookId || !userToken) {
+    return res.status(400).json({ error: 'Missing parameters: bookId or userToken' });
   }
 
   let uid = null;
@@ -55,7 +61,7 @@ module.exports = async function handler(req, res) {
       isSuperAdmin = adminDoc.exists;
     }
 
-    // 3. User History & Read Count Calculation
+    // 3. User History & 24 Hours Retention Calculation
     const userRef = db.collection('users').doc(uid);
     const userSnap = await userRef.get();
     
@@ -73,7 +79,7 @@ module.exports = async function handler(req, res) {
         let itemTime = typeof item === 'number' ? item : item.time;
         let itemSlug = typeof item === 'number' ? null : item.slug;
 
-        // Last 24 hours retention
+        // Exactly last 24 hours retention check
         if (itemTime && (now - itemTime < 24 * 60 * 60 * 1000)) {
           validHistory.push({ slug: itemSlug, time: itemTime });
           if (itemSlug) uniqueAccessedSlugs.add(itemSlug);
@@ -91,7 +97,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Agar nayi unique book kholi gayi hai, chahe Normal user ho ya Super Admin, Read count badhega
+    // Agar nayi unique book kholi gayi hai toh add karo aur DB me update karo
     if (!isAlreadyOpened) {
       validHistory.push({ slug: bookSlug, time: now });
       uniqueAccessedSlugs.add(bookSlug);
@@ -102,6 +108,7 @@ module.exports = async function handler(req, res) {
         lifetimeDownloads: admin.firestore.FieldValue.increment(1)
       }, { merge: true });
     } else {
+      // Expired items ko database se remove karne ke liye update
       await userRef.set({
         recentDownloads: validHistory
       }, { merge: true });
@@ -118,9 +125,14 @@ module.exports = async function handler(req, res) {
       return res.status(404).json({ error: 'PDF file link missing!' });
     }
 
-    const workerBaseUrl = (process.env.WORKER_URL || "https://spidy-proxy.spidybookhub-backend.workers.dev").replace(/\/+$/, "");
+    // Vercel .env variable se secure proxy stream build karna
+    const workerBaseUrl = (process.env.WORKER_URL || "").replace(/\/+$/, "");
     const cleanKey = fileKey.replace(/^\/+/, '');
-    const secureWorkerUrl = `${workerBaseUrl}/stream?file=${encodeURIComponent(cleanKey)}`;
+    
+    // Final stream URL
+    const secureWorkerUrl = workerBaseUrl 
+      ? `${workerBaseUrl}/stream?file=${encodeURIComponent(cleanKey)}`
+      : `/api/stream-proxy?file=${encodeURIComponent(cleanKey)}`;
 
     let remainingCredits = isSuperAdmin ? 9999 : Math.max(0, 20 - uniqueAccessedSlugs.size);
 
@@ -128,7 +140,8 @@ module.exports = async function handler(req, res) {
       success: true, 
       pdfLink: secureWorkerUrl,
       remainingCredits: remainingCredits,
-      lifetimeDownloads: currentLifetimeDownloads
+      lifetimeDownloads: currentLifetimeDownloads,
+      activeReadCount: validHistory.length
     });
 
   } catch (error) {
