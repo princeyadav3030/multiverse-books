@@ -29,9 +29,10 @@ const provider = new GoogleAuthProvider();
 const analytics = getAnalytics(app); 
 
 // ==========================================
-// 2. ASSET RESOLUTION HELPER
+// 2. ASSET RESOLUTION HELPER (FIXED WORKER PROXY)
 // ==========================================
 const DEFAULT_AVATAR = "https://i.postimg.cc/D0BF1b77/file-000000000e847207a64f6711d825a859.png";
+const PUBLIC_WORKER_URL = "https://spidy-proxy.spidybookhub-backend.workers.dev/stream?file=";
 
 function getSecureAssetUrl(fileKeyOrUrl) {
     if (!fileKeyOrUrl) return DEFAULT_AVATAR;
@@ -39,7 +40,7 @@ function getSecureAssetUrl(fileKeyOrUrl) {
         return fileKeyOrUrl;
     }
     const cleanKey = fileKeyOrUrl.replace(/^\/+/, '');
-    return `/api/stream-proxy?file=${encodeURIComponent(cleanKey)}`;
+    return `${PUBLIC_WORKER_URL}${encodeURIComponent(cleanKey)}`;
 }
 
 // ==========================================
@@ -175,7 +176,7 @@ function formatTime(dateObj) {
 }
 
 // ==========================================
-// 3. NATIVE PILL TOAST (IMAGE 5 STYLE)
+// 3. NATIVE PILL TOAST (GREEN/RED GLOW)
 // ==========================================
 let pillToastTimer;
 function showToast(message, type = 'success') {
@@ -192,11 +193,10 @@ function showToast(message, type = 'success') {
     toast.className = `spidy-pill-toast ${type}`;
     const icon = type === 'success' 
         ? '<i class="fas fa-check-circle"></i>' 
-        : '<i class="fas fa-circle-exclamation"></i>';
+        : '<i class="fas fa-triangle-exclamation"></i>';
 
     toast.innerHTML = `${icon}<span>${sanitizeHTML(message)}</span>`;
     
-    // Ensure visibility
     toast.style.display = "flex";
     void toast.offsetWidth;
     toast.classList.add('active');
@@ -335,10 +335,6 @@ function initPromoCarousel() {
     startAutoSlide();
 }
 
-// ==========================================
-// POPUPS LOGIC
-// ==========================================
-let popupsInitialized = false;
 function initPremiumPopups() {
     if(popupsInitialized) return; 
     popupsInitialized = true;
@@ -867,7 +863,7 @@ if (contextOverlay) {
     });
 
     document.getElementById('cmReport')?.addEventListener('click', () => {
-        showToast("Post reported successfully!", "success");
+        showToast("Post reported successfully!", "error");
         contextOverlay.classList.remove('show');
     });
 }
@@ -989,7 +985,7 @@ onAuthStateChanged(auth, async (user) => {
             let data = docSnap.data(); 
             data.id = docSnap.id;
             
-            // Unicode-Safe Robust Slug Fallback for Hindi/English
+            // Safe Slug
             const rawTitle = (data.title || "").trim().toLowerCase();
             const safeCandidate = encodeURIComponent(rawTitle.replace(/\s+/g, '-'));
             data.slug = (safeCandidate && safeCandidate !== "%20") ? safeCandidate : docSnap.id;
@@ -1575,7 +1571,7 @@ function cleanupPdfResources() {
 }
 
 // =========================================================================
-// 4. ROBUST VIRTUALIZED PDF VIEWER + ACCURATE HIGHLIGHTING + ZOOM
+// 4. ROBUST VIRTUALIZED PDF VIEWER + ACCURATE HIGHLIGHTING + ZOOM & PAN
 // =========================================================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -1648,7 +1644,7 @@ async function renderPdfInModal(pdfUrl) {
         })();
 
         initPdfScrollTracker();
-        initPinchToZoom();
+        initPinchToZoomAndPan(); // Pan and Zoom Engine
 
         const savedPage = localStorage.getItem(`last_read_${activeBookSlug}`);
         if (savedPage) {
@@ -1725,7 +1721,7 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
             transform: [pixelRatio, 0, 0, pixelRatio, 0, 0]
         }).promise;
 
-        // 2. Interactive TextLayer (Accurate Character Mapping)
+        // 2. Interactive TextLayer (Exact Character Alignment)
         const textContent = await page.getTextContent();
         const textLayerDiv = document.createElement('div');
         textLayerDiv.className = 'textLayer';
@@ -1742,7 +1738,7 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
             }).promise;
         }
 
-        // Apply active search highlights immediately after text render
+        // Apply active search highlights immediately
         if (activeSearchKeyword) {
             highlightMatchesInPage(textLayerDiv, activeSearchKeyword);
         }
@@ -1762,51 +1758,83 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// TOUCH PINCH-TO-ZOOM CONTROLLER
-function initPinchToZoom() {
+// 2D PINCH-TO-ZOOM AND MULTI-AXIS PAN ENGINE
+function initPinchToZoomAndPan() {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
     if (!container || !scroller) return;
 
-    let currentScale = 1;
-    let initialDistance = 0;
-    let lastTap = 0;
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+    let startDist = 0;
+    let startPanX = 0;
+    let startPanY = 0;
+    let lastTapTime = 0;
+
+    function applyTransform() {
+        scroller.style.transform = `translate3d(${panX}px, ${panY}px, 0px) scale(${scale})`;
+    }
 
     container.addEventListener('touchstart', (e) => {
         const now = Date.now();
-        // Double-Tap to Reset
-        if (e.touches.length === 1 && (now - lastTap) < 300) {
-            currentScale = 1;
-            scroller.style.transform = `scale(1)`;
+
+        // Double-Tap to Reset to 1x
+        if (e.touches.length === 1 && (now - lastTapTime) < 300) {
+            scale = 1;
+            panX = 0;
+            panY = 0;
+            applyTransform();
             return;
         }
-        lastTap = now;
+        lastTapTime = now;
 
+        // Two-Finger Pinch Detect
         if (e.touches.length === 2) {
-            initialDistance = Math.hypot(
+            startDist = Math.hypot(
                 e.touches[0].pageX - e.touches[1].pageX,
                 e.touches[0].pageY - e.touches[1].pageY
             );
+        } else if (e.touches.length === 1 && scale > 1) {
+            // One-Finger Pan when zoomed in
+            startPanX = e.touches[0].pageX - panX;
+            startPanY = e.touches[0].pageY - panY;
         }
     }, { passive: true });
 
     container.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && initialDistance > 0) {
-            const currentDistance = Math.hypot(
+        // Pinching
+        if (e.touches.length === 2 && startDist > 0) {
+            const currentDist = Math.hypot(
                 e.touches[0].pageX - e.touches[1].pageX,
                 e.touches[0].pageY - e.touches[1].pageY
             );
-            const factor = currentDistance / initialDistance;
-            let newScale = Math.min(Math.max(currentScale * factor, 1), 3.5);
-            scroller.style.transform = `scale(${newScale})`;
+            const factor = currentDist / startDist;
+            scale = Math.min(Math.max(scale * factor, 1), 3.5);
+            startDist = currentDist;
+            applyTransform();
+        } 
+        // Panning / Moving sideways
+        else if (e.touches.length === 1 && scale > 1) {
+            panX = e.touches[0].pageX - startPanX;
+            panY = e.touches[0].pageY - startPanY;
+
+            // Restrict bounds so it doesn't fly off screen
+            const maxPanX = (container.clientWidth * (scale - 1)) / 2 + 100;
+            panX = Math.min(Math.max(panX, -maxPanX), maxPanX);
+
+            applyTransform();
         }
     }, { passive: true });
 
     container.addEventListener('touchend', (e) => {
-        if (e.touches.length < 2 && initialDistance !== 0) {
-            const match = scroller.style.transform.match(/scale\(([^)]+)\)/);
-            if (match) currentScale = parseFloat(match[1]);
-            initialDistance = 0;
+        if (e.touches.length < 2) {
+            startDist = 0;
+        }
+        if (scale <= 1) {
+            panX = 0;
+            panY = 0;
+            applyTransform();
         }
     });
 }
@@ -1892,7 +1920,7 @@ async function jumpToPdfPage(pageNum) {
         
         if (pdfTotalPagesCount > 1 && pdfPageBadge) {
             const isSearchBarOpen = document.getElementById('pdfSearchBar')?.style.display === 'flex';
-            const baseTop = isSearchBarOpen ? 20 : 14;
+            const baseTop = isSearchBarOpen ? 20 : 14; 
             const pageRatio = (pageNum - 1) / (pdfTotalPagesCount - 1);
             pdfPageBadge.style.top = `${baseTop + (pageRatio * 68)}%`;
         }
@@ -1984,7 +2012,7 @@ async function executePdfTextSearch(query) {
         }
     }
 
-    // Highlight all visible text layers immediately
+    // Highlight all currently mounted pages
     document.querySelectorAll('.textLayer').forEach(layer => {
         highlightMatchesInPage(layer, query);
     });
@@ -2209,7 +2237,7 @@ document.getElementById('shareBookBtn').addEventListener('click', () => {
 });
 
 // ==========================================
-// REPORT ISSUE MODAL
+// REPORT ISSUE MODAL (RED PILL TOAST)
 // ==========================================
 document.getElementById('reportLinkBtn').addEventListener('click', () => {
     document.getElementById('reportModalOverlay').classList.add('active');
@@ -2254,18 +2282,14 @@ submitReportBtn.addEventListener('click', async () => {
             console.error("Failed to send report:", error);
         }
 
-        submitReportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Successfully Reported';
-        submitReportBtn.style.background = '#10b981';
-        
+        // Red Warning/Issue Pill Toast
+        showToast("Issue Reported! Team will review.", "error");
+
+        document.getElementById('reportModalOverlay').classList.remove('active');
         setTimeout(() => {
-            document.getElementById('reportModalOverlay').classList.remove('active');
-            setTimeout(() => {
-                submitReportBtn.innerHTML = 'Submit Report';
-                submitReportBtn.style.background = '#ef4444';
-                submitReportBtn.classList.remove('enabled');
-                reportOptions.forEach(o => o.classList.remove('selected'));
-            }, 400);
-        }, 1200);
+            submitReportBtn.classList.remove('enabled');
+            reportOptions.forEach(o => o.classList.remove('selected'));
+        }, 400);
     }
 });
 
@@ -2385,7 +2409,7 @@ document.getElementById('verifyBtn').addEventListener('click', async () => {
     });
 });
 
-// ROBUST TRACKED UPLOAD (Safe against timeouts and network rejections)
+// ROBUST TRACKED UPLOAD (AUTO-DISMISS OVERLAY & ERROR TOAST ON ANY FAILURE)
 function uploadSingleFileTracked(file, type, onProgress) {
     return new Promise(async (resolve, reject) => {
         const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
@@ -2412,12 +2436,12 @@ function uploadSingleFileTracked(file, type, onProgress) {
             
             if (!authResponse.ok) {
                 const errData = await authResponse.json().catch(() => ({}));
-                return reject(new Error(errData.error || `Upload URL request failed with status ${authResponse.status}`));
+                return reject(new Error(errData.error || `Upload URL error ${authResponse.status}`));
             }
 
             const authData = await authResponse.json();
             if (!authData.uploadUrl) {
-                return reject(new Error("Storage upload URL not provided by server"));
+                return reject(new Error("Storage upload URL missing"));
             }
 
             const xhr = new XMLHttpRequest(); 
@@ -2434,12 +2458,12 @@ function uploadSingleFileTracked(file, type, onProgress) {
                 if (xhr.status >= 200 && xhr.status < 300) {
                     resolve(authData.fileKey || safeFilePayload);
                 } else { 
-                    reject(new Error(`Storage rejected upload with status: ${xhr.status}`)); 
+                    reject(new Error(`Storage rejected with code: ${xhr.status}`)); 
                 }
             };
 
             xhr.onerror = function() { 
-                reject(new Error("Network / CORS error: Upload to storage failed.")); 
+                reject(new Error("Connection error during storage upload.")); 
             }; 
 
             xhr.send(file);
@@ -2450,7 +2474,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
     });
 }
 
-// PUBLISH BOOK CONTROLLER (Fixed: Pipeline Hides Gracefully on Error & Error Pill Shows)
+// PUBLISH BOOK CONTROLLER (PROPER RECOVERY ON ERROR)
 document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     e.preventDefault(); 
     
@@ -2532,10 +2556,10 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
             stageSub.innerText = "Optimizing image resolution for mobile readers";
         } else if (percent < 85) {
             stageTitle.innerText = "Uploading Manuscript Pages...";
-            stageSub.innerText = "Writing high-speed encrypted stream to Cloudflare R2";
+            stageSub.innerText = "Writing high-speed stream to Cloud Storage";
         } else {
             stageTitle.innerText = "Finalizing Storage Nodes...";
-            stageSub.innerText = "Preparing document metadata & secure tokens";
+            stageSub.innerText = "Preparing document metadata";
         }
     }
 
@@ -2616,9 +2640,10 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
         }, 1200);
 
     } catch (error) {
+        // Dismiss overlay on error so user is not stuck
         pipelineOverlay.style.display = 'none';
         console.error("Upload error caught:", error);
-        showToast(error.message || "Upload Failed! Server connection interrupted.", "error"); 
+        showToast("Upload Failed: " + (error.message || "Network Error"), "error"); 
     }
 });
 
