@@ -32,7 +32,6 @@ const analytics = getAnalytics(app);
 // 2. ASSET RESOLUTION HELPER
 // ==========================================
 const DEFAULT_AVATAR = "https://i.postimg.cc/D0BF1b77/file-000000000e847207a64f6711d825a859.png";
-const PUBLIC_WORKER_URL = "https://spidy-proxy.spidybookhub-backend.workers.dev/stream?file=";
 
 function getSecureAssetUrl(fileKeyOrUrl) {
     if (!fileKeyOrUrl) return DEFAULT_AVATAR;
@@ -40,7 +39,7 @@ function getSecureAssetUrl(fileKeyOrUrl) {
         return fileKeyOrUrl;
     }
     const cleanKey = fileKeyOrUrl.replace(/^\/+/, '');
-    return `${PUBLIC_WORKER_URL}${encodeURIComponent(cleanKey)}`;
+    return `/api/stream-proxy?file=${encodeURIComponent(cleanKey)}`;
 }
 
 // ==========================================
@@ -176,7 +175,7 @@ function formatTime(dateObj) {
 }
 
 // ==========================================
-// 3. NATIVE PILL TOAST
+// 3. NATIVE PILL TOAST (IMAGE 5 STYLE)
 // ==========================================
 let pillToastTimer;
 function showToast(message, type = 'success') {
@@ -193,10 +192,11 @@ function showToast(message, type = 'success') {
     toast.className = `spidy-pill-toast ${type}`;
     const icon = type === 'success' 
         ? '<i class="fas fa-check-circle"></i>' 
-        : '<i class="fas fa-triangle-exclamation"></i>';
+        : '<i class="fas fa-circle-exclamation"></i>';
 
     toast.innerHTML = `${icon}<span>${sanitizeHTML(message)}</span>`;
     
+    // Ensure visibility
     toast.style.display = "flex";
     void toast.offsetWidth;
     toast.classList.add('active');
@@ -335,6 +335,10 @@ function initPromoCarousel() {
     startAutoSlide();
 }
 
+// ==========================================
+// POPUPS LOGIC
+// ==========================================
+let popupsInitialized = false;
 function initPremiumPopups() {
     if(popupsInitialized) return; 
     popupsInitialized = true;
@@ -375,17 +379,15 @@ function checkAndShowUploadTutorialPopup() {
 }
 
 // ==========================================
-// ROBUST INITIAL LOADER & FAILSAFE TRANSITION
+// INITIAL LOADER & DEEP LINKING
 // ==========================================
 const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
 
 if (isDeepLinkLoad) {
-    const wrapper = document.getElementById('mainAppWrapper');
-    if (wrapper) wrapper.style.display = 'none';
-    const dlModal = document.getElementById('downloadModal');
-    if (dlModal) dlModal.style.display = 'none';
+    document.getElementById('mainAppWrapper').style.display = 'none';
+    document.getElementById('downloadModal').style.display = 'none';
 }
 
 let isAppReady = { auth: false, data: false }; 
@@ -409,73 +411,59 @@ function updateLoaderUI(percent) {
 
 loaderInterval = setInterval(() => {
     if (loadingProgress < 85) {
-        loadingProgress += Math.floor(Math.random() * 6) + 3; 
+        loadingProgress += Math.floor(Math.random() * 5) + 2; 
         if (loadingProgress > 85) loadingProgress = 85;
         updateLoaderUI(loadingProgress);
     }
-}, 150);
-
-// Bulletproof Transition Function (Never gets stuck at 100%)
-function forceLaunchApp() {
-    if (hasTransitioned) return;
-    hasTransitioned = true;
-    clearInterval(loaderInterval);
-    updateLoaderUI(100);
-
-    setTimeout(() => {
-        const appWrapper = document.getElementById('mainAppWrapper');
-        if (appWrapper) appWrapper.style.display = 'block';
-
-        initPromoCarousel();
-
-        if (isDeepLinkLoad && pendingBookSlug) {
-            if (isUserLoggedIn) { 
-                openDownloadPageLocal(pendingBookSlug, true); 
-            } else {
-                const loginOverlay = document.getElementById('loginOverlay');
-                if (loginOverlay) {
-                    loginOverlay.style.display = 'flex';
-                    setTimeout(() => loginOverlay.style.opacity = '1', 10);
-                }
-            }
-        } else {
-            initPremiumPopups(); 
-        }
-
-        const loader = document.getElementById("loaderScreen");
-        if (loader) {
-            loader.style.opacity = "0"; 
-            setTimeout(() => { loader.style.display = "none"; }, 300);
-        }
-    }, 250);
-}
+}, 200);
 
 function tryTransition() {
     if (isAppReady.auth && isAppReady.data && !hasTransitioned) {
-        forceLaunchApp();
+        hasTransitioned = true;
+        clearInterval(loaderInterval); 
+        
+        let fastLoad = setInterval(() => {
+            loadingProgress += 4;
+            if(loadingProgress >= 100) {
+                loadingProgress = 100;
+                updateLoaderUI(100);
+                clearInterval(fastLoad);
+
+                setTimeout(() => {
+                    document.getElementById('mainAppWrapper').style.display = 'block';
+                    initPromoCarousel();
+
+                    if (isDeepLinkLoad && pendingBookSlug) {
+                        if (isUserLoggedIn) { openDownloadPageLocal(pendingBookSlug, true); } 
+                        else {
+                            const loginOverlay = document.getElementById('loginOverlay');
+                            loginOverlay.style.display = 'flex';
+                            setTimeout(() => loginOverlay.style.opacity = '1', 10);
+                        }
+                    } else {
+                        initPremiumPopups(); 
+                    }
+                    const loader = document.getElementById("loaderScreen");
+                    loader.style.opacity = "0"; 
+                    setTimeout(() => { loader.style.display = "none"; }, 300);
+                }, 400); 
+            } else {
+                updateLoaderUI(loadingProgress);
+            }
+        }, 15);
     }
 }
-
-// Failsafe emergency timer: Max 3 seconds mein screen khulegi hi khulegi
-setTimeout(() => {
-    if (!hasTransitioned) {
-        console.warn("Failsafe timer activated: Force launching application.");
-        forceLaunchApp();
-    }
-}, 3000);
 
 // ==========================================
 // CREDITS & RANKING SYSTEM
 // ==========================================
 function updateLiveCredits(remainingCount) {
     if (IS_SUPER_ADMIN) {
-        const el = document.getElementById('profile-credits');
-        if (el) el.innerHTML = `<span style="font-size: 24px;">&infin;</span>`; 
+        document.getElementById('profile-credits').innerHTML = `<span style="font-size: 24px;">&infin;</span>`; 
         return;
     }
     const safeCount = Math.max(0, remainingCount !== undefined ? remainingCount : 0);
-    const el = document.getElementById('profile-credits');
-    if (el) el.innerText = safeCount;
+    document.getElementById('profile-credits').innerText = safeCount;
 }
 
 function syncAndSanitizeBookmarks() {
@@ -531,8 +519,7 @@ async function syncProfileAndRankUI() {
             const remaining = Math.max(0, 20 - uniqueSlugs.size);
             updateLiveCredits(remaining);
 
-            const dlEl = document.getElementById('profile-downloads');
-            if (dlEl) dlEl.innerText = validDownloads.length;
+            document.getElementById('profile-downloads').innerText = validDownloads.length;
         }
 
         const userToken = await auth.currentUser.getIdToken(false);
@@ -604,12 +591,10 @@ function scrollToBottomSmooth() {
         unreadBadge.innerText = '0';
         unreadBadge.classList.remove('active');
     }
-    if (chatBody) {
-        chatBody.scrollTo({
-            top: chatBody.scrollHeight,
-            behavior: 'smooth'
-        });
-    }
+    chatBody.scrollTo({
+        top: chatBody.scrollHeight,
+        behavior: 'smooth'
+    });
 }
 
 if (scrollDownBtn) {
@@ -624,10 +609,8 @@ if (chatBody) {
         } else {
             scrollDownWrapper.classList.remove('show');
             unreadPostsCount = 0;
-            if (unreadBadge) {
-                unreadBadge.innerText = '0';
-                unreadBadge.classList.remove('active');
-            }
+            unreadBadge.innerText = '0';
+            unreadBadge.classList.remove('active');
         }
     }, { passive: true });
 }
@@ -884,7 +867,7 @@ if (contextOverlay) {
     });
 
     document.getElementById('cmReport')?.addEventListener('click', () => {
-        showToast("Post reported successfully!", "error");
+        showToast("Post reported successfully!", "success");
         contextOverlay.classList.remove('show');
     });
 }
@@ -898,8 +881,7 @@ onAuthStateChanged(auth, async (user) => {
         localStorage.setItem('isUserLoggedIn', 'true');
 
         let dName = user.displayName || user.email.split('@')[0];
-        const sbName = document.getElementById('sidebarProfileName');
-        if (sbName) sbName.innerText = sanitizeHTML(dName);
+        document.getElementById('sidebarProfileName').innerText = sanitizeHTML(dName);
         
         CURRENT_ADMIN_PHOTO = getHighQualityAvatar(user.photoURL);
         const sidebarAvatar = document.getElementById('sidebarProfileImg');
@@ -919,13 +901,12 @@ onAuthStateChanged(auth, async (user) => {
             const adminDocRef = doc(db, "admins", cleanEmail);
             const adminDocSnap = await getDoc(adminDocRef);
 
-            const roleEl = document.getElementById('sidebarRoleText');
             if (adminDocSnap.exists()) {
                 IS_SUPER_ADMIN = true;
-                if (roleEl) roleEl.innerText = "Super Admin";
+                document.getElementById('sidebarRoleText').innerText = "Super Admin";
             } else {
                 IS_SUPER_ADMIN = false;
-                if (roleEl) roleEl.innerText = "Verified User";
+                document.getElementById('sidebarRoleText').innerText = "Verified User";
                 switchAdminTabLocal('add');
             }
 
@@ -952,10 +933,8 @@ onAuthStateChanged(auth, async (user) => {
         isUserLoggedIn = false; 
         IS_SUPER_ADMIN = false; 
         localStorage.removeItem('isUserLoggedIn');
-        const sbName = document.getElementById('sidebarProfileName');
-        if (sbName) sbName.innerText = "SPIDY BOOK HUB";
-        const roleEl = document.getElementById('sidebarRoleText');
-        if (roleEl) roleEl.innerText = "Please Login";
+        document.getElementById('sidebarProfileName').innerText = "SPIDY BOOK HUB";
+        document.getElementById('sidebarRoleText').innerText = "Please Login";
         
         CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
         const sidebarAvatar = document.getElementById('sidebarProfileImg');
@@ -972,14 +951,10 @@ onAuthStateChanged(auth, async (user) => {
         const avatarEl = document.getElementById('profile-avatar-ui');
         if (avatarEl) avatarEl.src = DEFAULT_AVATAR;
 
-        const crEl = document.getElementById('profile-credits');
-        if (crEl) crEl.innerText = "--";
-        const dlEl = document.getElementById('profile-downloads');
-        if (dlEl) dlEl.innerText = "0";
-        const svEl = document.getElementById('profile-saved');
-        if (svEl) svEl.innerText = "0";
-        const rkEl = document.getElementById('profile-rank');
-        if (rkEl) rkEl.innerText = "#--";
+        document.getElementById('profile-credits').innerText = "--";
+        document.getElementById('profile-downloads').innerText = "0";
+        document.getElementById('profile-saved').innerText = "0";
+        document.getElementById('profile-rank').innerText = "#--";
     }
 
     isAppReady.auth = true; 
@@ -1014,6 +989,7 @@ onAuthStateChanged(auth, async (user) => {
             let data = docSnap.data(); 
             data.id = docSnap.id;
             
+            // Unicode-Safe Robust Slug Fallback for Hindi/English
             const rawTitle = (data.title || "").trim().toLowerCase();
             const safeCandidate = encodeURIComponent(rawTitle.replace(/\s+/g, '-'));
             data.slug = (safeCandidate && safeCandidate !== "%20") ? safeCandidate : docSnap.id;
@@ -1026,11 +1002,6 @@ onAuthStateChanged(auth, async (user) => {
         applyMasterFilter(); 
         
         isAppReady.data = true; 
-        tryTransition();
-    }, (error) => {
-        console.error("Firestore Books Error:", error);
-        // Agar firestore block ho tab bhi user freeze na ho
-        isAppReady.data = true;
         tryTransition();
     });
 
@@ -1057,15 +1028,13 @@ onAuthStateChanged(auth, async (user) => {
                 blinkDot.style.display = 'block';
             }
 
-            const distanceFromBottom = chatBody ? (chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight) : 0;
+            const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
             
             if (distanceFromBottom > 120 && livePosts.length > prevCount) {
                 unreadPostsCount += (livePosts.length - prevCount);
-                if (unreadBadge) {
-                    unreadBadge.innerText = unreadPostsCount > 99 ? '99+' : unreadPostsCount;
-                    unreadBadge.classList.add('active');
-                }
-                if (scrollDownWrapper) scrollDownWrapper.classList.add('show');
+                unreadBadge.innerText = unreadPostsCount > 99 ? '99+' : unreadPostsCount;
+                unreadBadge.classList.add('active');
+                scrollDownWrapper.classList.add('show');
                 renderChannelFeed(livePosts, false);
             } else {
                 renderChannelFeed(livePosts, true);
@@ -1093,7 +1062,6 @@ document.getElementById('promptsContainer')?.addEventListener('click', (e) => {
 // ==========================================
 function closeLoginOverlayLocal() {
     const loginOverlay = document.getElementById('loginOverlay');
-    if (!loginOverlay) return;
     loginOverlay.style.opacity = '0';
     setTimeout(() => { 
         loginOverlay.style.display = 'none'; 
@@ -1104,11 +1072,10 @@ function closeLoginOverlayLocal() {
         }
     }, 500);
 }
-document.getElementById('closeLoginBtn')?.addEventListener('click', closeLoginOverlayLocal);
-document.getElementById('toggleEye')?.addEventListener('click', () => {
+document.getElementById('closeLoginBtn').addEventListener('click', closeLoginOverlayLocal);
+document.getElementById('toggleEye').addEventListener('click', () => {
     const passInput = document.getElementById('loginPassword'); 
     const eyeIcon = document.getElementById('toggleEye');
-    if (!passInput || !eyeIcon) return;
     if (passInput.type === 'password') { 
         passInput.type = 'text'; 
         eyeIcon.classList.replace('fa-eye', 'fa-eye-slash'); 
@@ -1120,7 +1087,7 @@ document.getElementById('toggleEye')?.addEventListener('click', () => {
     }
 });
 
-document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault(); 
     const email = document.getElementById('loginEmail').value; 
     const pass = document.getElementById('loginPassword').value;
@@ -1134,8 +1101,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
         btn.innerHTML = originalContent; 
         closeLoginOverlayLocal();
         if (isDeepLinkLoad && pendingBookSlug) {
-            const wrap = document.getElementById('mainAppWrapper');
-            if (wrap) wrap.style.display = 'block';
+            document.getElementById('mainAppWrapper').style.display = 'block';
             setTimeout(() => { openDownloadPageLocal(pendingBookSlug, true); }, 300);
         }
     } catch(err) { 
@@ -1144,7 +1110,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     } 
 });
 
-document.getElementById('googleSignInBtn')?.addEventListener('click', async () => { 
+document.getElementById('googleSignInBtn').addEventListener('click', async () => { 
     const btn = document.getElementById('googleSignInBtn');
     const originalContent = btn.innerHTML;
     btn.innerHTML = `<span style="display:flex; align-items:center; gap:8px;"><i class="fas fa-spinner fa-spin"></i> Connecting...</span>`;
@@ -1154,8 +1120,7 @@ document.getElementById('googleSignInBtn')?.addEventListener('click', async () =
         btn.innerHTML = originalContent; 
         closeLoginOverlayLocal();
         if (isDeepLinkLoad && pendingBookSlug) {
-            const wrap = document.getElementById('mainAppWrapper');
-            if (wrap) wrap.style.display = 'block';
+            document.getElementById('mainAppWrapper').style.display = 'block';
             setTimeout(() => { openDownloadPageLocal(pendingBookSlug, true); }, 300);
         }
     } catch(err) { 
@@ -1270,7 +1235,7 @@ function normalizeTextForSearch(str) {
 }
 
 function applyMasterFilter() {
-    const searchInputRaw = document.getElementById('app-search-input')?.value.trim() || '';
+    const searchInputRaw = document.getElementById('app-search-input').value.trim();
     const rawLower = searchInputRaw.toLowerCase();
     const cleanSearchNoSpaces = normalizeTextForSearch(searchInputRaw);
     const searchWords = rawLower.split(/\s+/).filter(w => w.length > 0);
@@ -1302,38 +1267,33 @@ function applyMasterFilter() {
     loadedCount = 0; 
     const infiniteLoader = document.getElementById('infinite-loader');
     if(mainFilteredData.length > 0) { 
-        const noMsg = document.getElementById('no-results-msg');
-        if (noMsg) noMsg.style.display = 'none'; 
+        document.getElementById('no-results-msg').style.display = 'none'; 
         if(infiniteLoader) infiniteLoader.style.display = mainFilteredData.length > getBatchSize() ? 'flex' : 'none';
         renderBooksUI(0, getBatchSize(), mainFilteredData); 
     } else { 
-        const bContainer = document.getElementById("bookContainer");
-        if (bContainer) bContainer.innerHTML = ""; 
-        const noMsg = document.getElementById('no-results-msg');
-        if (noMsg) noMsg.style.display = 'flex'; 
+        document.getElementById("bookContainer").innerHTML = ""; 
+        document.getElementById('no-results-msg').style.display = 'flex'; 
         if(infiniteLoader) infiniteLoader.style.display = 'none';
     }
 }
 
 const searchInputEl = document.getElementById('app-search-input'); 
 let searchTimeout;
-if (searchInputEl) {
-    searchInputEl.addEventListener('input', () => { 
-        clearTimeout(searchTimeout); 
-        searchTimeout = setTimeout(() => { applyMasterFilter(); }, 250); 
-    });
-}
-document.getElementById('close-search')?.addEventListener('click', () => { 
-    if (searchInputEl) searchInputEl.value = ''; 
+searchInputEl.addEventListener('input', () => { 
+    clearTimeout(searchTimeout); 
+    searchTimeout = setTimeout(() => { applyMasterFilter(); }, 250); 
+});
+document.getElementById('close-search').addEventListener('click', () => { 
+    searchInputEl.value = ''; 
     applyMasterFilter(); 
-    document.getElementById('search-box')?.classList.remove('active'); 
+    document.getElementById('search-box').classList.remove('active'); 
     if (history.state && history.state.popup === 'search') { history.back(); }
 });
-document.getElementById('openAuthorFilterBtn')?.addEventListener('click', () => { 
-    document.getElementById('filterBottomOverlay')?.classList.add('active'); 
+document.getElementById('openAuthorFilterBtn').addEventListener('click', () => { 
+    document.getElementById('filterBottomOverlay').classList.add('active'); 
 });
-document.getElementById('closeAuthorFilterBtn')?.addEventListener('click', () => { 
-    document.getElementById('filterBottomOverlay')?.classList.remove('active'); 
+document.getElementById('closeAuthorFilterBtn').addEventListener('click', () => { 
+    document.getElementById('filterBottomOverlay').classList.remove('active'); 
 });
 
 function getBatchSize() { 
@@ -1343,16 +1303,13 @@ function getBatchSize() {
 
 const infiniteScrollObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-        const noMsg = document.getElementById('no-results-msg');
-        if (entry.isIntersecting && loadedCount < mainFilteredData.length && !isLoadingMore && noMsg && noMsg.style.display !== 'flex') {
+        if (entry.isIntersecting && loadedCount < mainFilteredData.length && !isLoadingMore && document.getElementById('no-results-msg').style.display !== 'flex') {
             isLoadingMore = true; 
-            const infLd = document.getElementById('infinite-loader');
-            if(infLd) infLd.style.display = 'flex';
+            if(document.getElementById('infinite-loader')) document.getElementById('infinite-loader').style.display = 'flex';
             setTimeout(() => {
                 renderBooksUI(loadedCount, getBatchSize(), mainFilteredData);
-                const infLd2 = document.getElementById('infinite-loader');
-                if (loadedCount >= mainFilteredData.length && infLd2) {
-                    infLd2.style.display = 'none'; 
+                if (loadedCount >= mainFilteredData.length && document.getElementById('infinite-loader')) {
+                    document.getElementById('infinite-loader').style.display = 'none'; 
                 }
                 isLoadingMore = false;
             }, 500);
@@ -1364,7 +1321,6 @@ if (document.getElementById('scroll-sentinel')) infiniteScrollObserver.observe(d
 
 function renderBooksUI(startIndex, count, customData = null) {
     const container = document.getElementById("bookContainer");
-    if (!container) return;
     let dataToRender = customData ? customData : mainFilteredData;
     let endIndex = Math.min(startIndex + count, dataToRender.length);
     if(startIndex === 0) container.innerHTML = "";
@@ -1383,7 +1339,7 @@ function renderBooksUI(startIndex, count, customData = null) {
     loadedCount = endIndex;
 }
 
-document.getElementById('bookContainer')?.addEventListener('click', (e) => {
+document.getElementById('bookContainer').addEventListener('click', (e) => {
     const card = e.target.closest('.book-card');
     if(card) {
         const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
@@ -1404,14 +1360,13 @@ function toggleBookmarkLocal(iconElement, slug) {
     }
     localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
     syncAndSanitizeBookmarks();
-    if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
+    if(document.getElementById('bookmarks-panel').classList.contains('active')) renderSavedBooksUI(); 
 }
 
 function renderSavedBooksUI() {
     syncAndSanitizeBookmarks();
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
-    if (!container || !noMsg) return;
     const savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
     
     if (savedBooksData.length === 0) { 
@@ -1430,7 +1385,7 @@ function renderSavedBooksUI() {
     container.innerHTML = htmlChunk;
 }
 
-document.getElementById('savedBooksContainer')?.addEventListener('click', (e) => {
+document.getElementById('savedBooksContainer').addEventListener('click', (e) => {
     const card = e.target.closest('.book-card');
     if(card) {
         const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
@@ -1443,15 +1398,15 @@ document.getElementById('savedBooksContainer')?.addEventListener('click', (e) =>
 // ==========================================
 // NAVIGATION & MODALS
 // ==========================================
-document.getElementById('open-search')?.addEventListener('click', () => { 
+document.getElementById('open-search').addEventListener('click', () => { 
     history.pushState({ popup: 'search' }, ''); 
-    document.getElementById('search-box')?.classList.add('active'); 
-    setTimeout(() => { searchInputEl?.focus(); }, 300); 
+    document.getElementById('search-box').classList.add('active'); 
+    setTimeout(() => { searchInputEl.focus(); }, 300); 
 });
 
-document.getElementById('open-noti')?.addEventListener('click', () => { 
+document.getElementById('open-noti').addEventListener('click', () => { 
     history.pushState({ popup: 'noti' }, ''); 
-    document.getElementById('noti-panel')?.classList.add('active'); 
+    document.getElementById('noti-panel').classList.add('active'); 
     
     const blinkDot = document.querySelector('.blink-dot');
     if (blinkDot) blinkDot.style.display = 'none'; 
@@ -1468,38 +1423,38 @@ if (closeNotiBtn) {
         if (history.state && history.state.popup === 'noti') {
             history.back();
         } else {
-            document.getElementById('noti-panel')?.classList.remove('active');
+            document.getElementById('noti-panel').classList.remove('active');
         }
     });
 }
 
 const sidebar = document.getElementById('sidebar'); 
 const sidebarOverlay = document.getElementById('sidebar-overlay');
-document.getElementById('open-menu')?.addEventListener('click', () => { 
+document.getElementById('open-menu').addEventListener('click', () => { 
     history.pushState({ popup: 'sidebar' }, ''); 
-    sidebar?.classList.add('active'); 
-    sidebarOverlay?.classList.add('active'); 
+    sidebar.classList.add('active'); 
+    sidebarOverlay.classList.add('active'); 
 });
-sidebarOverlay?.addEventListener('click', () => { history.back(); });
+sidebarOverlay.addEventListener('click', () => { history.back(); });
 
-document.getElementById('menu-dmca')?.addEventListener('click', (e) => { 
+document.getElementById('menu-dmca').addEventListener('click', (e) => { 
     e.preventDefault(); 
     history.pushState({ popup: 'dmca' }, ''); 
-    document.getElementById('dmca-panel')?.classList.add('active'); 
-    sidebar?.classList.remove('active'); 
-    sidebarOverlay?.classList.remove('active'); 
+    document.getElementById('dmca-panel').classList.add('active'); 
+    sidebar.classList.remove('active'); 
+    sidebarOverlay.classList.remove('active'); 
 });
-document.getElementById('close-dmca-btn')?.addEventListener('click', () => { history.back(); });
+document.getElementById('close-dmca-btn').addEventListener('click', () => { history.back(); });
 
-document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => { 
+document.getElementById('menu-bookmarks').addEventListener('click', (e) => { 
     e.preventDefault(); 
     history.pushState({ popup: 'bookmarks' }, ''); 
-    document.getElementById('bookmarks-panel')?.classList.add('active'); 
-    sidebar?.classList.remove('active'); 
-    sidebarOverlay?.classList.remove('active'); 
+    document.getElementById('bookmarks-panel').classList.add('active'); 
+    sidebar.classList.remove('active'); 
+    sidebarOverlay.classList.remove('active'); 
     renderSavedBooksUI(); 
 });
-document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => { history.back(); });
+document.getElementById('close-bookmarks-btn').addEventListener('click', () => { history.back(); });
 
 function switchTab(tabId) { 
     document.querySelectorAll('.app-tab').forEach(tab => { 
@@ -1515,24 +1470,23 @@ function switchTab(tabId) {
 
 function setNavActive(id) { 
     document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active')); 
-    document.getElementById(id)?.classList.add('active'); 
+    document.getElementById(id).classList.add('active'); 
 }
 
 function closeAllPanels() { 
-    document.getElementById('noti-panel')?.classList.remove('active'); 
-    document.getElementById('sidebar')?.classList.remove('active'); 
-    document.getElementById('sidebar-overlay')?.classList.remove('active'); 
-    document.getElementById('dmca-panel')?.classList.remove('active'); 
-    document.getElementById('bookmarks-panel')?.classList.remove('active'); 
-    document.getElementById('search-box')?.classList.remove('active'); 
+    document.getElementById('noti-panel').classList.remove('active'); 
+    document.getElementById('sidebar').classList.remove('active'); 
+    document.getElementById('sidebar-overlay').classList.remove('active'); 
+    document.getElementById('dmca-panel').classList.remove('active'); 
+    document.getElementById('bookmarks-panel').classList.remove('active'); 
+    document.getElementById('search-box').classList.remove('active'); 
 }
 
 window.updateHeaderForTab = function(tab) {
     const headerEl = document.getElementById('main-header');
     const titleEl = document.getElementById('dynamic-header-title');
     const iconsEl = document.getElementById('dynamic-header-icons');
-    if (!headerEl || !titleEl || !iconsEl) return;
-
+    
     if(tab === 'home') {
         headerEl.style.display = 'flex';
         titleEl.innerText = 'SPIDY BOOK HUB';
@@ -1546,7 +1500,7 @@ window.updateHeaderForTab = function(tab) {
     }
 };
 
-document.getElementById('nav-home')?.addEventListener('click', () => { 
+document.getElementById('nav-home').addEventListener('click', () => { 
     setNavActive('nav-home'); 
     closeAllPanels(); 
     switchTab('tab-home'); 
@@ -1554,13 +1508,10 @@ document.getElementById('nav-home')?.addEventListener('click', () => {
     window.history.replaceState({}, '', window.location.pathname); 
 });
 
-document.getElementById('nav-upload')?.addEventListener('click', () => {
+document.getElementById('nav-upload').addEventListener('click', () => {
     if(!isUserLoggedIn) { 
-        const logOl = document.getElementById('loginOverlay');
-        if (logOl) {
-            logOl.style.display = 'flex'; 
-            setTimeout(() => logOl.style.opacity = '1', 10); 
-        }
+        document.getElementById('loginOverlay').style.display = 'flex'; 
+        setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10); 
         setNavActive('nav-home'); 
         return; 
     }
@@ -1574,13 +1525,10 @@ document.getElementById('nav-upload')?.addEventListener('click', () => {
     }, 300);
 });
 
-document.getElementById('nav-dev')?.addEventListener('click', () => { 
+document.getElementById('nav-dev').addEventListener('click', () => { 
     if(!isUserLoggedIn) {
-        const logOl = document.getElementById('loginOverlay');
-        if (logOl) {
-            logOl.style.display = 'flex';
-            setTimeout(() => logOl.style.opacity = '1', 10);
-        }
+        document.getElementById('loginOverlay').style.display = 'flex';
+        setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10);
         return;
     }
     setNavActive('nav-dev'); 
@@ -1597,12 +1545,9 @@ window.addEventListener('popstate', () => {
     const sBook = new URLSearchParams(window.location.search).get('book');
     if(sBook) { openDownloadPageLocal(sBook, true); } 
     else { 
-        const dlModal = document.getElementById("downloadModal");
-        if (dlModal) dlModal.style.display = "none";
-        const pdfViewer = document.getElementById("pdfViewerOverlay");
-        if (pdfViewer) pdfViewer.style.display = "none";
-        const pdfContainer = document.getElementById('pdfScrollContainer');
-        if (pdfContainer) pdfContainer.innerHTML = '';
+        document.getElementById("downloadModal").style.display = "none";
+        document.getElementById("pdfViewerOverlay").style.display = "none";
+        document.getElementById('pdfScrollContainer').innerHTML = '';
         cleanupPdfResources();
     }
 });
@@ -1630,12 +1575,10 @@ function cleanupPdfResources() {
 }
 
 // =========================================================================
-// 4. ROBUST VIRTUALIZED PDF VIEWER + ACCURATE HIGHLIGHTING + ZOOM & PAN
+// 4. ROBUST VIRTUALIZED PDF VIEWER + ACCURATE HIGHLIGHTING + ZOOM
 // =========================================================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
-    if (!scrollContainer) return;
-
     scrollContainer.innerHTML = `
         <div id="pdfLoadingStatus" style="color: #38bdf8; margin-top: 50px; font-size: 15px; font-weight: 600; text-align: center;">
             <i class="fas fa-spinner fa-spin" style="font-size: 26px; margin-bottom: 12px; display: block;"></i>
@@ -1656,10 +1599,8 @@ async function renderPdfInModal(pdfUrl) {
         pdfTotalPagesCount = pdf.numPages;
         scrollContainer.innerHTML = '';
 
-        const curPageNumEl = document.getElementById('pdfCurrentPageNum');
-        if (curPageNumEl) curPageNumEl.innerText = `1`;
-        const goToRangeEl = document.getElementById('goToPageRange');
-        if (goToRangeEl) goToRangeEl.innerText = `1 - ${pdfTotalPagesCount}`;
+        document.getElementById('pdfCurrentPageNum').innerText = `1`;
+        document.getElementById('goToPageRange').innerText = `1 - ${pdfTotalPagesCount}`;
 
         const screenWidth = window.innerWidth;
         const targetCssWidth = Math.min(screenWidth - 20, 720);
@@ -1707,7 +1648,7 @@ async function renderPdfInModal(pdfUrl) {
         })();
 
         initPdfScrollTracker();
-        initPinchToZoomAndPan();
+        initPinchToZoom();
 
         const savedPage = localStorage.getItem(`last_read_${activeBookSlug}`);
         if (savedPage) {
@@ -1784,7 +1725,7 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
             transform: [pixelRatio, 0, 0, pixelRatio, 0, 0]
         }).promise;
 
-        // 2. Interactive TextLayer
+        // 2. Interactive TextLayer (Accurate Character Mapping)
         const textContent = await page.getTextContent();
         const textLayerDiv = document.createElement('div');
         textLayerDiv.className = 'textLayer';
@@ -1801,7 +1742,7 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
             }).promise;
         }
 
-        // Apply active search highlights immediately
+        // Apply active search highlights immediately after text render
         if (activeSearchKeyword) {
             highlightMatchesInPage(textLayerDiv, activeSearchKeyword);
         }
@@ -1821,78 +1762,51 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// 2D PINCH-TO-ZOOM AND MULTI-AXIS PAN ENGINE
-function initPinchToZoomAndPan() {
+// TOUCH PINCH-TO-ZOOM CONTROLLER
+function initPinchToZoom() {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
     if (!container || !scroller) return;
 
-    let scale = 1;
-    let panX = 0;
-    let panY = 0;
-    let startDist = 0;
-    let startPanX = 0;
-    let startPanY = 0;
-    let lastTapTime = 0;
-
-    function applyTransform() {
-        scroller.style.transform = `translate3d(${panX}px, ${panY}px, 0px) scale(${scale})`;
-    }
+    let currentScale = 1;
+    let initialDistance = 0;
+    let lastTap = 0;
 
     container.addEventListener('touchstart', (e) => {
         const now = Date.now();
-
-        // Double-Tap to Reset to 1x
-        if (e.touches.length === 1 && (now - lastTapTime) < 300) {
-            scale = 1;
-            panX = 0;
-            panY = 0;
-            applyTransform();
+        // Double-Tap to Reset
+        if (e.touches.length === 1 && (now - lastTap) < 300) {
+            currentScale = 1;
+            scroller.style.transform = `scale(1)`;
             return;
         }
-        lastTapTime = now;
+        lastTap = now;
 
-        // Two-Finger Pinch Detect
         if (e.touches.length === 2) {
-            startDist = Math.hypot(
+            initialDistance = Math.hypot(
                 e.touches[0].pageX - e.touches[1].pageX,
                 e.touches[0].pageY - e.touches[1].pageY
             );
-        } else if (e.touches.length === 1 && scale > 1) {
-            startPanX = e.touches[0].pageX - panX;
-            startPanY = e.touches[0].pageY - panY;
         }
     }, { passive: true });
 
     container.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && startDist > 0) {
-            const currentDist = Math.hypot(
+        if (e.touches.length === 2 && initialDistance > 0) {
+            const currentDistance = Math.hypot(
                 e.touches[0].pageX - e.touches[1].pageX,
                 e.touches[0].pageY - e.touches[1].pageY
             );
-            const factor = currentDist / startDist;
-            scale = Math.min(Math.max(scale * factor, 1), 3.5);
-            startDist = currentDist;
-            applyTransform();
-        } else if (e.touches.length === 1 && scale > 1) {
-            panX = e.touches[0].pageX - startPanX;
-            panY = e.touches[0].pageY - startPanY;
-
-            const maxPanX = (container.clientWidth * (scale - 1)) / 2 + 100;
-            panX = Math.min(Math.max(panX, -maxPanX), maxPanX);
-
-            applyTransform();
+            const factor = currentDistance / initialDistance;
+            let newScale = Math.min(Math.max(currentScale * factor, 1), 3.5);
+            scroller.style.transform = `scale(${newScale})`;
         }
     }, { passive: true });
 
     container.addEventListener('touchend', (e) => {
-        if (e.touches.length < 2) {
-            startDist = 0;
-        }
-        if (scale <= 1) {
-            panX = 0;
-            panY = 0;
-            applyTransform();
+        if (e.touches.length < 2 && initialDistance !== 0) {
+            const match = scroller.style.transform.match(/scale\(([^)]+)\)/);
+            if (match) currentScale = parseFloat(match[1]);
+            initialDistance = 0;
         }
     });
 }
@@ -1901,7 +1815,6 @@ function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
     const badgeWrap = document.getElementById('pdfPageBadge');
-    if (!container || !badge || !badgeWrap) return;
 
     container.addEventListener('scroll', () => {
         const wrappers = container.querySelectorAll('.pdf-page-wrapper');
@@ -1939,35 +1852,32 @@ const cancelGoToPageBtn = document.getElementById('cancelGoToPageBtn');
 const confirmGoToPageBtn = document.getElementById('confirmGoToPageBtn');
 const goToPageInput = document.getElementById('goToPageInput');
 
-pdfPageBadge?.addEventListener('click', () => {
-    if (goToPageInput && goToPageModal) {
-        goToPageInput.value = '';
-        goToPageModal.style.display = 'flex';
-        goToPageInput.focus();
-    }
+pdfPageBadge.addEventListener('click', () => {
+    goToPageInput.value = '';
+    goToPageModal.style.display = 'flex';
+    goToPageInput.focus();
 });
 
-cancelGoToPageBtn?.addEventListener('click', () => {
-    if (goToPageModal) goToPageModal.style.display = 'none';
+cancelGoToPageBtn.addEventListener('click', () => {
+    goToPageModal.style.display = 'none';
 });
 
-goToPageModal?.addEventListener('click', (e) => {
+goToPageModal.addEventListener('click', (e) => {
     if (e.target === goToPageModal) goToPageModal.style.display = 'none';
 });
 
-confirmGoToPageBtn?.addEventListener('click', () => {
+confirmGoToPageBtn.addEventListener('click', () => {
     executeGoToPage();
 });
 
-goToPageInput?.addEventListener('keydown', (e) => {
+goToPageInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') executeGoToPage();
 });
 
 function executeGoToPage() {
-    if (!goToPageInput) return;
     const val = parseInt(goToPageInput.value.trim(), 10);
     if (!isNaN(val) && val >= 1 && val <= pdfTotalPagesCount) {
-        if (goToPageModal) goToPageModal.style.display = 'none';
+        goToPageModal.style.display = 'none';
         jumpToPdfPage(val);
     } else {
         showToast(`Please enter a page between 1 and ${pdfTotalPagesCount}`, "error");
@@ -1978,15 +1888,13 @@ async function jumpToPdfPage(pageNum) {
     let targetWrapper = document.getElementById(`page_wrapper_${pageNum}`);
     if (targetWrapper) {
         targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        const curEl = document.getElementById('pdfCurrentPageNum');
-        if (curEl) curEl.innerText = pageNum.toString();
+        document.getElementById('pdfCurrentPageNum').innerText = pageNum.toString();
         
-        const badgeWrap = document.getElementById('pdfPageBadge');
-        if (pdfTotalPagesCount > 1 && badgeWrap) {
+        if (pdfTotalPagesCount > 1 && pdfPageBadge) {
             const isSearchBarOpen = document.getElementById('pdfSearchBar')?.style.display === 'flex';
-            const baseTop = isSearchBarOpen ? 20 : 14; 
+            const baseTop = isSearchBarOpen ? 20 : 14;
             const pageRatio = (pageNum - 1) / (pdfTotalPagesCount - 1);
-            badgeWrap.style.top = `${baseTop + (pageRatio * 68)}%`;
+            pdfPageBadge.style.top = `${baseTop + (pageRatio * 68)}%`;
         }
     }
 }
@@ -2000,34 +1908,30 @@ const pdfSearchCount = document.getElementById('pdfSearchCount');
 const pdfSearchNextBtn = document.getElementById('pdfSearchNextBtn');
 const pdfSearchPrevBtn = document.getElementById('pdfSearchPrevBtn');
 
-pdfSearchToggleBtn?.addEventListener('click', () => {
-    if (!pdfSearchBar) return;
+pdfSearchToggleBtn.addEventListener('click', () => {
     if (pdfSearchBar.style.display === 'flex') {
         pdfSearchBar.style.display = 'none';
-        const pBadge = document.getElementById('pdfPageBadge');
-        if (pBadge) pBadge.style.top = '14%';
+        if (pdfPageBadge) pdfPageBadge.style.top = '14%';
     } else {
         pdfSearchBar.style.display = 'flex';
-        const pBadge = document.getElementById('pdfPageBadge');
-        if (pBadge) pBadge.style.top = '20%';
-        pdfSearchInput?.focus();
+        if (pdfPageBadge) pdfPageBadge.style.top = '20%';
+        pdfSearchInput.focus();
     }
 });
 
-pdfSearchCloseBtn?.addEventListener('click', () => {
-    if (pdfSearchBar) pdfSearchBar.style.display = 'none';
-    if (pdfSearchInput) pdfSearchInput.value = '';
+pdfSearchCloseBtn.addEventListener('click', () => {
+    pdfSearchBar.style.display = 'none';
+    pdfSearchInput.value = '';
     searchMatches = [];
     currentSearchMatchIndex = -1;
     activeSearchKeyword = "";
-    if (pdfSearchCount) pdfSearchCount.innerText = '0/0';
+    pdfSearchCount.innerText = '0/0';
     clearAllHighlights();
-    const pBadge = document.getElementById('pdfPageBadge');
-    if (pBadge) pBadge.style.top = '14%';
+    if (pdfPageBadge) pdfPageBadge.style.top = '14%';
 });
 
 let pdfSearchTimer;
-pdfSearchInput?.addEventListener('input', () => {
+pdfSearchInput.addEventListener('input', () => {
     clearTimeout(pdfSearchTimer);
     pdfSearchTimer = setTimeout(() => {
         executePdfTextSearch(pdfSearchInput.value.trim());
@@ -2061,7 +1965,7 @@ async function executePdfTextSearch(query) {
     activeSearchKeyword = query;
 
     if (!query || query.length < 1 || !currentPdfDocument) {
-        if (pdfSearchCount) pdfSearchCount.innerText = '0/0';
+        pdfSearchCount.innerText = '0/0';
         return;
     }
 
@@ -2080,31 +1984,31 @@ async function executePdfTextSearch(query) {
         }
     }
 
-    // Highlight all currently mounted pages
+    // Highlight all visible text layers immediately
     document.querySelectorAll('.textLayer').forEach(layer => {
         highlightMatchesInPage(layer, query);
     });
 
     if (searchMatches.length > 0) {
         currentSearchMatchIndex = 0;
-        if (pdfSearchCount) pdfSearchCount.innerText = `1/${searchMatches.length}`;
+        pdfSearchCount.innerText = `1/${searchMatches.length}`;
         jumpToPdfPage(searchMatches[0]);
     } else {
-        if (pdfSearchCount) pdfSearchCount.innerText = '0/0';
+        pdfSearchCount.innerText = '0/0';
     }
 }
 
-pdfSearchNextBtn?.addEventListener('click', () => {
+pdfSearchNextBtn.addEventListener('click', () => {
     if (searchMatches.length === 0) return;
     currentSearchMatchIndex = (currentSearchMatchIndex + 1) % searchMatches.length;
-    if (pdfSearchCount) pdfSearchCount.innerText = `${currentSearchMatchIndex + 1}/${searchMatches.length}`;
+    pdfSearchCount.innerText = `${currentSearchMatchIndex + 1}/${searchMatches.length}`;
     jumpToPdfPage(searchMatches[currentSearchMatchIndex]);
 });
 
-pdfSearchPrevBtn?.addEventListener('click', () => {
+pdfSearchPrevBtn.addEventListener('click', () => {
     if (searchMatches.length === 0) return;
     currentSearchMatchIndex = (currentSearchMatchIndex - 1 + searchMatches.length) % searchMatches.length;
-    if (pdfSearchCount) pdfSearchCount.innerText = `${currentSearchMatchIndex + 1}/${searchMatches.length}`;
+    pdfSearchCount.innerText = `${currentSearchMatchIndex + 1}/${searchMatches.length}`;
     jumpToPdfPage(searchMatches[currentSearchMatchIndex]);
 });
 
@@ -2113,41 +2017,31 @@ pdfSearchPrevBtn?.addEventListener('click', () => {
 // ==========================================
 const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
 if (detectTokenFromUrl) {
-    const tIn = document.getElementById('tokenInput');
-    if (tIn) tIn.value = detectTokenFromUrl;
+    document.getElementById('tokenInput').value = detectTokenFromUrl;
     window.history.replaceState({}, document.title, window.location.pathname);
-    const tModal = document.getElementById('tokenModalOverlay');
-    if (tModal) tModal.style.display = 'flex';
+    document.getElementById('tokenModalOverlay').style.display = 'flex';
     initParticles('particles');
 }
 
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
-        const logOl = document.getElementById('loginOverlay');
-        if (logOl) {
-            logOl.style.display = 'flex'; 
-            setTimeout(() => logOl.style.opacity = '1', 10); 
-        }
+        document.getElementById('loginOverlay').style.display = 'flex'; 
+        setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10); 
         return;
     }
     const book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
     if(!book) return;
     
-    const dlModal = document.getElementById("downloadModal");
-    if (dlModal) dlModal.style.display = "flex";
+    document.getElementById("downloadModal").style.display = "flex";
     
     const previewImg = document.getElementById("dlPreviewImage");
-    if (previewImg) {
-        previewImg.classList.add("image-loading-skeleton"); 
-        previewImg.src = getSecureAssetUrl(book.image); 
-        previewImg.onerror = () => { previewImg.src = DEFAULT_AVATAR; };
-        previewImg.onload = () => { previewImg.classList.remove("image-loading-skeleton"); };
-    }
+    previewImg.classList.add("image-loading-skeleton"); 
+    previewImg.src = getSecureAssetUrl(book.image); 
+    previewImg.onerror = () => { previewImg.src = DEFAULT_AVATAR; };
+    previewImg.onload = () => { previewImg.classList.remove("image-loading-skeleton"); };
 
-    const titleEl = document.getElementById("dlBookTitle");
-    if (titleEl) titleEl.innerText = sanitizeHTML(book.title); 
-    const authorEl = document.getElementById("dlBookAuthor");
-    if (authorEl) authorEl.innerText = sanitizeHTML(book.author);
+    document.getElementById("dlBookTitle").innerText = sanitizeHTML(book.title); 
+    document.getElementById("dlBookAuthor").innerText = sanitizeHTML(book.author);
 
     const fileSizeSub = document.getElementById('dlFileSize');
     if (fileSizeSub) {
@@ -2162,130 +2056,114 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     }
     
     const dlPdfBtn = document.getElementById("dlPdfLinkBtn");
-    if (dlPdfBtn) {
-        dlPdfBtn.style.pointerEvents = "auto"; 
-        dlPdfBtn.onclick = function(e) { e.preventDefault(); };
-    }
+    dlPdfBtn.style.pointerEvents = "auto"; 
+    dlPdfBtn.onclick = function(e) { 
+        e.preventDefault(); 
+    };
 
-    const readBtn = document.getElementById("dlReadOnlineBtn");
-    if (readBtn) {
-        readBtn.onclick = async function() {
-            if(!isUserLoggedIn || !auth.currentUser) { 
-                const logOl = document.getElementById('loginOverlay');
-                if (logOl) {
-                    logOl.style.display = 'flex'; 
-                    setTimeout(() => logOl.style.opacity = '1', 10); 
-                }
-                return; 
-            }
-            
-            const btn = document.getElementById("dlReadOnlineBtn"); 
-            const originalText = btn.innerHTML; 
+    document.getElementById("dlReadOnlineBtn").onclick = async function() {
+        if(!isUserLoggedIn || !auth.currentUser) { 
+            document.getElementById('loginOverlay').style.display = 'flex'; 
+            setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10); 
+            return; 
+        }
+        
+        const btn = document.getElementById("dlReadOnlineBtn"); 
+        const originalText = btn.innerHTML; 
 
-            const savedData = localStorage.getItem('spidy_secure_session');
-            let hasValidToken = false;
+        const savedData = localStorage.getItem('spidy_secure_session');
+        let hasValidToken = false;
 
-            if (savedData) {
-                try {
-                    const parsed = JSON.parse(savedData);
-                    if (parsed.fp === generateDeviceFingerprint() && parsed.expiry > Date.now()) {
-                        hasValidToken = true;
-                    }
-                } catch(e) {}
-            }
-
-            if(!hasValidToken && !IS_SUPER_ADMIN) {
-                 const tModal = document.getElementById('tokenModalOverlay');
-                 if (tModal) tModal.style.display = 'flex';
-                 initParticles('particles');
-                 return; 
-            }
-            
-            btn.innerHTML = `
-                <svg width="18" height="18" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff" style="display:inline-block; vertical-align:middle; margin-right:6px;">
-                    <g fill="none" fill-rule="evenodd">
-                        <g transform="translate(1 1)" stroke-width="3">
-                            <circle stroke-opacity=".2" cx="18" cy="18" r="18"/>
-                            <path d="M36 18c0-9.94-8.06-18-18-18">
-                                <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="0.8s" repeatCount="indefinite"/>
-                            </path>
-                        </g>
-                    </g>
-                </svg>
-                Ready..
-            `; 
-            btn.disabled = true;
-
+        if (savedData) {
             try {
-                const userToken = await auth.currentUser.getIdToken(false);
+                const parsed = JSON.parse(savedData);
+                if (parsed.fp === generateDeviceFingerprint() && parsed.expiry > Date.now()) {
+                    hasValidToken = true;
+                }
+            } catch(e) {}
+        }
 
-                const response = await fetch('/api/get-book', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        bookId: book.id, 
-                        bookSlug: book.slug || book.id, 
-                        userToken: userToken 
-                    })
-                });
+        if(!hasValidToken && !IS_SUPER_ADMIN) {
+             document.getElementById('tokenModalOverlay').style.display = 'flex';
+             initParticles('particles');
+             return; 
+        }
+        
+        btn.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg" stroke="#ffffff" style="display:inline-block; vertical-align:middle; margin-right:6px;">
+                <g fill="none" fill-rule="evenodd">
+                    <g transform="translate(1 1)" stroke-width="3">
+                        <circle stroke-opacity=".2" cx="18" cy="18" r="18"/>
+                        <path d="M36 18c0-9.94-8.06-18-18-18">
+                            <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="0.8s" repeatCount="indefinite"/>
+                        </path>
+                    </g>
+                </g>
+            </svg>
+            Ready..
+        `; 
+        btn.disabled = true;
 
-                const data = await response.json();
+        try {
+            const userToken = await auth.currentUser.getIdToken(false);
 
-                if (response.ok && data.success) {
-                    if (typeof data.remainingCredits !== 'undefined') {
-                        updateLiveCredits(data.remainingCredits);
-                    }
+            const response = await fetch('/api/get-book', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    bookId: book.id, 
+                    bookSlug: book.slug || book.id, 
+                    userToken: userToken 
+                })
+            });
 
-                    syncProfileAndRankUI();
+            const data = await response.json();
 
-                    const pdfViewer = document.getElementById('pdfViewerOverlay');
-                    const title = document.getElementById('pdfViewerTitle');
-                    
-                    if (title) title.innerText = sanitizeHTML(book.title);
-                    if (pdfViewer) pdfViewer.style.display = 'flex';
-                    
-                    renderPdfInModal(data.pdfLink);
-
-                } else {
-                    if (response.status === 401 || (data.error && data.error.includes('Unauthorized'))) {
-                        localStorage.removeItem('spidy_secure_session');
-                        const tModal = document.getElementById('tokenModalOverlay');
-                        if (tModal) tModal.style.display = 'flex';
-                        initParticles('particles');
-                    } else {
-                        showToast(data.error || "Aapka 24 ghante ka limit paar ho gaya hai!", "error");
-                    }
+            if (response.ok && data.success) {
+                if (typeof data.remainingCredits !== 'undefined') {
+                    updateLiveCredits(data.remainingCredits);
                 }
 
-                btn.innerHTML = originalText; 
-                btn.disabled = false;
+                syncProfileAndRankUI();
 
-            } catch (error) { 
-                showToast("Network Error: Could not load the book.", "error"); 
-                btn.innerHTML = originalText; 
-                btn.disabled = false; 
+                const pdfViewer = document.getElementById('pdfViewerOverlay');
+                const title = document.getElementById('pdfViewerTitle');
+                
+                title.innerText = sanitizeHTML(book.title);
+                pdfViewer.style.display = 'flex';
+                
+                renderPdfInModal(data.pdfLink);
+
+            } else {
+                if (response.status === 401 || (data.error && data.error.includes('Unauthorized'))) {
+                    localStorage.removeItem('spidy_secure_session');
+                    document.getElementById('tokenModalOverlay').style.display = 'flex';
+                    initParticles('particles');
+                } else {
+                    showToast(data.error || "Aapka 24 ghante ka limit paar ho gaya hai!", "error");
+                }
             }
-        };
-    }
 
-    const closeViewerBtn = document.getElementById("closePdfViewerBtn");
-    if (closeViewerBtn) {
-        closeViewerBtn.onclick = function() {
-            const vOverlay = document.getElementById('pdfViewerOverlay');
-            if (vOverlay) vOverlay.style.display = 'none';
-            const sContainer = document.getElementById('pdfScrollContainer');
-            if (sContainer) sContainer.innerHTML = ''; 
-            cleanupPdfResources();
-        };
-    }
+            btn.innerHTML = originalText; 
+            btn.disabled = false;
 
-    document.getElementById("pdfContainer")?.addEventListener('contextmenu', event => event.preventDefault());
+        } catch (error) { 
+            showToast("Network Error: Could not load the book.", "error"); 
+            btn.innerHTML = originalText; 
+            btn.disabled = false; 
+        }
+    };
+
+    document.getElementById("closePdfViewerBtn").onclick = function() {
+        document.getElementById('pdfViewerOverlay').style.display = 'none';
+        document.getElementById('pdfScrollContainer').innerHTML = ''; 
+        cleanupPdfResources();
+    };
+
+    document.getElementById("pdfContainer").addEventListener('contextmenu', event => event.preventDefault());
 
     let examsArray = (book.exams || "General").split(',').map(item => sanitizeHTML(item.trim()));
-    const dlModalTags = document.getElementById("dlModalTags");
-    if (dlModalTags) {
-        dlModalTags.innerHTML = examsArray.map(exam => `<div class="dl-modal-tag">${exam}</div>`).join('');
-    }
+    document.getElementById("dlModalTags").innerHTML = examsArray.map(exam => `<div class="dl-modal-tag">${exam}</div>`).join('');
     
     activeBookSlug = book.slug || book.id; 
     activeBookId = book.id;
@@ -2296,34 +2174,31 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     }
 }
 
-document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
+document.getElementById('closeDlBtn').addEventListener('click', closeDownloadPageLocal);
 function closeDownloadPageLocal() {
     if (history.state && history.state.popup === 'book') { 
         history.back(); 
     } else { 
-        const dlModal = document.getElementById("downloadModal");
-        if (dlModal) dlModal.style.display = "none"; 
+        document.getElementById("downloadModal").style.display = "none"; 
         window.history.replaceState({}, '', window.location.pathname); 
     }
     if(isDeepLinkLoad) {
         isDeepLinkLoad = false; 
         const loader = document.getElementById("loaderScreen"); 
-        if (loader) {
-            loader.style.display = "flex"; 
-            loader.style.opacity = "1"; 
-            updateLoaderUI(100);
+        loader.style.display = "flex"; 
+        loader.style.opacity = "1"; 
+        updateLoaderUI(100);
+        setTimeout(() => { 
+            loader.style.opacity = "0"; 
             setTimeout(() => { 
-                loader.style.opacity = "0"; 
-                setTimeout(() => { 
-                    loader.style.display = "none"; 
-                    initPremiumPopups(); 
-                }, 300); 
-            }, 1500); 
-        }
+                loader.style.display = "none"; 
+                initPremiumPopups(); 
+            }, 300); 
+        }, 1500); 
     }
 }
 
-document.getElementById('shareBookBtn')?.addEventListener('click', () => {
+document.getElementById('shareBookBtn').addEventListener('click', () => {
     const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
     if (navigator.share) {
         navigator.share({ title: activeBookTitle, text: "Read this book online", url: shareUrl });
@@ -2334,19 +2209,19 @@ document.getElementById('shareBookBtn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// REPORT ISSUE MODAL (RED PILL TOAST)
+// REPORT ISSUE MODAL
 // ==========================================
-document.getElementById('reportLinkBtn')?.addEventListener('click', () => {
-    document.getElementById('reportModalOverlay')?.classList.add('active');
+document.getElementById('reportLinkBtn').addEventListener('click', () => {
+    document.getElementById('reportModalOverlay').classList.add('active');
 });
 
-document.getElementById('closeReportBtn')?.addEventListener('click', () => {
-    document.getElementById('reportModalOverlay')?.classList.remove('active');
+document.getElementById('closeReportBtn').addEventListener('click', () => {
+    document.getElementById('reportModalOverlay').classList.remove('active');
 });
 
-document.getElementById('reportModalOverlay')?.addEventListener('click', (e) => {
+document.getElementById('reportModalOverlay').addEventListener('click', (e) => {
     if (e.target === document.getElementById('reportModalOverlay')) {
-        document.getElementById('reportModalOverlay')?.classList.remove('active');
+        document.getElementById('reportModalOverlay').classList.remove('active');
     }
 });
 
@@ -2357,11 +2232,11 @@ reportOptions.forEach(opt => {
     opt.addEventListener('click', () => {
         reportOptions.forEach(o => o.classList.remove('selected'));
         opt.classList.add('selected');
-        submitReportBtn?.classList.add('enabled');
+        submitReportBtn.classList.add('enabled');
     });
 });
 
-submitReportBtn?.addEventListener('click', async () => {
+submitReportBtn.addEventListener('click', async () => {
     const selectedOption = document.querySelector('.rm-option.selected');
     if (selectedOption) {
         const issueType = selectedOption.querySelector('span').innerText;
@@ -2379,31 +2254,34 @@ submitReportBtn?.addEventListener('click', async () => {
             console.error("Failed to send report:", error);
         }
 
-        showToast("Issue Reported! Team will review.", "error");
-
-        document.getElementById('reportModalOverlay')?.classList.remove('active');
+        submitReportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Successfully Reported';
+        submitReportBtn.style.background = '#10b981';
+        
         setTimeout(() => {
-            submitReportBtn?.classList.remove('enabled');
-            reportOptions.forEach(o => o.classList.remove('selected'));
-        }, 400);
+            document.getElementById('reportModalOverlay').classList.remove('active');
+            setTimeout(() => {
+                submitReportBtn.innerHTML = 'Submit Report';
+                submitReportBtn.style.background = '#ef4444';
+                submitReportBtn.classList.remove('enabled');
+                reportOptions.forEach(o => o.classList.remove('selected'));
+            }, 400);
+        }, 1200);
     }
 });
 
 // ==========================================
 // TOKEN VERIFICATION MODAL
 // ==========================================
-document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
-    const tModal = document.getElementById('tokenModalOverlay');
-    if (tModal) tModal.style.display = 'none';
+document.getElementById('closeTokenModalBtn').addEventListener('click', () => {
+    document.getElementById('tokenModalOverlay').style.display = 'none';
 });
 
-document.getElementById('tokenInput')?.addEventListener('input', () => {
-    document.getElementById('inputBoxWrapperToken')?.classList.remove('error-state', 'success-state');
+document.getElementById('tokenInput').addEventListener('input', () => {
+    document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
-document.getElementById('getKeyBtn')?.addEventListener('click', () => {
+document.getElementById('getKeyBtn').addEventListener('click', () => {
     const btn = document.getElementById('getKeyBtn');
-    if (!btn) return;
     const originalContent = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
     
@@ -2413,22 +2291,22 @@ document.getElementById('getKeyBtn')?.addEventListener('click', () => {
     }, 600);
 });
 
-document.getElementById('verifyBtn')?.addEventListener('click', async () => {
+document.getElementById('verifyBtn').addEventListener('click', async () => {
     const tokenInput = document.getElementById('tokenInput');
-    const tokenValue = tokenInput ? tokenInput.value.trim() : '';
+    const tokenValue = tokenInput.value.trim();
     const inputBox = document.getElementById('inputBoxWrapperToken');
     const btn = document.getElementById('verifyBtn');
 
-    inputBox?.classList.remove('error-state', 'success-state');
+    inputBox.classList.remove('error-state', 'success-state');
 
     if (tokenValue.length < 5) {
-        inputBox?.classList.add('error-state');
-        setTimeout(() => inputBox?.classList.remove('error-state'), 2500); 
+        inputBox.classList.add('error-state');
+        setTimeout(() => inputBox.classList.remove('error-state'), 2500); 
         showToast('Invalid Token Format!', 'error');
         return;
     }
 
-    if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
     const currentFingerprint = generateDeviceFingerprint();
 
     try {
@@ -2441,7 +2319,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
         const data = await response.json();
 
         if (response.ok) {
-            inputBox?.classList.add('success-state');
+            inputBox.classList.add('success-state');
             showToast('Access Granted! Valid for 24 Hours.', 'success');
             
             localStorage.setItem('spidy_secure_session', JSON.stringify({
@@ -2451,21 +2329,20 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
             }));
 
             setTimeout(() => {
-                const tModal = document.getElementById('tokenModalOverlay');
-                if (tModal) tModal.style.display = 'none';
-                if (btn) btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
-                document.getElementById("dlReadOnlineBtn")?.click();
+                document.getElementById('tokenModalOverlay').style.display = 'none';
+                btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
+                document.getElementById("dlReadOnlineBtn").click();
             }, 1000);
 
         } else {
-            inputBox?.classList.add('error-state');
+            inputBox.classList.add('error-state');
             showToast(data.error || 'Verification Failed', 'error');
-            if (btn) btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
+            btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
         }
     } catch (err) {
-        inputBox?.classList.add('error-state');
+        inputBox.classList.add('error-state');
         showToast('Server Error! Cannot verify token right now.', 'error');
-        if (btn) btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
+        btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
     }
 });
 
@@ -2473,21 +2350,20 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 // UPLOADS & FILE SELECTION TRACKING
 // ==========================================
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', function(e) {
+    document.getElementById(id).addEventListener('change', function(e) {
         if(e.target.files.length > 0) {
             selectedCoverFile = e.target.files[0]; 
-            const pEl = e.target.closest('.uc-actions')?.querySelector('p');
-            if (pEl) pEl.innerText = "Selected: " + selectedCoverFile.name;
+            e.target.closest('.uc-actions').querySelector('p').innerText = "Selected: " + selectedCoverFile.name;
         }
     });
 });
 
 ['filePdfGallery', 'filePdfBrowse'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', async function(e) {
+    document.getElementById(id).addEventListener('change', async function(e) {
         if(e.target.files.length > 0) {
             selectedPdfFile = e.target.files[0]; 
-            const statusP = e.target.closest('.uc-actions')?.querySelector('p');
-            if (statusP) statusP.innerText = `Analyzing: ${selectedPdfFile.name}...`;
+            const statusP = e.target.closest('.uc-actions').querySelector('p');
+            statusP.innerText = `Analyzing: ${selectedPdfFile.name}...`;
 
             const sizeInMB = (selectedPdfFile.size / (1024 * 1024)).toFixed(2);
             detectedFileSizeMB = `${sizeInMB} MB`;
@@ -2498,18 +2374,18 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
                     const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
                     const pdfDoc = await loadingTask.promise;
                     detectedTotalPages = pdfDoc.numPages;
-                    if (statusP) statusP.innerText = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB} • ${detectedTotalPages} Pages)`;
+                    statusP.innerText = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB} • ${detectedTotalPages} Pages)`;
                 } else {
-                    if (statusP) statusP.innerText = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB})`;
+                    statusP.innerText = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB})`;
                 }
             } catch (err) {
-                if (statusP) statusP.innerText = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB})`;
+                statusP.innerText = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB})`;
             }
         }
     });
 });
 
-// ROBUST TRACKED UPLOAD
+// ROBUST TRACKED UPLOAD (Safe against timeouts and network rejections)
 function uploadSingleFileTracked(file, type, onProgress) {
     return new Promise(async (resolve, reject) => {
         const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
@@ -2536,12 +2412,12 @@ function uploadSingleFileTracked(file, type, onProgress) {
             
             if (!authResponse.ok) {
                 const errData = await authResponse.json().catch(() => ({}));
-                return reject(new Error(errData.error || `Upload URL error ${authResponse.status}`));
+                return reject(new Error(errData.error || `Upload URL request failed with status ${authResponse.status}`));
             }
 
             const authData = await authResponse.json();
             if (!authData.uploadUrl) {
-                return reject(new Error("Storage upload URL missing"));
+                return reject(new Error("Storage upload URL not provided by server"));
             }
 
             const xhr = new XMLHttpRequest(); 
@@ -2558,12 +2434,12 @@ function uploadSingleFileTracked(file, type, onProgress) {
                 if (xhr.status >= 200 && xhr.status < 300) {
                     resolve(authData.fileKey || safeFilePayload);
                 } else { 
-                    reject(new Error(`Storage rejected with code: ${xhr.status}`)); 
+                    reject(new Error(`Storage rejected upload with status: ${xhr.status}`)); 
                 }
             };
 
             xhr.onerror = function() { 
-                reject(new Error("Connection error during storage upload.")); 
+                reject(new Error("Network / CORS error: Upload to storage failed.")); 
             }; 
 
             xhr.send(file);
@@ -2574,8 +2450,8 @@ function uploadSingleFileTracked(file, type, onProgress) {
     });
 }
 
-// PUBLISH BOOK CONTROLLER
-document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
+// PUBLISH BOOK CONTROLLER (Fixed: Pipeline Hides Gracefully on Error & Error Pill Shows)
+document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     e.preventDefault(); 
     
     if (!selectedCoverFile) { showToast("Please select a Cover Image!", "error"); return; }
@@ -2604,17 +2480,15 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         spinner.style.height = "17px";
     }
 
-    const inputTitle = document.getElementById('inTitle')?.value.trim() || selectedPdfFile.name;
-    if (dynamicTitle) dynamicTitle.innerText = inputTitle;
-    if (dynamicPdfSize) dynamicPdfSize.innerText = `PDF Size: ${(selectedPdfFile.size / (1024 * 1024)).toFixed(2)} MB`;
+    const inputTitle = document.getElementById('inTitle').value.trim() || selectedPdfFile.name;
+    dynamicTitle.innerText = inputTitle;
+    dynamicPdfSize.innerText = `PDF Size: ${(selectedPdfFile.size / (1024 * 1024)).toFixed(2)} MB`;
 
     const coverReader = new FileReader();
     coverReader.onload = function(evt) {
-        if (liveCoverImg) {
-            liveCoverImg.src = evt.target.result;
-            liveCoverImg.style.display = 'block';
-        }
-        if (defaultCoverIcon) defaultCoverIcon.style.display = 'none';
+        liveCoverImg.src = evt.target.result;
+        liveCoverImg.style.display = 'block';
+        defaultCoverIcon.style.display = 'none';
     };
     coverReader.readAsDataURL(selectedCoverFile);
 
@@ -2626,75 +2500,70 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     let lastLoaded = 0;
     let lastTime = Date.now();
 
-    if (percentDisplay) percentDisplay.innerHTML = `0<span class="percent-symbol">%</span>`;
-    if (progressFill) progressFill.style.width = `0%`;
-    if (transferredBytes) transferredBytes.innerText = `0.0 MB / ${totalMB} MB`;
-    if (speedVal) speedVal.innerText = `Connecting...`;
-    if (stageTitle) stageTitle.innerText = "Connecting to Cloud Storage...";
-    if (stageSub) stageSub.innerText = "Allocating secure distribution channels";
-    if (pipelineOverlay) pipelineOverlay.style.display = 'flex';
+    percentDisplay.innerHTML = `0<span class="percent-symbol">%</span>`;
+    progressFill.style.width = `0%`;
+    transferredBytes.innerText = `0.0 MB / ${totalMB} MB`;
+    speedVal.innerText = `Connecting...`;
+    stageTitle.innerText = "Connecting to Cloud Storage...";
+    stageSub.innerText = "Allocating secure distribution channels";
+    pipelineOverlay.style.display = 'flex';
 
     function updateTelemetry() {
         const totalUploadedNow = coverLoaded + pdfLoaded;
         const currentMB = (totalUploadedNow / (1024 * 1024)).toFixed(2);
         const percent = Math.min(98, Math.floor((totalUploadedNow / totalBytesToUpload) * 98));
 
-        if (percentDisplay) percentDisplay.innerHTML = `${percent}<span class="percent-symbol">%</span>`;
-        if (progressFill) progressFill.style.width = `${percent}%`;
-        if (transferredBytes) transferredBytes.innerText = `${currentMB} MB / ${totalMB} MB`;
+        percentDisplay.innerHTML = `${percent}<span class="percent-symbol">%</span>`;
+        progressFill.style.width = `${percent}%`;
+        transferredBytes.innerText = `${currentMB} MB / ${totalMB} MB`;
 
         const now = Date.now();
         const timeDiff = (now - lastTime) / 1000;
         if (timeDiff >= 0.5) {
             const bytesDiff = totalUploadedNow - lastLoaded;
             const speedMBps = ((bytesDiff / (1024 * 1024)) / timeDiff).toFixed(1);
-            if (speedVal) speedVal.innerText = `${speedMBps} MB/s`;
+            speedVal.innerText = `${speedMBps} MB/s`;
             lastLoaded = totalUploadedNow;
             lastTime = now;
         }
 
         if (percent < 30) {
-            if (stageTitle) stageTitle.innerText = "Transferring Cover Artwork...";
-            if (stageSub) stageSub.innerText = "Optimizing image resolution for mobile readers";
+            stageTitle.innerText = "Transferring Cover Artwork...";
+            stageSub.innerText = "Optimizing image resolution for mobile readers";
         } else if (percent < 85) {
-            if (stageTitle) stageTitle.innerText = "Uploading Manuscript Pages...";
-            if (stageSub) stageSub.innerText = "Writing high-speed stream to Cloud Storage";
+            stageTitle.innerText = "Uploading Manuscript Pages...";
+            stageSub.innerText = "Writing high-speed encrypted stream to Cloudflare R2";
         } else {
-            if (stageTitle) stageTitle.innerText = "Finalizing Storage Nodes...";
-            if (stageSub) stageSub.innerText = "Preparing document metadata";
+            stageTitle.innerText = "Finalizing Storage Nodes...";
+            stageSub.innerText = "Preparing document metadata & secure tokens";
         }
     }
 
     try {
-        if (stageTitle) stageTitle.innerText = "Transferring Cover Image...";
+        stageTitle.innerText = "Transferring Cover Image...";
         const coverKey = await uploadSingleFileTracked(selectedCoverFile, 'image', (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        if (stageTitle) stageTitle.innerText = "Transferring PDF Manuscript...";
+        stageTitle.innerText = "Transferring PDF Manuscript...";
         const pdfKey = await uploadSingleFileTracked(selectedPdfFile, 'pdf', (loaded) => {
             pdfLoaded = loaded;
             updateTelemetry();
         });
 
-        if (stageTitle) stageTitle.innerText = "Registering Book in Database...";
-        if (stageSub) stageSub.innerText = "Writing catalog details to Firebase Firestore";
-        if (speedVal) speedVal.innerText = "Syncing...";
-        if (percentDisplay) percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
-        if (progressFill) progressFill.style.width = `99%`;
-
-        const inAuthorEl = document.getElementById('inAuthor');
-        const inYearEl = document.getElementById('inYear');
-        const inLangEl = document.getElementById('inLang');
-        const inExamsEl = document.getElementById('inExams');
+        stageTitle.innerText = "Registering Book in Database...";
+        stageSub.innerText = "Writing catalog details to Firebase Firestore";
+        speedVal.innerText = "Syncing...";
+        percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
+        progressFill.style.width = `99%`;
 
         const newBook = { 
             title: inputTitle, 
-            author: inAuthorEl ? inAuthorEl.value : "Unknown", 
-            year: inYearEl ? inYearEl.value : "2026", 
-            lang: inLangEl ? inLangEl.value : "Hindi", 
-            exams: inExamsEl ? inExamsEl.value : "General", 
+            author: document.getElementById('inAuthor').value, 
+            year: document.getElementById('inYear').value, 
+            lang: document.getElementById('inLang').value, 
+            exams: document.getElementById('inExams').value, 
             image: coverKey, 
             pdfLink: pdfKey, 
             fileSize: detectedFileSizeMB || "10 MB",
@@ -2712,12 +2581,12 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             lastBookUploadTime: Date.now() 
         }, { merge: true });
 
-        if (percentDisplay) percentDisplay.innerHTML = `100<span class="percent-symbol">%</span>`;
-        if (progressFill) progressFill.style.width = `100%`;
-        if (transferredBytes) transferredBytes.innerText = `${totalMB} MB / ${totalMB} MB`;
-        if (speedVal) speedVal.innerText = "Completed";
-        if (stageTitle) stageTitle.innerText = "Book Published Successfully! ✨";
-        if (stageSub) stageSub.innerText = "Live and ready for all readers";
+        percentDisplay.innerHTML = `100<span class="percent-symbol">%</span>`;
+        progressFill.style.width = `100%`;
+        transferredBytes.innerText = `${totalMB} MB / ${totalMB} MB`;
+        speedVal.innerText = "Completed";
+        stageTitle.innerText = "Book Published Successfully! ✨";
+        stageSub.innerText = "Live and ready for all readers";
         
         if (spinner) {
             spinner.className = "";
@@ -2734,7 +2603,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         }
 
         setTimeout(() => {
-            if (pipelineOverlay) pipelineOverlay.style.display = 'none';
+            pipelineOverlay.style.display = 'none';
             e.target.reset(); 
             selectedCoverFile = null; 
             selectedPdfFile = null;
@@ -2743,13 +2612,13 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             document.querySelectorAll('.uc-actions p').forEach(p => p.innerText = "Drag & Drop File");
             
             showToast("Book Published Successfully!", "success");
-            document.getElementById('nav-home')?.click();
+            document.getElementById('nav-home').click();
         }, 1200);
 
     } catch (error) {
-        if (pipelineOverlay) pipelineOverlay.style.display = 'none';
+        pipelineOverlay.style.display = 'none';
         console.error("Upload error caught:", error);
-        showToast("Upload Failed: " + (error.message || "Network Error"), "error"); 
+        showToast(error.message || "Upload Failed! Server connection interrupted.", "error"); 
     }
 });
 
@@ -2773,10 +2642,10 @@ function switchAdminTabLocal(tabName) {
     }
 
     if(tabName === 'add') { 
-        document.getElementById('sectionAddBook')?.classList.add('active'); 
-        document.getElementById('admTabAdd')?.classList.add('active'); 
+        document.getElementById('sectionAddBook').classList.add('active'); 
+        document.getElementById('admTabAdd').classList.add('active'); 
     } else if(tabName === 'prompt') { 
-        document.getElementById('sectionPrompt')?.classList.add('active'); 
-        document.getElementById('admTabPrompt')?.classList.add('active'); 
+        document.getElementById('sectionPrompt').classList.add('active'); 
+        document.getElementById('admTabPrompt').classList.add('active'); 
     }
 }
