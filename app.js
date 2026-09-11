@@ -260,9 +260,9 @@ function cleanUnicodeTextForSearch(str) {
     return str.normalize("NFD").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/[^\p{L}\p{M}\p{N}]/gu, "").toLowerCase();
 }
 
-// ==========================================
+// =========================================================================
 // 3. DYNAMIC MODULE BANNER CAROUSEL & NAVIGATION
-// ==========================================
+// =========================================================================
 let currentPromoIndex = 0;
 let promoAutoSlideInterval = null;
 
@@ -380,8 +380,11 @@ window.openBannerModules = function(bannerId) {
     activeBannerData = banner;
     activeSubjectKey = null;
 
-    document.getElementById('moduleHeaderTitle').innerText = (banner.title || "MODULE PACK").toUpperCase();
-    document.getElementById('moduleInstituteText').innerText = banner.institute || "Physics Wallah";
+    const titleEl = document.getElementById('moduleHeaderTitle');
+    if (titleEl) titleEl.innerText = (banner.title || "MODULE PACK").toUpperCase();
+    
+    const instEl = document.getElementById('moduleInstituteText');
+    if (instEl) instEl.innerText = banner.institute || "Physics Wallah";
 
     document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
     document.getElementById('bannerModulesView').classList.add('hidden-view');
@@ -427,7 +430,7 @@ window.openBannerModules = function(bannerId) {
     if (modal) modal.classList.add('active');
 };
 
-// 🌟 OPEN MODULES LIST FOR SELECTED SUBJECT
+// 🌟 OPEN MODULES LIST FOR SELECTED SUBJECT WITH AUTO PAGE COUNT
 window.openSubjectModulesList = function(subjectKey) {
     if (!activeBannerData) return;
     activeSubjectKey = subjectKey;
@@ -457,6 +460,12 @@ window.openSubjectModulesList = function(subjectKey) {
             const resolvedPdf = getSecureAssetUrl(rawPdfUrl);
             const encodedPdf = encodeURIComponent(resolvedPdf);
             const encodedTitle = encodeURIComponent(mod.name || "Module Document");
+            
+            // Auto Page display fallback (removes static '180 Pages')
+            let pageLabel = "Complete Document";
+            if (mod.pages && !mod.pages.includes("180 Pages")) {
+                pageLabel = mod.pages.includes("Page") ? mod.pages : `${mod.pages} Pages`;
+            }
 
             html += `
             <div class="module-pdf-card" onclick="window.readModulePdfDirectly(decodeURIComponent('${encodedPdf}'), decodeURIComponent('${encodedTitle}'))">
@@ -466,7 +475,7 @@ window.openSubjectModulesList = function(subjectKey) {
                 <div class="module-details-wrap">
                     <div class="module-title-h3">${escapeHTML(mod.name || 'Module')}</div>
                     <div class="module-chapters-sub">${escapeHTML(mod.sub || 'Chapters & topics included')}</div>
-                    <span class="module-tag-pages"><i class="fas fa-layer-group"></i> ${escapeHTML(mod.pages || 'Full Module')}</span>
+                    <span class="module-tag-pages" id="mod_badge_${mod.id}"><i class="fas fa-layer-group"></i> ${escapeHTML(pageLabel)}</span>
                 </div>
                 <i class="fas fa-chevron-right" style="color:rgba(255,255,255,0.25); font-size:0.9rem;"></i>
             </div>`;
@@ -502,482 +511,6 @@ document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
         activeSubjectKey = null;
     }
 });
-
-// ==========================================
-// POPUPS & TUTORIAL
-// ==========================================
-let popupsInitialized = false;
-function initPremiumPopups() {
-    if(popupsInitialized) return; 
-    popupsInitialized = true;
-
-    const telegramPopup = document.getElementById('telegramPopup');
-    const whatsappPopup = document.getElementById('whatsappPopup');
-    const tgMaybeLaterBtn = document.getElementById('tgMaybeLaterBtn');
-    const waMaybeLaterBtn = document.getElementById('waMaybeLaterBtn');
-
-    const closeTgPopup = () => { if(telegramPopup) telegramPopup.classList.add('hide'); };
-    const closeWaPopup = () => { if(whatsappPopup) whatsappPopup.classList.add('hide'); };
-
-    if(tgMaybeLaterBtn) tgMaybeLaterBtn.addEventListener('click', closeTgPopup);
-    if(waMaybeLaterBtn) waMaybeLaterBtn.addEventListener('click', closeWaPopup);
-
-    setTimeout(() => { if(telegramPopup) telegramPopup.classList.remove('hide'); }, 60000); 
-    setTimeout(() => {
-        if(telegramPopup) telegramPopup.classList.add('hide'); 
-        if(whatsappPopup) whatsappPopup.classList.remove('hide');
-    }, 300000); 
-}
-
-function checkAndShowUploadTutorialPopup() {
-    const uploadPopup = document.getElementById('uploadPopup');
-    if (!uploadPopup) return;
-    const lastShown = localStorage.getItem('spidy_last_upload_popup_time');
-    const now = Date.now();
-    const ONE_HOUR = 60 * 60 * 1000;
-
-    if (!lastShown || (now - parseInt(lastShown, 10)) >= ONE_HOUR) {
-        uploadPopup.classList.remove('hidden');
-        localStorage.setItem('spidy_last_upload_popup_time', now.toString());
-    }
-}
-
-// ==========================================
-// INITIAL LOADER & TRANSITION
-// ==========================================
-const urlParamsCheck = new URLSearchParams(window.location.search);
-let isDeepLinkLoad = urlParamsCheck.has('book'); 
-let pendingBookSlug = urlParamsCheck.get('book');
-
-if (isDeepLinkLoad) {
-    document.getElementById('mainAppWrapper').style.display = 'none';
-    document.getElementById('downloadModal').style.display = 'none';
-}
-
-let isAppReady = { auth: false, data: false }; 
-let hasTransitioned = false;
-let loadingProgress = 0;
-let loaderInterval;
-
-function updateLoaderUI(percent) {
-    const loaderFill = document.getElementById('loaderFill');
-    const loaderPercentage = document.getElementById('loaderPercentage');
-    const loaderStatusText = document.getElementById('loaderStatusText');
-    if (loaderFill) loaderFill.style.width = percent + "%";
-    if (loaderPercentage) loaderPercentage.innerText = percent + "%";
-    if (loaderStatusText) {
-        if (percent < 30) loaderStatusText.innerText = "Initializing System...";
-        else if (percent < 60) loaderStatusText.innerText = "Fetching Secure Data...";
-        else if (percent < 95) loaderStatusText.innerText = "Preparing Content...";
-        else loaderStatusText.innerText = "Ready to Launch!";
-    }
-}
-
-loaderInterval = setInterval(() => {
-    if (loadingProgress < 85) {
-        loadingProgress += Math.floor(Math.random() * 5) + 2; 
-        if (loadingProgress > 85) loadingProgress = 85;
-        updateLoaderUI(loadingProgress);
-    }
-}, 200);
-
-function tryTransition() {
-    if (isAppReady.auth && isAppReady.data && !hasTransitioned) {
-        hasTransitioned = true;
-        clearInterval(loaderInterval); 
-        
-        let fastLoad = setInterval(() => {
-            loadingProgress += 4;
-            if(loadingProgress >= 100) {
-                loadingProgress = 100;
-                updateLoaderUI(100);
-                clearInterval(fastLoad);
-
-                setTimeout(() => {
-                    document.getElementById('mainAppWrapper').style.display = 'block';
-                    if (isDeepLinkLoad && pendingBookSlug) {
-                        if (isUserLoggedIn) { openDownloadPageLocal(pendingBookSlug, true); } 
-                        else {
-                            const loginOverlay = document.getElementById('loginOverlay');
-                            loginOverlay.style.display = 'flex';
-                            setTimeout(() => loginOverlay.style.opacity = '1', 10);
-                        }
-                    } else {
-                        initPremiumPopups(); 
-                    }
-                    const loader = document.getElementById("loaderScreen");
-                    loader.style.opacity = "0"; 
-                    setTimeout(() => { loader.style.display = "none"; }, 300);
-                }, 400); 
-            } else {
-                updateLoaderUI(loadingProgress);
-            }
-        }, 15);
-    }
-}
-
-// ==========================================
-// PROFILE & SYNC
-// ==========================================
-function updateLiveCredits(remainingCount) {
-    if (IS_SUPER_ADMIN) {
-        document.getElementById('profile-credits').innerHTML = `<span style="font-size: 24px;">&infin;</span>`; 
-        return;
-    }
-    const safeCount = Math.max(0, remainingCount !== undefined ? remainingCount : 0);
-    document.getElementById('profile-credits').innerText = safeCount;
-}
-
-function syncAndSanitizeBookmarks() {
-    if (!booksData || booksData.length === 0) return;
-    const existingSlugs = new Set(booksData.map(b => b.slug));
-    const existingIds = new Set(booksData.map(b => b.id));
-    savedBooks = savedBooks.filter(item => existingSlugs.has(item) || existingIds.has(item));
-    localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
-    const savedCountEl = document.getElementById('profile-saved');
-    if (savedCountEl) savedCountEl.innerText = savedBooks.length;
-}
-
-async function syncProfileAndRankUI() {
-    if (!auth.currentUser) return;
-    
-    const formattedNameHTML = formatNameSerifSmallCaps(CURRENT_ADMIN_NAME);
-    const profileNameEl = document.getElementById('profile-name-ui');
-    if (profileNameEl) profileNameEl.innerHTML = formattedNameHTML;
-    
-    const emailEl = document.getElementById('profile-email-ui');
-    if (emailEl) {
-        emailEl.innerText = auth.currentUser.email || "No Email linked";
-        emailEl.style.fontWeight = "600";
-    }
-    
-    const avatarEl = document.getElementById('profile-avatar-ui');
-    if (avatarEl) {
-        avatarEl.src = CURRENT_ADMIN_PHOTO;
-        avatarEl.onerror = () => { avatarEl.src = DEFAULT_AVATAR; };
-    }
-    
-    syncAndSanitizeBookmarks();
-
-    try {
-        const userRef = doc(db, "users", auth.currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists()) {
-            const data = userSnap.data();
-            const now = Date.now();
-            const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-
-            const validDownloads = (data.recentDownloads || []).filter(item => {
-                const time = typeof item === 'number' ? item : item.time;
-                return (now - time) < TWENTY_FOUR_HOURS;
-            });
-            
-            if (validDownloads.length !== (data.recentDownloads || []).length) {
-                await updateDoc(userRef, { recentDownloads: validDownloads });
-            }
-
-            const uniqueSlugs = new Set(validDownloads.map(i => i.slug).filter(Boolean));
-            const remaining = Math.max(0, 20 - uniqueSlugs.size);
-            updateLiveCredits(remaining);
-
-            document.getElementById('profile-downloads').innerText = validDownloads.length;
-        }
-
-        const userToken = await auth.currentUser.getIdToken(false);
-        const rankRes = await fetch('/api/get-rank', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken })
-        }).catch(() => null);
-        
-        if (rankRes && rankRes.ok) {
-            const rankData = await rankRes.json();
-            const rankElement = document.getElementById('profile-rank');
-            if (rankElement && rankData.success) {
-                const rank = rankData.rank;
-                if (rank === 1) {
-                    rankElement.style.color = "#fbbf24";
-                    rankElement.innerHTML = `<i class="fas fa-crown"></i> #1`;
-                } else if (rank <= 3) {
-                    rankElement.style.color = rank === 2 ? "#9ca3af" : "#b45309";
-                    rankElement.innerText = "#" + rank;
-                } else {
-                    rankElement.style.color = "#ffffff";
-                    rankElement.innerText = "#" + rank;
-                }
-            }
-        }
-    } catch (error) {
-        console.error("Profile rank sync error:", error);
-    }
-}
-
-// ==========================================
-// CHANNEL & FEED
-// ==========================================
-const chatBody = document.getElementById('chatBody');
-const contextOverlay = document.getElementById('contextOverlay');
-const scrollDownWrapper = document.getElementById('scrollDownWrapper');
-const scrollDownBtn = document.getElementById('scrollDownBtn');
-const unreadBadge = document.getElementById('unreadBadge');
-const closeNotiBtn = document.getElementById('close-noti-btn');
-
-function renderChannelLoader() {
-    if (!chatBody) return;
-    chatBody.innerHTML = `
-        <div class="empty-loading" id="channelLoader">
-            <div class="orbit-spinner">
-                <div class="orbit-ring"></div>
-                <div class="orbit-inner-ring"></div>
-                <div class="orbit-core"></div>
-            </div>
-            Connecting to live updates...
-        </div>`;
-}
-
-function getUserReaction(postId) { return localStorage.getItem(`reaction_${postId}`); }
-function setUserReaction(postId, emoji) {
-    if (emoji) localStorage.setItem(`reaction_${postId}`, emoji);
-    else localStorage.removeItem(`reaction_${postId}`);
-}
-
-function scrollToBottomSmooth() {
-    unreadPostsCount = 0;
-    if (unreadBadge) {
-        unreadBadge.innerText = '0';
-        unreadBadge.classList.remove('active');
-    }
-    chatBody.scrollTo({ top: chatBody.scrollHeight, behavior: 'smooth' });
-}
-
-if (scrollDownBtn) scrollDownBtn.addEventListener('click', scrollToBottomSmooth);
-
-if (chatBody) {
-    chatBody.addEventListener('scroll', () => {
-        const dist = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
-        if (dist > 120) {
-            scrollDownWrapper.classList.add('show');
-        } else {
-            scrollDownWrapper.classList.remove('show');
-            unreadPostsCount = 0;
-            unreadBadge.innerText = '0';
-            unreadBadge.classList.remove('active');
-        }
-    }, { passive: true });
-}
-
-window.scrollToChannelPost = function(postId) {
-    if (!postId) return;
-    const target = document.getElementById(`post_${postId}`);
-    if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        target.classList.add('highlight-post');
-        setTimeout(() => target.classList.remove('highlight-post'), 1800);
-    } else {
-        showToast("Original message was deleted or moved.", "error");
-    }
-};
-
-function buildReactionsHTML(reactionsObj, userSelectedEmoji) {
-    if (!reactionsObj) return '';
-    const sorted = Object.entries(reactionsObj)
-        .filter(([_, count]) => count > 0)
-        .sort((a, b) => b[1] - a[1]);
-
-    let pillsHTML = '';
-    sorted.forEach(([emoji, count]) => {
-        const isActive = userSelectedEmoji === emoji ? 'active' : '';
-        pillsHTML += `<div class="reaction-pill ${isActive}" data-emoji="${emoji}"><span class="emoji">${emoji}</span><span class="count">${formatReactionCount(count)}</span></div>`;
-    });
-    return pillsHTML;
-}
-
-function updateReactionInDOM(postId) {
-    const post = livePosts.find(p => p.id === postId);
-    const bubble = document.getElementById(`post_${postId}`);
-    if (!post || !bubble) return;
-
-    const userSelectedEmoji = getUserReaction(postId);
-    const reactionsContainer = bubble.querySelector('.inline-reactions');
-    if (reactionsContainer) {
-        reactionsContainer.innerHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
-        reactionsContainer.querySelectorAll('.reaction-pill').forEach(pill => {
-            pill.onclick = (e) => {
-                e.preventDefault(); e.stopPropagation();
-                applyReaction(postId, pill.dataset.emoji);
-            };
-        });
-    }
-}
-
-async function registerUniqueView(postId) {
-    if (!auth.currentUser) return;
-    try {
-        const token = await auth.currentUser.getIdToken(false);
-        await fetch('/api/channel-action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'view', postId, userToken: token })
-        });
-    } catch (err) {}
-}
-
-const postViewObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            const postId = entry.target.dataset.postId;
-            if (postId) registerUniqueView(postId);
-        }
-    });
-}, { threshold: 0.5 });
-
-function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
-    if (!chatBody) return;
-
-    if (!posts || posts.length === 0) {
-        chatBody.innerHTML = `
-            <div class="empty-loading">
-                <i class="fas fa-bullhorn" style="font-size:26px; color:var(--text-secondary); opacity:0.6;"></i>
-                No channel updates posted yet.
-            </div>`;
-        isChannelDataReady = true;
-        return;
-    }
-
-    const fragment = document.createDocumentFragment();
-    let lastDateStr = '';
-
-    posts.forEach(post => {
-        const dateObj = normalizeDate(post.createdAt);
-        const dateStr = formatDateDivider(dateObj);
-
-        if (dateStr !== lastDateStr) {
-            const divider = document.createElement('div');
-            divider.className = 'date-divider';
-            divider.innerText = dateStr;
-            fragment.appendChild(divider);
-            lastDateStr = dateStr;
-        }
-
-        const userSelectedEmoji = getUserReaction(post.id);
-        const bubble = document.createElement('div');
-        bubble.className = 'message-bubble';
-        bubble.id = `post_${post.id}`;
-        bubble.dataset.postId = post.id;
-
-        let imageHTML = post.imageUrl 
-            ? `<img src="${getSecureAssetUrl(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image">` 
-            : '';
-
-        let quoteHTML = '';
-        if (post.quote) {
-            const targetId = post.quote.targetPostId || '';
-            const cleanSnippet = sanitizeHTML(stripMarkdown(post.quote.text || ''));
-            quoteHTML = `
-            <div class="msg-quote" onclick="event.stopPropagation(); window.scrollToChannelPost('${targetId}')">
-                 <div class="quote-author">SPIDY BOOK HUB</div>
-                 <div class="quote-text">${cleanSnippet}</div>
-            </div>`;
-        }
-
-        const reactionPillsHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
-
-        bubble.innerHTML = `
-            ${quoteHTML}
-            ${imageHTML}
-            <div class="msg-text">${parseMarkdown(post.text)}</div>
-            <div class="post-footer">
-                <div class="inline-reactions">${reactionPillsHTML}</div>
-                <div class="msg-meta">
-                    <i class="fas fa-eye"></i> ${formatViewsCount(post.views || 1)} &nbsp; ${formatTime(dateObj)}
-                </div>
-            </div>
-        `;
-
-        bubble.querySelectorAll('.reaction-pill').forEach(pill => {
-            pill.onclick = (e) => {
-                e.preventDefault(); e.stopPropagation();
-                applyReaction(post.id, pill.dataset.emoji);
-            };
-        });
-
-        bubble.onclick = (e) => {
-            if (e.target.tagName === 'A' || e.target.closest('.tg-copy-action-btn')) return;
-            activePost = post;
-            if (contextOverlay) contextOverlay.classList.add('show');
-            if (navigator.vibrate) navigator.vibrate(20);
-        };
-
-        fragment.appendChild(bubble);
-        postViewObserver.observe(bubble);
-    });
-
-    if (isInitialOrPanelOpen) {
-        chatBody.style.visibility = 'hidden';
-        chatBody.innerHTML = '';
-        chatBody.appendChild(fragment);
-        chatBody.scrollTop = chatBody.scrollHeight;
-        
-        requestAnimationFrame(() => {
-            chatBody.scrollTop = chatBody.scrollHeight;
-            chatBody.style.visibility = 'visible';
-            isChannelDataReady = true;
-        });
-    } else {
-        const prevScrollTop = chatBody.scrollTop;
-        chatBody.innerHTML = '';
-        chatBody.appendChild(fragment);
-        chatBody.scrollTop = prevScrollTop;
-    }
-}
-
-async function applyReaction(postId, newEmoji) {
-    if (!auth.currentUser) {
-        showToast("Please login to react!", "error");
-        return;
-    }
-    const existing = getUserReaction(postId);
-    if (existing === newEmoji) return;
-
-    setUserReaction(postId, newEmoji);
-    const pIdx = livePosts.findIndex(p => p.id === postId);
-    if (pIdx !== -1) {
-        livePosts[pIdx].reactions = livePosts[pIdx].reactions || {};
-        if (existing && livePosts[pIdx].reactions[existing]) {
-            livePosts[pIdx].reactions[existing] = Math.max(0, livePosts[pIdx].reactions[existing] - 1);
-        }
-        livePosts[pIdx].reactions[newEmoji] = (livePosts[pIdx].reactions[newEmoji] || 0) + 1;
-        updateReactionInDOM(postId);
-    }
-    if (navigator.vibrate) navigator.vibrate(15);
-
-    try {
-        const token = await auth.currentUser.getIdToken(false);
-        await fetch('/api/channel-action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'reaction', postId, emoji: newEmoji, userToken: token })
-        });
-    } catch (e) {}
-}
-
-window.copyToClipboard = function(text, btn) {
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
-        if (btn) {
-            btn.classList.add('copied-active');
-            const orig = btn.innerHTML;
-            btn.innerHTML = `<i class="fas fa-check"></i> COPIED`;
-            setTimeout(() => {
-                btn.classList.remove('copied-active');
-                btn.innerHTML = orig;
-            }, 2000);
-        } else {
-            showToast("Copied to Clipboard!", "success");
-        }
-    }).catch(() => showToast("Failed to copy", "error"));
-};
 
 // ==========================================
 // 4. AUTHENTICATION & CORE SNAPSHOTS
@@ -1033,7 +566,6 @@ onAuthStateChanged(auth, async (user) => {
             syncProfileAndRankUI();
 
         } catch (error) { 
-            console.error("Verification failed:", error); 
             IS_SUPER_ADMIN = false; 
         }
     } else {
@@ -1126,35 +658,8 @@ onAuthStateChanged(auth, async (user) => {
         snapshot.forEach(docSnap => {
             dataArr.push({ id: docSnap.id, ...docSnap.data() });
         });
-
-        const prevCount = livePosts.length;
         livePosts = dataArr;
-
-        const notiPanel = document.getElementById('noti-panel');
-        const isNotiPanelOpen = notiPanel && notiPanel.classList.contains('active');
-        const blinkDot = document.querySelector('.blink-dot');
-
-        if (isInitialChannelLoad) {
-            renderChannelFeed(livePosts, true);
-            isInitialChannelLoad = false;
-        } else if (livePosts.length !== prevCount) {
-            if (!isNotiPanelOpen && blinkDot && livePosts.length > prevCount) {
-                blinkDot.style.display = 'block';
-            }
-
-            const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
-            if (distanceFromBottom > 120 && livePosts.length > prevCount) {
-                unreadPostsCount += (livePosts.length - prevCount);
-                unreadBadge.innerText = unreadPostsCount > 99 ? '99+' : unreadPostsCount;
-                unreadBadge.classList.add('active');
-                scrollDownWrapper.classList.add('show');
-                renderChannelFeed(livePosts, false);
-            } else {
-                renderChannelFeed(livePosts, true);
-            }
-        } else {
-            livePosts.forEach(p => updateReactionInDOM(p.id));
-        }
+        renderChannelFeed(livePosts, true);
     });
 });
 
@@ -2241,7 +1746,7 @@ document.getElementById('shareBookBtn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 7. DIRECT BOOK UPLOADER CONTROLLER (FIXED 404 URL)
+// 7. DIRECT BOOK UPLOADER (TARGETS REAL /api/generate-upload-url)
 // ==========================================
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', function(e) {
@@ -2279,6 +1784,7 @@ document.getElementById('shareBookBtn')?.addEventListener('click', () => {
     });
 });
 
+// 🌟 RESOLVES 404 BY HITTING EXACT REPO ENDPOINT: /api/generate-upload-url
 function uploadSingleFileTracked(file, type, onProgress) {
     return new Promise(async (resolve, reject) => {
         let detectedMime = file.type;
@@ -2289,8 +1795,8 @@ function uploadSingleFileTracked(file, type, onProgress) {
         try {
             const userToken = await auth.currentUser.getIdToken(true);
             
-            // 🌟 FIXED 404 ERROR: Correct Endpoint /api/get-upload-url
-            const authResponse = await fetch('/api/get-upload-url', {
+            // Exact matching route in multiverse-books/api/
+            const authResponse = await fetch('/api/generate-upload-url', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -2323,7 +1829,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
 
             xhr.onload = function() {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(authData.fileKey);
+                    resolve(authData.fileKey || authData.key);
                 } else { 
                     reject(new Error(`Storage rejected upload with status: ${xhr.status}`)); 
                 }
