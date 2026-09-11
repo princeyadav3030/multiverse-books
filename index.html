@@ -10,19 +10,12 @@
     <meta name="description" content="Study material ke liye idhar-udhar bhatakna chhodo! Ab milega saara content bilkul FREE. Instant access to premium notes and books.">
     <meta name="theme-color" content="#000000">
 
-    <!-- Open Graph / Facebook / WhatsApp / Telegram -->
+    <!-- Open Graph / Social Meta -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://spidy-book-dbe32.firebaseapp.com/"> 
     <meta property="og:title" content="SPIDY BOOK HUB - Free Books & Premium Notes">
     <meta property="og:description" content="Study material ke liye idhar-udhar bhatakna chhodo! Ab milega saara content bilkul FREE. Aaj hi download karein!">
     <meta property="og:image" content="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png">
-
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://spidy-book-dbe32.firebaseapp.com/">
-    <meta property="twitter:title" content="SPIDY BOOK HUB - Free Books & Premium Notes">
-    <meta property="twitter:description" content="Study material ke liye idhar-udhar bhatakna chhodo! Ab milega saara content bilkul FREE.">
-    <meta property="twitter:image" content="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png">
 
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -202,6 +195,7 @@
                 <!-- TAB 1: HOME -->
                 <div id="tab-home" class="app-tab active">
                     
+                    <!-- Dynamic Module & Promo Banner Carousel -->
                     <div class="promo-carousel-container" id="promoCarouselContainer">
                         <button class="promo-arrow-btn arrow-prev" id="promoPrevBtn" aria-label="Previous Slide">
                             <i class="fas fa-chevron-left"></i>
@@ -211,17 +205,14 @@
                         </button>
 
                         <div class="promo-carousel-track" id="promoCarouselTrack">
-                            <a href="https://t.me/MultiverseBooks" target="_blank" class="promo-slide">
-                                <img src="https://i.postimg.cc/Pq0JLj3C/file-0000000027dc82119d3731d4bfe9bccf.png" alt="Promo Banner 1" class="promo-banner-img" draggable="false">
-                            </a>
-                            <a href="https://whatsapp.com/channel/0029Vb6NBZx1yT2GByTTVf2A" target="_blank" class="promo-slide">
-                                <img src="https://i.postimg.cc/XJFJdzmh/file-00000000ef2082118bdd64524b657f4c.png" alt="Promo Banner 2" class="promo-banner-img" draggable="false">
-                            </a>
+                            <!-- Dynamic banners from Firestore 'module_banners' render here -->
+                            <div class="promo-slide">
+                                <img src="https://i.postimg.cc/Pq0JLj3C/file-0000000027dc82119d3731d4bfe9bccf.png" alt="Promo Banner" class="promo-banner-img" draggable="false">
+                            </div>
                         </div>
 
                         <div class="promo-dots-wrapper" id="promoDotsWrapper">
                             <span class="promo-dot active" data-slide="0"></span>
-                            <span class="promo-dot" data-slide="1"></span>
                         </div>
                     </div>
 
@@ -456,6 +447,63 @@
                     <span class="nav-label">𝐌𝐞</span>
                 </div>
             </nav>
+
+            <!-- ============================================================== -->
+            <!-- 🌟 MODULE BANNER FULLSCREEN OVERLAY (SUBJECT & MODULE VIEWER)  -->
+            <!-- ============================================================== -->
+            <div class="overlay-panel" id="moduleBannerModal" style="z-index: 99999; background: #07090e;">
+                <!-- Header -->
+                <header class="app-header-module">
+                    <button class="back-btn-capsule" id="moduleBackBtn" aria-label="Go Back">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
+                    <h1 class="header-text-module" id="moduleHeaderTitle">MODULES</h1>
+                </header>
+
+                <!-- Screen 1: Subject Selection View -->
+                <main class="module-view-screen" id="bannerSubjectsView">
+                    <div class="category-header-module">
+                        <div class="subject-title-wrap">
+                            <span class="title-pillar"></span>
+                            <span class="category-title">Select Subject</span>
+                        </div>
+                        <div class="institute-badge" id="moduleInstituteBadge">
+                            <svg class="institute-icon" viewBox="0 0 24 24">
+                                <polygon points="12 2 2 7 22 7" fill="rgba(255,255,255,0.1)"/>
+                                <line x1="5" y1="10" x2="5" y2="18"/>
+                                <line x1="9.5" y1="10" x2="9.5" y2="18"/>
+                                <line x1="14.5" y1="10" x2="14.5" y2="18"/>
+                                <line x1="19" y1="10" x2="19" y2="18"/>
+                                <line x1="3" y1="9" x2="21" y2="9"/>
+                                <line x1="2" y1="21" x2="22" y2="21"/>
+                                <line x1="3.5" y1="18.5" x2="20.5" y2="18.5"/>
+                            </svg>
+                            <span class="institute-name" id="moduleInstituteText">Physics Wallah</span>
+                        </div>
+                    </div>
+
+                    <!-- Subject Cards dynamically populated based on what Admin uploaded for this banner -->
+                    <div id="subjectCardsList" class="subject-cards-container"></div>
+                </main>
+
+                <!-- Screen 2: Individual Modules List View (PDFs) -->
+                <main class="module-view-screen hidden-view" id="bannerModulesView">
+                    <div class="category-header-module">
+                        <div class="subject-title-wrap">
+                            <span class="title-pillar"></span>
+                            <span class="category-title" id="moduleSubjectSubheading">Modules List</span>
+                        </div>
+                        <div class="institute-badge">
+                            <span class="institute-name" id="moduleCountTextBadge">0 Modules</span>
+                        </div>
+                    </div>
+
+                    <!-- Module PDF Cards with sleek PDF logo, chapters & pages -->
+                    <div id="moduleCardsContainer" class="module-cards-container"></div>
+                </main>
+            </div>
 
             <!-- Dual Filter Bottom Sheet -->
             <div class="filter-bottom-overlay" id="filterBottomOverlay">
@@ -900,7 +948,7 @@
         </div>
     </div>
 
-    <!-- Ultra-Clean Native Toast Pill Container (Red/Green Glow) -->
+    <!-- Ultra-Clean Native Toast Pill Container -->
     <div id="spidyPillToast" class="spidy-pill-toast"></div>
 
     <!-- Upload Tutorial Popup -->
