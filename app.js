@@ -33,16 +33,14 @@ const WORKER_PROXY_URL = "https://spidy-proxy.spidybookhub-backend.workers.dev";
 const DEFAULT_AVATAR = "https://i.postimg.cc/D0BF1b77/file-000000000e847207a64f6711d825a859.png";
 
 // ==========================================
-// 2. ASSET RESOLUTION (FIX FOR COVER & AVATAR)
+// 2. ASSET RESOLUTION HELPER
 // ==========================================
 function getSecureAssetUrl(fileKeyOrUrl) {
     if (!fileKeyOrUrl) return DEFAULT_AVATAR;
     if (fileKeyOrUrl.startsWith("http://") || fileKeyOrUrl.startsWith("https://")) {
-        // If already on our worker proxy, return directly
         if (fileKeyOrUrl.includes("spidy-proxy.spidybookhub-backend.workers.dev")) {
             return fileKeyOrUrl;
         }
-        // If stored as full R2 cloudflare storage URL, map to worker proxy
         if (fileKeyOrUrl.includes(".r2.cloudflarestorage.com")) {
             try {
                 const parsed = new URL(fileKeyOrUrl);
@@ -167,15 +165,7 @@ function parseMarkdown(rawText) {
     safe = safe.replace(/_([^_]+)_/g, '<i>$1</i>');
     safe = safe.replace(/~([^~]+)~/g, '<del>$1</del>');
     safe = safe.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-    safe = safe.replace(/\n/g, '<br>');
-
-    safe = safe.replace(/(<div class="tg-copy-card">[\s\S]*?<\/div>)/g, function(m) {
-        return m.replace(/<br>/g, '');
-    });
-    safe = safe.replace(/(<br>\s*)+(<div class="tg-copy-card">)/g, '$2');
-    safe = safe.replace(/(<\/div>)\s*(<br>\s*)+/g, '$1');
-
-    return safe;
+    return safe.replace(/\n/g, '<br>');
 }
 
 function escapeHTML(str) {
@@ -270,9 +260,9 @@ function cleanUnicodeTextForSearch(str) {
     return str.normalize("NFD").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/[^\p{L}\p{M}\p{N}]/gu, "").toLowerCase();
 }
 
-// =========================================================================
-// 3. DYNAMIC MODULE BANNER CAROUSEL & NAVIGATION CONTROLLER
-// =========================================================================
+// ==========================================
+// 3. DYNAMIC MODULE BANNER CAROUSEL & NAVIGATION
+// ==========================================
 let currentPromoIndex = 0;
 let promoAutoSlideInterval = null;
 
@@ -347,8 +337,7 @@ function initPromoCarousel() {
 
     if (prevBtn) {
         prevBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            e.preventDefault(); e.stopPropagation();
             currentPromoIndex = (currentPromoIndex - 1 + totalSlides) % totalSlides;
             goToSlide(currentPromoIndex);
             startAutoSlide();
@@ -357,8 +346,7 @@ function initPromoCarousel() {
 
     if (nextBtn) {
         nextBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            e.preventDefault(); e.stopPropagation();
             currentPromoIndex = (currentPromoIndex + 1) % totalSlides;
             goToSlide(currentPromoIndex);
             startAutoSlide();
@@ -392,15 +380,12 @@ window.openBannerModules = function(bannerId) {
     activeBannerData = banner;
     activeSubjectKey = null;
 
-    // Set Header & Institute Info
     document.getElementById('moduleHeaderTitle').innerText = (banner.title || "MODULE PACK").toUpperCase();
     document.getElementById('moduleInstituteText').innerText = banner.institute || "Physics Wallah";
 
-    // Show Subjects View, Hide Modules View
     document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
     document.getElementById('bannerModulesView').classList.add('hidden-view');
 
-    // Build Dynamic Subject Pods
     const container = document.getElementById('subjectCardsList');
     if (!container) return;
 
@@ -417,7 +402,6 @@ window.openBannerModules = function(bannerId) {
 
     subjectsConfig.forEach(sub => {
         const modulesArr = subjectsData[sub.key] || [];
-        // Sirf wahi subjects display honge jinke modules admin ne upload kiye hain
         if (modulesArr.length > 0) {
             html += `
             <div class="subject-pod-card" onclick="window.openSubjectModulesList('${sub.key}')">
@@ -439,7 +423,6 @@ window.openBannerModules = function(bannerId) {
 
     container.innerHTML = html;
 
-    // Open Modal
     const modal = document.getElementById('moduleBannerModal');
     if (modal) modal.classList.add('active');
 };
@@ -491,12 +474,10 @@ window.openSubjectModulesList = function(subjectKey) {
         container.innerHTML = html;
     }
 
-    // Switch View Inside Modal
     document.getElementById('bannerSubjectsView').classList.add('hidden-view');
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
-// 🌟 READ MODULE PDF DIRECTLY IN IN-APP VIEWER
 window.readModulePdfDirectly = function(pdfUrl, title) {
     if (!pdfUrl) return showToast("Module PDF document not linked yet.", "error");
 
@@ -509,16 +490,13 @@ window.readModulePdfDirectly = function(pdfUrl, title) {
     renderPdfInModal(pdfUrl);
 };
 
-// 🌟 MODULE BACK BUTTON CONTROLLER (Smooth Sequence Navigation)
 document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
     const modulesView = document.getElementById('bannerModulesView');
-    // Agar user Modules List dekh raha hai, to pehle Subjects View par wapas layenge
     if (modulesView && !modulesView.classList.contains('hidden-view')) {
         modulesView.classList.add('hidden-view');
         document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
         document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
     } else {
-        // Agar Subject View par hai, to modal band kar denge
         document.getElementById('moduleBannerModal')?.classList.remove('active');
         activeBannerData = null;
         activeSubjectKey = null;
@@ -544,10 +522,7 @@ function initPremiumPopups() {
     if(tgMaybeLaterBtn) tgMaybeLaterBtn.addEventListener('click', closeTgPopup);
     if(waMaybeLaterBtn) waMaybeLaterBtn.addEventListener('click', closeWaPopup);
 
-    setTimeout(() => {
-        if(telegramPopup) telegramPopup.classList.remove('hide');
-    }, 60000); 
-
+    setTimeout(() => { if(telegramPopup) telegramPopup.classList.remove('hide'); }, 60000); 
     setTimeout(() => {
         if(telegramPopup) telegramPopup.classList.add('hide'); 
         if(whatsappPopup) whatsappPopup.classList.remove('hide');
@@ -557,7 +532,6 @@ function initPremiumPopups() {
 function checkAndShowUploadTutorialPopup() {
     const uploadPopup = document.getElementById('uploadPopup');
     if (!uploadPopup) return;
-
     const lastShown = localStorage.getItem('spidy_last_upload_popup_time');
     const now = Date.now();
     const ONE_HOUR = 60 * 60 * 1000;
@@ -621,7 +595,6 @@ function tryTransition() {
 
                 setTimeout(() => {
                     document.getElementById('mainAppWrapper').style.display = 'block';
-
                     if (isDeepLinkLoad && pendingBookSlug) {
                         if (isUserLoggedIn) { openDownloadPageLocal(pendingBookSlug, true); } 
                         else {
@@ -644,7 +617,7 @@ function tryTransition() {
 }
 
 // ==========================================
-// PROFILE, CREDITS & SYNC
+// PROFILE & SYNC
 // ==========================================
 function updateLiveCredits(remainingCount) {
     if (IS_SUPER_ADMIN) {
@@ -989,7 +962,6 @@ async function applyReaction(postId, newEmoji) {
     } catch (e) {}
 }
 
-// Copy Code Button Global Helper
 window.copyToClipboard = function(text, btn) {
     if (!text) return;
     navigator.clipboard.writeText(text).then(() => {
@@ -1095,7 +1067,6 @@ onAuthStateChanged(auth, async (user) => {
     isAppReady.auth = true; 
     tryTransition();
 
-    // 🎴 FETCH DYNAMIC MODULE BANNERS FROM FIRESTORE
     onSnapshot(query(collection(db, "module_banners"), orderBy("createdAt", "desc")), (snapshot) => {
         dynamicBannersList = [];
         snapshot.forEach(docSnap => {
@@ -1106,7 +1077,6 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // 📝 FETCH PROMPTS
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if(!container) return;
@@ -1129,18 +1099,15 @@ onAuthStateChanged(auth, async (user) => {
         });
     });
 
-    // 📚 FETCH REAL BOOKS WITH CORRECT COVER URL
     const q = query(collection(db, "books"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
         booksData = [];
         snapshot.forEach((docSnap) => {
             let data = docSnap.data(); 
             data.id = docSnap.id;
-            
             const rawTitle = (data.title || "").trim().toLowerCase();
             const safeCandidate = encodeURIComponent(rawTitle.replace(/\s+/g, '-'));
             data.slug = (safeCandidate && safeCandidate !== "%20") ? safeCandidate : docSnap.id;
-
             booksData.push(data);
         });
         mainFilteredData = [...booksData]; 
@@ -1152,7 +1119,6 @@ onAuthStateChanged(auth, async (user) => {
         tryTransition();
     });
 
-    // 💬 FETCH CHANNEL UPDATES
     renderChannelLoader();
     const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
     onSnapshot(channelQuery, (snapshot) => {
@@ -1296,19 +1262,15 @@ if (confirmLogoutBtn) {
             await signOut(auth);
             localStorage.removeItem('isUserLoggedIn');
             window.location.reload();
-        } catch (error) { 
-            showToast("Error signing out!", "error"); 
-        }
+        } catch (error) { showToast("Error signing out!", "error"); }
     });
 }
 
 const uploadPopup = document.getElementById('uploadPopup');
 const closeUploadPopupBtn = document.getElementById('closeUploadPopupBtn');
-
 if (closeUploadPopupBtn && uploadPopup) {
     closeUploadPopupBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault(); e.stopPropagation();
         uploadPopup.classList.add('hidden');
     });
 }
@@ -1343,7 +1305,6 @@ let currentSelectedLanguage = "All";
 function renderStaticFilterPills() {
     const catGrid = document.getElementById('categoryFilterGrid'); 
     if(!catGrid) return;
-    
     let html = `<div class="f-pill ${currentSelectedCategory === 'All' ? 'active' : ''}" data-category="All">All</div>`;
     FIXED_EXAM_LIST.forEach(category => { 
         html += `<div class="f-pill ${category === currentSelectedCategory ? 'active' : ''}" data-category="${category}">${category}</div>`; 
@@ -1428,7 +1389,7 @@ document.getElementById('close-search')?.addEventListener('click', () => {
     searchInputEl.value = ''; 
     applyMasterFilter(); 
     document.getElementById('search-box').classList.remove('active'); 
-    if (history.state && history.state.popup === 'search') { history.back(); }
+    if (history.state && history.state.popup === 'search') history.back();
 });
 document.getElementById('openAuthorFilterBtn')?.addEventListener('click', () => { 
     document.getElementById('filterBottomOverlay').classList.add('active'); 
@@ -1460,7 +1421,6 @@ const infiniteScrollObserver = new IntersectionObserver((entries) => {
 
 if (document.getElementById('scroll-sentinel')) infiniteScrollObserver.observe(document.getElementById('scroll-sentinel'));
 
-// 🌟 RENDER BOOKS WITH HIGH-ACCURACY COVER ARTWORK
 function renderBooksUI(startIndex, count, customData = null) {
     const container = document.getElementById("bookContainer");
     let dataToRender = customData ? customData : mainFilteredData;
@@ -1472,8 +1432,6 @@ function renderBooksUI(startIndex, count, customData = null) {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         let isSaved = savedBooks.includes(book.slug) || savedBooks.includes(book.id);
         let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
-        
-        // Exact Worker Proxy URL mapping ensures no avatar placeholder issue
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
         htmlChunk += `
@@ -1740,14 +1698,14 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 5. HD PDF VIEWER (PINCH-ZOOM & RANGE COMPATIBLE)
+// 5. HD PDF VIEWER (PINCH-ZOOM & RANGE)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
     scrollContainer.innerHTML = `
         <div id="pdfLoadingStatus" style="color: #38bdf8; margin-top: 50px; font-size: 15px; font-weight: 600; text-align: center;">
             <i class="fas fa-spinner fa-spin" style="font-size: 26px; margin-bottom: 12px; display: block;"></i>
-            Loading book securely...
+            Loading document securely...
         </div>`;
 
     cleanupPdfResources();
@@ -1794,7 +1752,6 @@ async function renderPdfInModal(pdfUrl) {
 
         initVirtualizationObserver(pdf, targetCssWidth, pixelRatio);
 
-        // Pre-cache text
         (async () => {
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 if (!currentPdfDocument) break;
@@ -1827,7 +1784,7 @@ async function renderPdfInModal(pdfUrl) {
         scrollContainer.innerHTML = `
             <div style="color: #ef4444; margin-top: 50px; text-align: center; padding: 25px;">
                 <i class="fas fa-triangle-exclamation" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
-                <strong>Failed to load book pages</strong>
+                <strong>Failed to load document pages</strong>
                 <p style="font-size: 13px; color: #a1a1aa; margin: 10px 0 0 0;">Network interrupted or document unavailable.</p>
             </div>`;
     }
@@ -2004,7 +1961,6 @@ function initPdfScrollTracker() {
     }, { passive: true });
 }
 
-// "GO TO PAGE" MODAL LOGIC
 const pdfPageBadge = document.getElementById('pdfPageBadge');
 const goToPageModal = document.getElementById('goToPageModal');
 const cancelGoToPageBtn = document.getElementById('cancelGoToPageBtn');
@@ -2049,7 +2005,6 @@ async function jumpToPdfPage(pageNum) {
     }
 }
 
-// SEARCH IN PDF
 const pdfSearchToggleBtn = document.getElementById('pdfSearchToggleBtn');
 const pdfSearchBar = document.getElementById('pdfSearchBar');
 const pdfSearchCloseBtn = document.getElementById('pdfSearchCloseBtn');
@@ -2159,14 +2114,6 @@ pdfSearchPrevBtn?.addEventListener('click', () => {
 // ==========================================
 // 6. READ ONLINE CONTROLLER
 // ==========================================
-const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
-if (detectTokenFromUrl) {
-    document.getElementById('tokenInput').value = detectTokenFromUrl;
-    window.history.replaceState({}, document.title, window.location.pathname);
-    document.getElementById('tokenModalOverlay').style.display = 'flex';
-    initParticles('particles');
-}
-
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
         document.getElementById('loginOverlay').style.display = 'flex'; 
@@ -2235,7 +2182,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         btn.disabled = true;
 
         try {
-            const userToken = await auth.currentUser.getIdToken(false);
             const rawPdf = book.pdfLink || "";
             const finalPdfUrl = getSecureAssetUrl(rawPdf);
 
@@ -2277,25 +2223,10 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
 document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
 function closeDownloadPageLocal() {
-    if (history.state && history.state.popup === 'book') { 
-        history.back(); 
-    } else { 
+    if (history.state && history.state.popup === 'book') history.back();
+    else { 
         document.getElementById("downloadModal").style.display = "none"; 
         window.history.replaceState({}, '', window.location.pathname); 
-    }
-    if(isDeepLinkLoad) {
-        isDeepLinkLoad = false; 
-        const loader = document.getElementById("loaderScreen"); 
-        loader.style.display = "flex"; 
-        loader.style.opacity = "1"; 
-        updateLoaderUI(100);
-        setTimeout(() => { 
-            loader.style.opacity = "0"; 
-            setTimeout(() => { 
-                loader.style.display = "none"; 
-                initPremiumPopups(); 
-            }, 300); 
-        }, 1500); 
     }
 }
 
@@ -2310,134 +2241,7 @@ document.getElementById('shareBookBtn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// REPORT ISSUE
-// ==========================================
-document.getElementById('reportLinkBtn')?.addEventListener('click', () => {
-    document.getElementById('reportModalOverlay').classList.add('active');
-});
-document.getElementById('closeReportBtn')?.addEventListener('click', () => {
-    document.getElementById('reportModalOverlay').classList.remove('active');
-});
-
-const reportOptions = document.querySelectorAll('.rm-option');
-const submitReportBtn = document.getElementById('submitReportBtn');
-
-reportOptions.forEach(opt => {
-    opt.addEventListener('click', () => {
-        reportOptions.forEach(o => o.classList.remove('selected'));
-        opt.classList.add('selected');
-        submitReportBtn.classList.add('enabled');
-    });
-});
-
-submitReportBtn?.addEventListener('click', async () => {
-    const selectedOption = document.querySelector('.rm-option.selected');
-    if (selectedOption) {
-        const issueType = selectedOption.querySelector('span').innerText;
-        try {
-            await addDoc(collection(db, "reports"), {
-                bookTitle: activeBookTitle || "Unknown",
-                bookSlug: activeBookSlug || "Unknown",
-                issueType: issueType,
-                status: 'Pending',
-                reportedBy: (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : 'Unknown User',
-                createdAt: Date.now()
-            });
-        } catch (error) {}
-
-        submitReportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Successfully Reported';
-        submitReportBtn.style.background = '#10b981';
-        
-        setTimeout(() => {
-            document.getElementById('reportModalOverlay').classList.remove('active');
-            setTimeout(() => {
-                submitReportBtn.innerHTML = 'Submit Report';
-                submitReportBtn.style.background = '#ef4444';
-                submitReportBtn.classList.remove('enabled');
-                reportOptions.forEach(o => o.classList.remove('selected'));
-            }, 400);
-        }, 1200);
-    }
-});
-
-// ==========================================
-// TOKEN VERIFICATION
-// ==========================================
-document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
-    document.getElementById('tokenModalOverlay').style.display = 'none';
-});
-
-document.getElementById('tokenInput')?.addEventListener('input', () => {
-    document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
-});
-
-document.getElementById('getKeyBtn')?.addEventListener('click', () => {
-    const btn = document.getElementById('getKeyBtn');
-    const originalContent = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-    setTimeout(() => {
-        window.location.href = "https://arolinks.com/6RTf5";
-        btn.innerHTML = originalContent;
-    }, 600);
-});
-
-document.getElementById('verifyBtn')?.addEventListener('click', async () => {
-    const tokenInput = document.getElementById('tokenInput');
-    const tokenValue = tokenInput.value.trim();
-    const inputBox = document.getElementById('inputBoxWrapperToken');
-    const btn = document.getElementById('verifyBtn');
-
-    inputBox.classList.remove('error-state', 'success-state');
-
-    if (tokenValue.length < 5) {
-        inputBox.classList.add('error-state');
-        setTimeout(() => inputBox.classList.remove('error-state'), 2500); 
-        showToast('Invalid Token Format!', 'error');
-        return;
-    }
-
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
-    const currentFingerprint = generateDeviceFingerprint();
-
-    try {
-        const response = await fetch('/api/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: tokenValue, fingerprint: currentFingerprint })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            inputBox.classList.add('success-state');
-            showToast('Access Granted! Valid for 24 Hours.', 'success');
-            
-            localStorage.setItem('spidy_secure_session', JSON.stringify({
-                token: tokenValue,
-                fp: currentFingerprint,
-                expiry: Date.now() + 24 * 60 * 60 * 1000 
-            }));
-
-            setTimeout(() => {
-                document.getElementById('tokenModalOverlay').style.display = 'none';
-                btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
-                document.getElementById("dlReadOnlineBtn").click();
-            }, 1000);
-
-        } else {
-            inputBox.classList.add('error-state');
-            showToast(data.error || 'Verification Failed', 'error');
-            btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
-        }
-    } catch (err) {
-        inputBox.classList.add('error-state');
-        showToast('Server Error! Cannot verify token right now.', 'error');
-        btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
-    }
-});
-
-// ==========================================
-// 7. DIRECT BOOK UPLOADER CONTROLLER (NO CRASH)
+// 7. DIRECT BOOK UPLOADER CONTROLLER (FIXED 404 URL)
 // ==========================================
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', function(e) {
@@ -2484,6 +2288,8 @@ function uploadSingleFileTracked(file, type, onProgress) {
 
         try {
             const userToken = await auth.currentUser.getIdToken(true);
+            
+            // 🌟 FIXED 404 ERROR: Correct Endpoint /api/get-upload-url
             const authResponse = await fetch('/api/get-upload-url', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2517,7 +2323,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
 
             xhr.onload = function() {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(`${WORKER_PROXY_URL}/${authData.fileKey}`);
+                    resolve(authData.fileKey);
                 } else { 
                     reject(new Error(`Storage rejected upload with status: ${xhr.status}`)); 
                 }
@@ -2599,28 +2405,17 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             lastLoaded = totalUploadedNow;
             lastTime = now;
         }
-
-        if (percent < 30) {
-            stageTitle.innerText = "Transferring Cover Artwork...";
-            stageSub.innerText = "Optimizing image resolution for mobile readers";
-        } else if (percent < 85) {
-            stageTitle.innerText = "Uploading Manuscript Pages...";
-            stageSub.innerText = "Writing high-speed encrypted stream to Cloudflare R2";
-        } else {
-            stageTitle.innerText = "Finalizing Storage Nodes...";
-            stageSub.innerText = "Preparing document metadata & secure tokens";
-        }
     }
 
     try {
         stageTitle.innerText = "Transferring Cover Image...";
-        const coverUrl = await uploadSingleFileTracked(selectedCoverFile, 'image', (loaded) => {
+        const coverKey = await uploadSingleFileTracked(selectedCoverFile, 'image', (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
         stageTitle.innerText = "Transferring PDF Manuscript...";
-        const pdfUrl = await uploadSingleFileTracked(selectedPdfFile, 'pdf', (loaded) => {
+        const pdfKey = await uploadSingleFileTracked(selectedPdfFile, 'pdf', (loaded) => {
             pdfLoaded = loaded;
             updateTelemetry();
         });
@@ -2637,8 +2432,8 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             year: document.getElementById('inYear').value, 
             lang: document.getElementById('inLang').value, 
             exams: document.getElementById('inExams').value, 
-            image: coverUrl, 
-            pdfLink: pdfUrl, 
+            image: coverKey, 
+            pdfLink: pdfKey, 
             fileSize: detectedFileSizeMB || "10 MB",
             fileFormat: "PDF",
             totalPages: detectedTotalPages ? detectedTotalPages.toString() : "100+",
