@@ -151,13 +151,7 @@ function parseMarkdown(rawText) {
         let encodedCopy = encodeURIComponent(copyText);
         let cardTitle = (title || 'Free code').trim();
 
-        return `<div class="tg-copy-card">
-            <div class="tg-copy-header">${escapeHTML(cardTitle)}</div>
-            <div class="tg-copy-body"><ul>${listHtml}</ul></div>
-            <button type="button" class="tg-copy-action-btn" onclick="window.copyToClipboard(decodeURIComponent('${encodedCopy}'), this)">
-                <i class="far fa-copy"></i> COPY CODE
-            </button>
-        </div>`;
+        return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" data-clipboard="${encodedCopy}" onclick="window.copyFromButton(this)"><i class="far fa-copy"></i> COPY CODE</button></div>`;
     });
 
     safe = safe.replace(/(^|\n)(&gt;|>)\s*(.+?)(?=(\n\n|\n(?!&gt;|>)|$))/gs, function(match, prefix, qTag, content) {
@@ -178,7 +172,7 @@ function parseMarkdown(rawText) {
     if (typeof DOMPurify !== 'undefined') {
         return DOMPurify.sanitize(safe, {
             ADD_TAGS: ['button', 'i', 'ul', 'li', 'div', 'span', 'b', 'del', 'a'],
-            ADD_ATTR: ['onclick', 'target', 'rel', 'class', 'type']
+            ADD_ATTR: ['onclick', 'target', 'rel', 'class', 'type', 'data-clipboard']
         });
     }
     return safe;
@@ -1081,17 +1075,34 @@ if (contextOverlay) {
         contextOverlay.classList.remove('show');
     });
 
-    // 🌟 REPORT ISSUE -> SHOWS STRICT RED TOAST
+    // 🌟 REPORT ISSUE -> SHOWS RED TOAST
     document.getElementById('cmReport')?.addEventListener('click', () => {
         showToast("Post reported successfully!", "error");
         contextOverlay.classList.remove('show');
     });
 }
 
-// 🌟 GLOBAL COPY CODE HANDLER (EMERALD GREEN ACTIVE STATE + TOP TOAST)
+// 🌟 100% BULLETPROOF COPY HANDLER (DIRECT & BACKUP FALLBACK)
 window.copyToClipboard = function(text, btn) {
+    if (!text) {
+        // Fallback: extract directly from parent card's list items
+        if (btn) {
+            const card = btn.closest('.tg-copy-card, .telegram-prompt-card');
+            if (card) {
+                const listItems = card.querySelectorAll('li');
+                if (listItems.length > 0) {
+                    text = Array.from(listItems).map(li => li.textContent.trim()).join('\n');
+                } else {
+                    const bodyEl = card.querySelector('.telegram-prompt-body');
+                    if (bodyEl) text = bodyEl.textContent.trim();
+                }
+            }
+        }
+    }
+
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
+
+    const finalizeSuccess = () => {
         if (btn) {
             btn.classList.add('copied-active');
             const orig = btn.innerHTML;
@@ -1102,7 +1113,43 @@ window.copyToClipboard = function(text, btn) {
             }, 2000);
         }
         showToast("Copied to clipboard!", "success");
-    }).catch(() => showToast("Failed to copy", "error"));
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(finalizeSuccess).catch(() => {
+            // Backup copy via textarea
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                finalizeSuccess();
+            } catch (err) {
+                showToast("Failed to copy", "error");
+            }
+            document.body.removeChild(textarea);
+        });
+    } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            finalizeSuccess();
+        } catch (err) {
+            showToast("Failed to copy", "error");
+        }
+        document.body.removeChild(textarea);
+    }
+};
+
+window.copyFromButton = function(btn) {
+    if (!btn) return;
+    const rawData = btn.getAttribute('data-clipboard');
+    let text = rawData ? decodeURIComponent(rawData) : '';
+    window.copyToClipboard(text, btn);
 };
 
 // ==========================================
@@ -1203,7 +1250,7 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // 📝 FETCH PROMPTS
+    // 📝 FETCH PROMPTS (FLUSH BOTTOM BORDER & FULL-WIDTH BUTTON)
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if(!container) return;
@@ -1222,7 +1269,7 @@ onAuthStateChanged(auth, async (user) => {
             if(safeInstruction) { 
                 instructionHTML = `<div style="color: #ffffff; font-weight: 600; font-size: 14px; margin-bottom: 8px; margin-left: 2px; line-height: 1.5; font-family: 'Inter', sans-serif;">${safeInstruction}</div>`; 
             }
-            container.innerHTML += `<div class="telegram-prompt-wrapper">${instructionHTML}<div class="telegram-prompt-card"><div class="telegram-prompt-header">${safeTitle}</div><div class="telegram-prompt-body">${safeText}</div><div class="telegram-prompt-footer"><button class="telegram-copy-btn" data-text="${encodeURIComponent(data.text)}" id="copy-btn-${id}"><i class="far fa-copy"></i> COPY CODE</button></div></div></div>`;
+            container.innerHTML += `<div class="telegram-prompt-wrapper">${instructionHTML}<div class="telegram-prompt-card"><div class="telegram-prompt-header">${safeTitle}</div><div class="telegram-prompt-body">${safeText}</div><div class="telegram-prompt-footer"><button type="button" class="telegram-copy-btn" data-clipboard="${encodeURIComponent(data.text)}" onclick="window.copyFromButton(this)"><i class="far fa-copy"></i> COPY CODE</button></div></div></div>`;
         });
     });
 
@@ -1289,11 +1336,16 @@ onAuthStateChanged(auth, async (user) => {
     });
 });
 
-document.getElementById('promptsContainer')?.addEventListener('click', (e) => {
-    const copyBtn = e.target.closest('.telegram-copy-btn');
+// Click delegation backup
+document.addEventListener('click', (e) => {
+    const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
     if (copyBtn) {
-        const textToCopy = decodeURIComponent(copyBtn.getAttribute('data-text'));
-        window.copyToClipboard(textToCopy, copyBtn);
+        e.preventDefault();
+        e.stopPropagation();
+        const rawText = copyBtn.getAttribute('data-clipboard');
+        if (rawText) {
+            window.copyToClipboard(decodeURIComponent(rawText), copyBtn);
+        }
     }
 });
 
@@ -1717,7 +1769,6 @@ function switchTab(tabId) {
         setTimeout(() => target.classList.add('active'), 10); 
     } 
 
-    // Reset scroll state on upload tab switch
     if (tabId === 'tab-upload') {
         const uploadContent = document.getElementById('admContentArea');
         if (uploadContent) uploadContent.scrollTop = 0;
@@ -1797,7 +1848,6 @@ document.getElementById('nav-dev')?.addEventListener('click', () => {
 
 // 🌟 COMPREHENSIVE HARDWARE BACK BUTTON LISTENER
 window.addEventListener('popstate', (e) => {
-    // 1. PDF Viewer Band Karein
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer && pdfViewer.style.display === 'flex') {
         pdfViewer.style.display = 'none';
@@ -1806,7 +1856,6 @@ window.addEventListener('popstate', (e) => {
         return;
     }
 
-    // 2. Module Banner Modal Band Karein
     const bannerModal = document.getElementById('moduleBannerModal');
     if (bannerModal && bannerModal.classList.contains('active')) {
         const modulesView = document.getElementById('bannerModulesView');
@@ -1822,21 +1871,18 @@ window.addEventListener('popstate', (e) => {
         return;
     }
 
-    // 3. Filter Sheet Band Karein
     const filterOverlay = document.getElementById('filterBottomOverlay');
     if (filterOverlay && filterOverlay.classList.contains('active')) {
         filterOverlay.classList.remove('active');
         return;
     }
 
-    // 4. Token Modal Band Karein
     const tokenModal = document.getElementById('tokenModalOverlay');
     if (tokenModal && tokenModal.style.display === 'flex') {
         tokenModal.style.display = 'none';
         return;
     }
 
-    // 5. Default Panels & Download Modal Clean
     closeAllPanels(); 
     applyMasterFilter();
     const sBook = new URLSearchParams(window.location.search).get('book');
@@ -2089,8 +2135,6 @@ function initPinchToZoom() {
             const factor = currentDistance / initialDistance;
             let newScale = Math.min(Math.max(currentScale * factor, 1), 3.5);
             scroller.style.transform = `scale(${newScale})`;
-            
-            // Container dynamic expansion to support free horizontal pan
             scroller.style.width = `${100 * newScale}%`;
         }
     }, { passive: true });
@@ -2235,7 +2279,7 @@ function clearAllHighlights() {
     });
 }
 
-// 🌟 ACCURATE SPECIFIC KEYWORD HIGHLIGHTING
+// 🌟 ACCURATE KEYWORD HIGHLIGHTING
 function highlightMatchesInPage(textLayerDiv, query) {
     if (!query || !textLayerDiv) return;
     const cleanQ = cleanUnicodeTextForSearch(query);
@@ -2246,7 +2290,6 @@ function highlightMatchesInPage(textLayerDiv, query) {
         const cleanText = cleanUnicodeTextForSearch(rawText);
         const rawQuery = query.toLowerCase();
 
-        // Exact match comparison to prevent full-line selection
         if ((rawText.length > 0 && rawText.includes(rawQuery)) || (cleanQ.length > 0 && cleanText.includes(cleanQ))) {
             span.classList.add('highlight-match');
         }
@@ -2638,7 +2681,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. UPLOAD SYSTEM (USES REPO'S /api/generate-upload-url)
+// 17. UPLOAD SYSTEM
 // ==========================================
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', function(e) {
