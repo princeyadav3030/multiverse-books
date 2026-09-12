@@ -143,16 +143,21 @@ function stripMarkdown(text) {
 
 function parseMarkdown(rawText) {
     if (!rawText) return "";
-    let safe = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(rawText) : sanitizeHTML(rawText);
 
-    safe = safe.replace(/:::copy\s*(?:\[(.*?)\])?([\s\S]*?):::/g, function(match, title, content) {
+    let safe = rawText.replace(/:::copy\s*(?:\[(.*?)\])?([\s\S]*?):::/g, function(match, title, content) {
         let lines = (content || "").trim().split('\n').map(l => l.trim()).filter(l => l.length > 0);
         let listHtml = lines.map(line => `<li>${escapeHTML(line.replace(/^[•\-\*]\s*/, ''))}</li>`).join('');
         let copyText = lines.map(line => line.replace(/^[•\-\*]\s*/, '')).join('\n');
         let encodedCopy = encodeURIComponent(copyText);
         let cardTitle = (title || 'Free code').trim();
 
-        return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" onclick="window.copyToClipboard(decodeURIComponent('${encodedCopy}'), this)"><i class="far fa-copy"></i> COPY CODE</button></div>`;
+        return `<div class="tg-copy-card">
+            <div class="tg-copy-header">${escapeHTML(cardTitle)}</div>
+            <div class="tg-copy-body"><ul>${listHtml}</ul></div>
+            <button type="button" class="tg-copy-action-btn" onclick="window.copyToClipboard(decodeURIComponent('${encodedCopy}'), this)">
+                <i class="far fa-copy"></i> COPY CODE
+            </button>
+        </div>`;
     });
 
     safe = safe.replace(/(^|\n)(&gt;|>)\s*(.+?)(?=(\n\n|\n(?!&gt;|>)|$))/gs, function(match, prefix, qTag, content) {
@@ -170,6 +175,12 @@ function parseMarkdown(rawText) {
     safe = safe.replace(/(<br>\s*)+(<div class="tg-copy-card">)/g, '$2');
     safe = safe.replace(/(<\/div>)\s*(<br>\s*)+/g, '$1');
 
+    if (typeof DOMPurify !== 'undefined') {
+        return DOMPurify.sanitize(safe, {
+            ADD_TAGS: ['button', 'i', 'ul', 'li', 'div', 'span', 'b', 'del', 'a'],
+            ADD_ATTR: ['onclick', 'target', 'rel', 'class', 'type']
+        });
+    }
     return safe;
 }
 
@@ -215,7 +226,7 @@ function formatTime(dateObj) {
 }
 
 // ==========================================
-// 3. NATIVE PILL TOAST
+// 3. NATIVE PILL TOAST (Top Positioned)
 // ==========================================
 let pillToastTimer;
 function showToast(message, type = 'success') {
@@ -407,7 +418,7 @@ function initPromoCarousel() {
     startAutoSlide();
 }
 
-// 🌟 OPEN BANNER & LOAD SUBJECTS (FIXED HEADER ALIGNMENT)
+// 🌟 OPEN BANNER & LOAD SUBJECTS
 window.openBannerModules = function(bannerId) {
     const banner = dynamicBannersList.find(b => b.id === bannerId);
     if (!banner) return;
@@ -461,10 +472,12 @@ window.openBannerModules = function(bannerId) {
     container.innerHTML = html;
 
     const modal = document.getElementById('moduleBannerModal');
-    if (modal) modal.classList.add('active');
+    if (modal) {
+        history.pushState({ popup: 'moduleBanner' }, '');
+        modal.classList.add('active');
+    }
 };
 
-// 🌟 OPEN MODULES LIST WITH AUTO PAGE COUNT CALCULATION
 window.openSubjectModulesList = function(subjectKey) {
     if (!activeBannerData) return;
     activeSubjectKey = subjectKey;
@@ -495,7 +508,6 @@ window.openSubjectModulesList = function(subjectKey) {
             const encodedPdf = encodeURIComponent(resolvedPdf);
             const encodedTitle = encodeURIComponent(mod.name || "Module Document");
 
-            // Auto Page display fallback (removes static 180 Pages)
             let pageLabel = "Complete Document";
             if (mod.pages && !mod.pages.includes("180 Pages")) {
                 pageLabel = mod.pages.includes("Page") ? mod.pages : `${mod.pages} Pages`;
@@ -528,7 +540,10 @@ window.readModulePdfDirectly = function(pdfUrl, title) {
     const titleEl = document.getElementById('pdfViewerTitle');
 
     if (titleEl) titleEl.innerText = title || "Reading Module...";
-    if (pdfViewer) pdfViewer.style.display = 'flex';
+    if (pdfViewer) {
+        history.pushState({ popup: 'pdfViewer' }, '');
+        pdfViewer.style.display = 'flex';
+    }
 
     renderPdfInModal(pdfUrl);
 };
@@ -540,9 +555,13 @@ document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
         document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
         document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
     } else {
-        document.getElementById('moduleBannerModal')?.classList.remove('active');
-        activeBannerData = null;
-        activeSubjectKey = null;
+        if (history.state && history.state.popup === 'moduleBanner') {
+            history.back();
+        } else {
+            document.getElementById('moduleBannerModal')?.classList.remove('active');
+            activeBannerData = null;
+            activeSubjectKey = null;
+        }
     }
 });
 
@@ -1062,27 +1081,27 @@ if (contextOverlay) {
         contextOverlay.classList.remove('show');
     });
 
+    // 🌟 REPORT ISSUE -> SHOWS STRICT RED TOAST
     document.getElementById('cmReport')?.addEventListener('click', () => {
-        showToast("Post reported successfully!", "success");
+        showToast("Post reported successfully!", "error");
         contextOverlay.classList.remove('show');
     });
 }
 
-// Global Copy Code Handler
+// 🌟 GLOBAL COPY CODE HANDLER (EMERALD GREEN ACTIVE STATE + TOP TOAST)
 window.copyToClipboard = function(text, btn) {
     if (!text) return;
     navigator.clipboard.writeText(text).then(() => {
         if (btn) {
             btn.classList.add('copied-active');
             const orig = btn.innerHTML;
-            btn.innerHTML = `<i class="fas fa-check"></i> COPIED`;
+            btn.innerHTML = `<i class="fas fa-check"></i> COPIED!`;
             setTimeout(() => {
                 btn.classList.remove('copied-active');
                 btn.innerHTML = orig;
             }, 2000);
-        } else {
-            showToast("Copied to Clipboard!", "success");
         }
+        showToast("Copied to clipboard!", "success");
     }).catch(() => showToast("Failed to copy", "error"));
 };
 
@@ -1213,7 +1232,7 @@ onAuthStateChanged(auth, async (user) => {
         booksData = [];
         snapshot.forEach((docSnap) => {
             let data = docSnap.data(); 
-            data.id = docSnap.id;
+            data.id = docSnap.id; 
             
             const rawTitle = (data.title || "").trim().toLowerCase();
             const safeCandidate = encodeURIComponent(rawTitle.replace(/\s+/g, '-'));
@@ -1446,7 +1465,11 @@ document.getElementById('languageFilterGrid')?.addEventListener('click', (e) => 
 });
 
 document.getElementById('applyFiltersBtn')?.addEventListener('click', () => { 
-    document.getElementById('filterBottomOverlay').classList.remove('active'); 
+    if (history.state && history.state.popup === 'filter') {
+        history.back();
+    } else {
+        document.getElementById('filterBottomOverlay').classList.remove('active'); 
+    }
     applyMasterFilter(); 
 });
 
@@ -1511,10 +1534,15 @@ document.getElementById('close-search')?.addEventListener('click', () => {
     if (history.state && history.state.popup === 'search') { history.back(); }
 });
 document.getElementById('openAuthorFilterBtn')?.addEventListener('click', () => { 
+    history.pushState({ popup: 'filter' }, '');
     document.getElementById('filterBottomOverlay').classList.add('active'); 
 });
 document.getElementById('closeAuthorFilterBtn')?.addEventListener('click', () => { 
-    document.getElementById('filterBottomOverlay').classList.remove('active'); 
+    if (history.state && history.state.popup === 'filter') {
+        history.back();
+    } else {
+        document.getElementById('filterBottomOverlay').classList.remove('active'); 
+    }
 });
 
 function getBatchSize() { 
@@ -1677,6 +1705,7 @@ document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => {
 });
 document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => { history.back(); });
 
+// 🌟 TAB SWITCHER WITH SCROLL RESET
 function switchTab(tabId) { 
     document.querySelectorAll('.app-tab').forEach(tab => { 
         tab.style.display = 'none'; 
@@ -1687,6 +1716,14 @@ function switchTab(tabId) {
         target.style.display = 'flex'; 
         setTimeout(() => target.classList.add('active'), 10); 
     } 
+
+    // Reset scroll state on upload tab switch
+    if (tabId === 'tab-upload') {
+        const uploadContent = document.getElementById('admContentArea');
+        if (uploadContent) uploadContent.scrollTop = 0;
+        const uploadTab = document.getElementById('tab-upload');
+        if (uploadTab) uploadTab.scrollTop = 0;
+    }
 }
 
 function setNavActive(id) { 
@@ -1758,16 +1795,55 @@ document.getElementById('nav-dev')?.addEventListener('click', () => {
     syncProfileAndRankUI();
 });
 
-window.addEventListener('popstate', () => {
+// 🌟 COMPREHENSIVE HARDWARE BACK BUTTON LISTENER
+window.addEventListener('popstate', (e) => {
+    // 1. PDF Viewer Band Karein
+    const pdfViewer = document.getElementById('pdfViewerOverlay');
+    if (pdfViewer && pdfViewer.style.display === 'flex') {
+        pdfViewer.style.display = 'none';
+        document.getElementById('pdfScrollContainer').innerHTML = '';
+        cleanupPdfResources();
+        return;
+    }
+
+    // 2. Module Banner Modal Band Karein
+    const bannerModal = document.getElementById('moduleBannerModal');
+    if (bannerModal && bannerModal.classList.contains('active')) {
+        const modulesView = document.getElementById('bannerModulesView');
+        if (modulesView && !modulesView.classList.contains('hidden-view')) {
+            modulesView.classList.add('hidden-view');
+            document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
+            document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
+        } else {
+            bannerModal.classList.remove('active');
+            activeBannerData = null;
+            activeSubjectKey = null;
+        }
+        return;
+    }
+
+    // 3. Filter Sheet Band Karein
+    const filterOverlay = document.getElementById('filterBottomOverlay');
+    if (filterOverlay && filterOverlay.classList.contains('active')) {
+        filterOverlay.classList.remove('active');
+        return;
+    }
+
+    // 4. Token Modal Band Karein
+    const tokenModal = document.getElementById('tokenModalOverlay');
+    if (tokenModal && tokenModal.style.display === 'flex') {
+        tokenModal.style.display = 'none';
+        return;
+    }
+
+    // 5. Default Panels & Download Modal Clean
     closeAllPanels(); 
     applyMasterFilter();
     const sBook = new URLSearchParams(window.location.search).get('book');
-    if(sBook) { openDownloadPageLocal(sBook, true); } 
-    else { 
+    if(sBook) { 
+        openDownloadPageLocal(sBook, true); 
+    } else { 
         document.getElementById("downloadModal").style.display = "none";
-        document.getElementById("pdfViewerOverlay").style.display = "none";
-        document.getElementById('pdfScrollContainer').innerHTML = '';
-        cleanupPdfResources();
     }
 });
 
@@ -1794,7 +1870,7 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE
+// 13. PDF VIEWER ENGINE (2D Pan & Zoom + Exact Highlighting)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -1976,6 +2052,7 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
+// 🌟 2D PINCH & MULTI-AXIS ZOOM ENGINE (X & Y Axis Pan Support)
 function initPinchToZoom() {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
@@ -1990,6 +2067,7 @@ function initPinchToZoom() {
         if (e.touches.length === 1 && (now - lastTap) < 300) {
             currentScale = 1;
             scroller.style.transform = `scale(1)`;
+            scroller.style.width = '100%';
             return;
         }
         lastTap = now;
@@ -2011,6 +2089,9 @@ function initPinchToZoom() {
             const factor = currentDistance / initialDistance;
             let newScale = Math.min(Math.max(currentScale * factor, 1), 3.5);
             scroller.style.transform = `scale(${newScale})`;
+            
+            // Container dynamic expansion to support free horizontal pan
+            scroller.style.width = `${100 * newScale}%`;
         }
     }, { passive: true });
 
@@ -2154,15 +2235,19 @@ function clearAllHighlights() {
     });
 }
 
+// 🌟 ACCURATE SPECIFIC KEYWORD HIGHLIGHTING
 function highlightMatchesInPage(textLayerDiv, query) {
     if (!query || !textLayerDiv) return;
     const cleanQ = cleanUnicodeTextForSearch(query);
     const spans = textLayerDiv.querySelectorAll('span');
     
     spans.forEach(span => {
-        const rawText = span.textContent || "";
+        const rawText = (span.textContent || "").toLowerCase();
         const cleanText = cleanUnicodeTextForSearch(rawText);
-        if (rawText.toLowerCase().includes(query.toLowerCase()) || (cleanQ && cleanText.includes(cleanQ))) {
+        const rawQuery = query.toLowerCase();
+
+        // Exact match comparison to prevent full-line selection
+        if ((rawText.length > 0 && rawText.includes(rawQuery)) || (cleanQ.length > 0 && cleanText.includes(cleanQ))) {
             span.classList.add('highlight-match');
         }
     });
@@ -2293,6 +2378,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         }
 
         if(!hasValidToken && !IS_SUPER_ADMIN) {
+             history.pushState({ popup: 'tokenModal' }, '');
              document.getElementById('tokenModalOverlay').style.display = 'flex';
              initParticles('particles');
              return; 
@@ -2327,6 +2413,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
                 const title = document.getElementById('pdfViewerTitle');
                 
                 title.innerText = sanitizeHTML(book.title);
+                history.pushState({ popup: 'pdfViewer' }, '');
                 pdfViewer.style.display = 'flex';
                 
                 renderPdfInModal(data.pdfLink);
@@ -2334,6 +2421,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
             } else {
                 if (response.status === 401 || (data.error && data.error.includes('Unauthorized'))) {
                     localStorage.removeItem('spidy_secure_session');
+                    history.pushState({ popup: 'tokenModal' }, '');
                     document.getElementById('tokenModalOverlay').style.display = 'flex';
                     initParticles('particles');
                 } else {
@@ -2352,9 +2440,13 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     };
 
     document.getElementById("closePdfViewerBtn").onclick = function() {
-        document.getElementById('pdfViewerOverlay').style.display = 'none';
-        document.getElementById('pdfScrollContainer').innerHTML = ''; 
-        cleanupPdfResources();
+        if (history.state && history.state.popup === 'pdfViewer') {
+            history.back();
+        } else {
+            document.getElementById('pdfViewerOverlay').style.display = 'none';
+            document.getElementById('pdfScrollContainer').innerHTML = ''; 
+            cleanupPdfResources();
+        }
     };
 
     document.getElementById("pdfContainer")?.addEventListener('contextmenu', event => event.preventDefault());
@@ -2468,7 +2560,11 @@ submitReportBtn?.addEventListener('click', async () => {
 // 16. TOKEN VERIFICATION
 // ==========================================
 document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
-    document.getElementById('tokenModalOverlay').style.display = 'none';
+    if (history.state && history.state.popup === 'tokenModal') {
+        history.back();
+    } else {
+        document.getElementById('tokenModalOverlay').style.display = 'none';
+    }
 });
 
 document.getElementById('tokenInput')?.addEventListener('input', () => {
@@ -2542,7 +2638,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. UPLOAD SYSTEM (FIXED 404 TO /api/generate-upload-url)
+// 17. UPLOAD SYSTEM (USES REPO'S /api/generate-upload-url)
 // ==========================================
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', function(e) {
@@ -2580,7 +2676,6 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
     });
 });
 
-// 🌟 BULLETPROOF UPLOAD: Uses multiverse-books repo's own `/api/generate-upload-url`
 function uploadSingleFileTracked(file, type, onProgress) {
     return new Promise(async (resolve, reject) => {
         const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
@@ -2596,7 +2691,6 @@ function uploadSingleFileTracked(file, type, onProgress) {
         try {
             const userToken = await auth.currentUser.getIdToken(true);
             
-            // Exact file endpoint in your GitHub API folder:
             const authResponse = await fetch('/api/generate-upload-url', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
