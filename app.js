@@ -151,7 +151,7 @@ function parseMarkdown(rawText) {
         let encodedCopy = encodeURIComponent(copyText);
         let cardTitle = (title || 'Free code').trim();
 
-        return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" data-clipboard="${encodedCopy}" onclick="event.stopPropagation(); window.copyFromButton(this)"><i class="far fa-copy"></i> COPY CODE</button></div>`;
+        return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" data-clipboard="${encodedCopy}" onclick="event.preventDefault(); event.stopPropagation(); window.copyFromButton(this);"><i class="far fa-copy"></i> COPY CODE</button></div>`;
     });
 
     safe = safe.replace(/(^|\n)(&gt;|>)\s*(.+?)(?=(\n\n|\n(?!&gt;|>)|$))/gs, function(match, prefix, qTag, content) {
@@ -656,6 +656,19 @@ function tryTransition() {
                 setTimeout(() => {
                     document.getElementById('mainAppWrapper').style.display = 'block';
 
+                    // Deep linking for Channel Post (URL format: /#/post/:postId)
+                    if (window.location.hash.startsWith('#/post/')) {
+                        const targetPostId = window.location.hash.replace('#/post/', '').trim();
+                        if (targetPostId) {
+                            setTimeout(() => {
+                                document.getElementById('open-noti')?.click();
+                                setTimeout(() => {
+                                    window.scrollToChannelPost(targetPostId);
+                                }, 350);
+                            }, 300);
+                        }
+                    }
+
                     if (isDeepLinkLoad && pendingBookSlug) {
                         if (isUserLoggedIn) { openDownloadPageLocal(pendingBookSlug, true); } 
                         else {
@@ -834,7 +847,7 @@ window.scrollToChannelPost = function(postId) {
     if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
         target.classList.add('highlight-post');
-        setTimeout(() => target.classList.remove('highlight-post'), 1800);
+        setTimeout(() => target.classList.remove('highlight-post'), 2200);
     } else {
         showToast("Original message was deleted or moved.", "error");
     }
@@ -969,6 +982,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
             });
         });
 
+        // Prevents triggering context menu when clicking buttons or links
         bubble.addEventListener('click', (e) => {
             if (
                 e.target.tagName === 'A' || 
@@ -1011,7 +1025,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
 window.recomputeChannelScroll = function() {
     if (!chatBody) return;
     const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
-    if (distanceFromBottom < 160) {
+    if (distanceFromBottom < 180) {
         chatBody.scrollTop = chatBody.scrollHeight;
     }
 };
@@ -1075,7 +1089,7 @@ if (contextOverlay) {
         if (!activePost) return;
         const url = `${window.location.origin}${window.location.pathname}#/post/${activePost.id}`;
         navigator.clipboard.writeText(url);
-        showToast("Link Copied!", "success");
+        showToast("Post Link Copied!", "success");
         contextOverlay.classList.remove('show');
     });
 
@@ -1098,22 +1112,25 @@ if (contextOverlay) {
     });
 }
 
-// 🌟 100% BULLETPROOF COPY HANDLER (DIRECT & BACKUP FALLBACK)
+// 🌟 100% BULLETPROOF COPY HANDLER (Direct, DOM extraction, & Fallback)
 window.copyToClipboard = function(text, btn) {
-    if (!text && btn) {
+    let copyTargetText = text;
+
+    // Fail-safe extraction directly from card body
+    if (!copyTargetText && btn) {
         const card = btn.closest('.tg-copy-card, .telegram-prompt-card');
         if (card) {
             const listItems = card.querySelectorAll('li');
             if (listItems.length > 0) {
-                text = Array.from(listItems).map(li => li.textContent.trim()).join('\n');
+                copyTargetText = Array.from(listItems).map(li => li.textContent.trim()).join('\n');
             } else {
                 const bodyEl = card.querySelector('.telegram-prompt-body, .tg-copy-body');
-                if (bodyEl) text = bodyEl.textContent.trim();
+                if (bodyEl) copyTargetText = bodyEl.textContent.trim();
             }
         }
     }
 
-    if (!text) return;
+    if (!copyTargetText) return;
 
     const parentCard = btn ? btn.closest('.telegram-prompt-card, .tg-copy-card') : null;
 
@@ -1134,9 +1151,9 @@ window.copyToClipboard = function(text, btn) {
     };
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(finalizeSuccess).catch(() => {
+        navigator.clipboard.writeText(copyTargetText).then(finalizeSuccess).catch(() => {
             const textarea = document.createElement('textarea');
-            textarea.value = text;
+            textarea.value = copyTargetText;
             document.body.appendChild(textarea);
             textarea.select();
             try {
@@ -1149,7 +1166,7 @@ window.copyToClipboard = function(text, btn) {
         });
     } else {
         const textarea = document.createElement('textarea');
-        textarea.value = text;
+        textarea.value = copyTargetText;
         document.body.appendChild(textarea);
         textarea.select();
         try {
@@ -1292,7 +1309,7 @@ onAuthStateChanged(auth, async (user) => {
                     <div class="telegram-prompt-header">${safeTitle}</div>
                     <div class="telegram-prompt-body">${safeText}</div>
                     <div class="telegram-prompt-footer">
-                        <button type="button" class="telegram-copy-btn" data-clipboard="${encodeURIComponent(data.text)}" onclick="event.stopPropagation(); window.copyFromButton(this)">
+                        <button type="button" class="telegram-copy-btn" data-clipboard="${encodeURIComponent(data.text)}" onclick="event.preventDefault(); event.stopPropagation(); window.copyFromButton(this);">
                             <i class="far fa-copy"></i> COPY CODE
                         </button>
                     </div>
@@ -1743,7 +1760,9 @@ document.getElementById('open-noti')?.addEventListener('click', () => {
     if (livePosts.length > 0) {
         renderChannelFeed(livePosts, true);
         setTimeout(() => {
-            if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+            if (chatBody && !window.location.hash.startsWith('#/post/')) {
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }
         }, 150);
     } else {
         renderChannelLoader();
@@ -1756,6 +1775,9 @@ if (closeNotiBtn) {
             history.back();
         } else {
             document.getElementById('noti-panel').classList.remove('active');
+        }
+        if (window.location.hash.startsWith('#/post/')) {
+            history.replaceState(null, '', window.location.pathname);
         }
     });
 }
@@ -1947,7 +1969,7 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE
+// 13. PDF VIEWER ENGINE (Full 2D Pan & Zoom Support)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -2129,6 +2151,7 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
+// 🌟 MULTI-AXIS PINCH & FULL-CANVAS PAN ENGINE (Fixes Left Scroll Block)
 function initPinchToZoom() {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
@@ -2138,12 +2161,16 @@ function initPinchToZoom() {
     let initialDistance = 0;
     let lastTap = 0;
 
+    // Sets origin to top-left to enable proper natural horizontal scrolling in all directions
+    scroller.style.transformOrigin = 'top left';
+
     container.addEventListener('touchstart', (e) => {
         const now = Date.now();
         if (e.touches.length === 1 && (now - lastTap) < 300) {
             currentScale = 1;
             scroller.style.transform = `scale(1)`;
             scroller.style.width = '100%';
+            scroller.style.margin = '0 auto';
             return;
         }
         lastTap = now;
@@ -2166,6 +2193,7 @@ function initPinchToZoom() {
             let newScale = Math.min(Math.max(currentScale * factor, 1), 3.5);
             scroller.style.transform = `scale(${newScale})`;
             scroller.style.width = `${100 * newScale}%`;
+            scroller.style.margin = '0';
         }
     }, { passive: true });
 
@@ -2174,6 +2202,12 @@ function initPinchToZoom() {
             const match = scroller.style.transform.match(/scale\(([^)]+)\)/);
             if (match) currentScale = parseFloat(match[1]);
             initialDistance = 0;
+            if (currentScale <= 1.05) {
+                currentScale = 1;
+                scroller.style.transform = `scale(1)`;
+                scroller.style.width = '100%';
+                scroller.style.margin = '0 auto';
+            }
         }
     });
 }
