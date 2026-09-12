@@ -863,8 +863,8 @@
                     <button id="pdfSearchCloseBtn" title="Close Search" style="background:transparent; border:none; color:#71717a; font-size:16px; cursor:pointer; padding:5px;"><i class="fas fa-times"></i></button>
                 </div>
 
-                <!-- Canvas Scrolling Viewport (Pinch-Zoom Supported) -->
-                <div id="pdfContainer" class="pdf-viewer-container" style="flex:1; overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; align-items:center; padding:15px 10px; background:#000000; -webkit-overflow-scrolling:touch; position:relative; touch-action: pan-y pinch-zoom;">
+                <!-- Canvas Scrolling Viewport (Multi-Axis Zoom & Pan) -->
+                <div id="pdfContainer" class="pdf-viewer-container" style="flex:1; overflow-y:auto; overflow-x:auto; display:flex; flex-direction:column; align-items:center; padding:15px 10px; background:#000000; -webkit-overflow-scrolling:touch; position:relative; touch-action: pan-x pan-y pinch-zoom;">
                     <div id="pdfScrollContainer" style="width:100%; display:flex; flex-direction:column; align-items:center; transform-origin: top center; transition: transform 0.05s ease-out;"></div>
                     
                     <!-- Floating Screen-Edge Badge -->
@@ -948,7 +948,7 @@
         </div>
     </div>
 
-    <!-- Ultra-Clean Native Toast Pill Container -->
+    <!-- Top Positioned Native Toast Pill Container -->
     <div id="spidyPillToast" class="spidy-pill-toast"></div>
 
     <!-- Upload Tutorial Popup -->
