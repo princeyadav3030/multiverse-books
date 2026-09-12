@@ -151,7 +151,7 @@ function parseMarkdown(rawText) {
         let encodedCopy = encodeURIComponent(copyText);
         let cardTitle = (title || 'Free code').trim();
 
-        return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" data-clipboard="${encodedCopy}" onclick="event.preventDefault(); event.stopPropagation(); window.copyFromButton(this);"><i class="far fa-copy"></i> COPY CODE</button></div>`;
+        return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" data-clipboard="${encodedCopy}"><i class="far fa-copy"></i> COPY CODE</button></div>`;
     });
 
     safe = safe.replace(/(^|\n)(&gt;|>)\s*(.+?)(?=(\n\n|\n(?!&gt;|>)|$))/gs, function(match, prefix, qTag, content) {
@@ -162,7 +162,7 @@ function parseMarkdown(rawText) {
     safe = safe.replace(/\*([^\*]+)\*/g, '<b>$1</b>');
     safe = safe.replace(/_([^_]+)_/g, '<i>$1</i>');
     safe = safe.replace(/~([^~]+)~/g, '<del>$1</del>');
-    safe = safe.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();">$1</a>');
+    safe = safe.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
     safe = safe.replace(/\n/g, '<br>');
 
     safe = safe.replace(/(<div class="tg-copy-card">[\s\S]*?<\/div>)/g, function(m) { return m.replace(/<br>/g, ''); });
@@ -172,7 +172,7 @@ function parseMarkdown(rawText) {
     if (typeof DOMPurify !== 'undefined') {
         return DOMPurify.sanitize(safe, {
             ADD_TAGS: ['button', 'i', 'ul', 'li', 'div', 'span', 'b', 'del', 'a'],
-            ADD_ATTR: ['onclick', 'target', 'rel', 'class', 'type', 'data-clipboard']
+            ADD_ATTR: ['target', 'rel', 'class', 'type', 'data-clipboard']
         });
     }
     return safe;
@@ -220,7 +220,7 @@ function formatTime(dateObj) {
 }
 
 // ==========================================
-// 3. NATIVE PILL TOAST (Bottom Positioned)
+// 3. TOAST NOTIFICATIONS (Only System/Fallback)
 // ==========================================
 let pillToastTimer;
 function showToast(message, type = 'success') {
@@ -641,6 +641,31 @@ loaderInterval = setInterval(() => {
     }
 }, 200);
 
+function checkAndOpenTargetPost() {
+    let targetPostId = "";
+    const hash = window.location.hash || "";
+    if (hash.includes("post/")) {
+        targetPostId = hash.split("post/")[1].replace(/[^a-zA-Z0-9_-]/g, '');
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (!targetPostId && params.has("post")) {
+        targetPostId = params.get("post");
+    }
+
+    if (targetPostId) {
+        setTimeout(() => {
+            const notiPanel = document.getElementById('noti-panel');
+            if (notiPanel && !notiPanel.classList.contains('active')) {
+                history.pushState({ popup: 'noti' }, '');
+                notiPanel.classList.add('active');
+            }
+            setTimeout(() => {
+                window.scrollToChannelPost(targetPostId);
+            }, 400);
+        }, 300);
+    }
+}
+
 function tryTransition() {
     if (isAppReady.auth && isAppReady.data && !hasTransitioned) {
         hasTransitioned = true;
@@ -656,18 +681,7 @@ function tryTransition() {
                 setTimeout(() => {
                     document.getElementById('mainAppWrapper').style.display = 'block';
 
-                    // Deep linking for Channel Post (URL format: /#/post/:postId)
-                    if (window.location.hash.startsWith('#/post/')) {
-                        const targetPostId = window.location.hash.replace('#/post/', '').trim();
-                        if (targetPostId) {
-                            setTimeout(() => {
-                                document.getElementById('open-noti')?.click();
-                                setTimeout(() => {
-                                    window.scrollToChannelPost(targetPostId);
-                                }, 350);
-                            }, 300);
-                        }
-                    }
+                    checkAndOpenTargetPost();
 
                     if (isDeepLinkLoad && pendingBookSlug) {
                         if (isUserLoggedIn) { openDownloadPageLocal(pendingBookSlug, true); } 
@@ -982,13 +996,14 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
             });
         });
 
-        // Prevents triggering context menu when clicking buttons or links
+        // Bubble context menu: Exclude any button, link or reaction click
         bubble.addEventListener('click', (e) => {
             if (
                 e.target.tagName === 'A' || 
                 e.target.closest('.tg-copy-action-btn') || 
                 e.target.closest('.telegram-copy-btn') ||
-                e.target.closest('.reaction-pill')
+                e.target.closest('.reaction-pill') ||
+                e.target.closest('.tg-copy-card')
             ) {
                 return;
             }
@@ -1081,27 +1096,26 @@ if (contextOverlay) {
     document.getElementById('cmCopyText')?.addEventListener('click', () => {
         if (!activePost) return;
         navigator.clipboard.writeText(stripMarkdown(activePost.text));
-        showToast("Text Copied!", "success");
         contextOverlay.classList.remove('show');
     });
 
     document.getElementById('cmCopyLink')?.addEventListener('click', () => {
         if (!activePost) return;
-        const url = `${window.location.origin}${window.location.pathname}#/post/${activePost.id}`;
+        const cleanBase = window.location.origin + window.location.pathname;
+        const url = `${cleanBase}?post=${activePost.id}#/post/${activePost.id}`;
         navigator.clipboard.writeText(url);
-        showToast("Post Link Copied!", "success");
         contextOverlay.classList.remove('show');
     });
 
     document.getElementById('cmForward')?.addEventListener('click', () => {
         if (!activePost) return;
-        const url = `${window.location.origin}${window.location.pathname}#/post/${activePost.id}`;
+        const cleanBase = window.location.origin + window.location.pathname;
+        const url = `${cleanBase}?post=${activePost.id}#/post/${activePost.id}`;
         const cleanText = stripMarkdown(activePost.text);
         if (navigator.share) {
             navigator.share({ title: 'SPIDY BOOK HUB', text: cleanText, url: url }).catch(() => {});
         } else {
             navigator.clipboard.writeText(url);
-            showToast("Link Copied for Share!", "success");
         }
         contextOverlay.classList.remove('show');
     });
@@ -1112,11 +1126,10 @@ if (contextOverlay) {
     });
 }
 
-// 🌟 100% BULLETPROOF COPY HANDLER (Direct, DOM extraction, & Fallback)
+// 🌟 BULLETPROOF COPY HANDLER (Button-only green effect; No custom toast)
 window.copyToClipboard = function(text, btn) {
     let copyTargetText = text;
 
-    // Fail-safe extraction directly from card body
     if (!copyTargetText && btn) {
         const card = btn.closest('.tg-copy-card, .telegram-prompt-card');
         if (card) {
@@ -1132,22 +1145,16 @@ window.copyToClipboard = function(text, btn) {
 
     if (!copyTargetText) return;
 
-    const parentCard = btn ? btn.closest('.telegram-prompt-card, .tg-copy-card') : null;
-
     const finalizeSuccess = () => {
         if (btn) {
             btn.classList.add('copied-active');
-            if (parentCard) parentCard.classList.add('copied-active');
-
             const orig = btn.innerHTML;
             btn.innerHTML = `<i class="fas fa-check"></i> COPIED!`;
             setTimeout(() => {
                 btn.classList.remove('copied-active');
-                if (parentCard) parentCard.classList.remove('copied-active');
                 btn.innerHTML = orig;
             }, 2000);
         }
-        showToast("Copied to clipboard!", "success");
     };
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1159,9 +1166,7 @@ window.copyToClipboard = function(text, btn) {
             try {
                 document.execCommand('copy');
                 finalizeSuccess();
-            } catch (err) {
-                showToast("Failed to copy", "error");
-            }
+            } catch (err) {}
             document.body.removeChild(textarea);
         });
     } else {
@@ -1172,9 +1177,7 @@ window.copyToClipboard = function(text, btn) {
         try {
             document.execCommand('copy');
             finalizeSuccess();
-        } catch (err) {
-            showToast("Failed to copy", "error");
-        }
+        } catch (err) {}
         document.body.removeChild(textarea);
     }
 };
@@ -1185,6 +1188,16 @@ window.copyFromButton = function(btn) {
     let text = rawData ? decodeURIComponent(rawData) : '';
     window.copyToClipboard(text, btn);
 };
+
+// Global Event Delegation for ALL copy buttons across App, Prompts & Channel Posts
+document.addEventListener('click', (e) => {
+    const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
+    if (copyBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.copyFromButton(copyBtn);
+    }
+}, true);
 
 // ==========================================
 // 9. AUTHENTICATION OBSERVER
@@ -1284,7 +1297,7 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // 📝 FETCH PROMPTS (CLEAN RECTANGLE-FREE SEAMLESS CARDS)
+    // 📝 FETCH PROMPTS (Isolated button-only styling, zero wrapper glow)
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if(!container) return;
@@ -1309,7 +1322,7 @@ onAuthStateChanged(auth, async (user) => {
                     <div class="telegram-prompt-header">${safeTitle}</div>
                     <div class="telegram-prompt-body">${safeText}</div>
                     <div class="telegram-prompt-footer">
-                        <button type="button" class="telegram-copy-btn" data-clipboard="${encodeURIComponent(data.text)}" onclick="event.preventDefault(); event.stopPropagation(); window.copyFromButton(this);">
+                        <button type="button" class="telegram-copy-btn" data-clipboard="${encodeURIComponent(data.text)}">
                             <i class="far fa-copy"></i> COPY CODE
                         </button>
                     </div>
@@ -1360,6 +1373,7 @@ onAuthStateChanged(auth, async (user) => {
         if (isInitialChannelLoad) {
             renderChannelFeed(livePosts, true);
             isInitialChannelLoad = false;
+            checkAndOpenTargetPost();
         } else if (livePosts.length !== prevCount) {
             if (!isNotiPanelOpen && blinkDot && livePosts.length > prevCount) {
                 blinkDot.style.display = 'block';
@@ -1379,19 +1393,6 @@ onAuthStateChanged(auth, async (user) => {
             livePosts.forEach(p => updateReactionInDOM(p.id));
         }
     });
-});
-
-// Click delegation backup
-document.addEventListener('click', (e) => {
-    const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
-    if (copyBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const rawText = copyBtn.getAttribute('data-clipboard');
-        if (rawText) {
-            window.copyToClipboard(decodeURIComponent(rawText), copyBtn);
-        }
-    }
 });
 
 // ==========================================
@@ -1760,7 +1761,8 @@ document.getElementById('open-noti')?.addEventListener('click', () => {
     if (livePosts.length > 0) {
         renderChannelFeed(livePosts, true);
         setTimeout(() => {
-            if (chatBody && !window.location.hash.startsWith('#/post/')) {
+            const hasTarget = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
+            if (chatBody && !hasTarget) {
                 chatBody.scrollTop = chatBody.scrollHeight;
             }
         }, 150);
@@ -1776,7 +1778,7 @@ if (closeNotiBtn) {
         } else {
             document.getElementById('noti-panel').classList.remove('active');
         }
-        if (window.location.hash.startsWith('#/post/')) {
+        if (window.location.hash.includes('post/')) {
             history.replaceState(null, '', window.location.pathname);
         }
     });
@@ -2151,7 +2153,7 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// 🌟 MULTI-AXIS PINCH & FULL-CANVAS PAN ENGINE (Fixes Left Scroll Block)
+// 🌟 MULTI-AXIS PINCH & PAN ENGINE
 function initPinchToZoom() {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
@@ -2161,7 +2163,6 @@ function initPinchToZoom() {
     let initialDistance = 0;
     let lastTap = 0;
 
-    // Sets origin to top-left to enable proper natural horizontal scrolling in all directions
     scroller.style.transformOrigin = 'top left';
 
     container.addEventListener('touchstart', (e) => {
