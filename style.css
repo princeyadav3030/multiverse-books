@@ -324,6 +324,157 @@ main::-webkit-scrollbar { display: none; }
 .no-results-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; max-width: 240px; }
 .no-results-badge { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); color: #d4d4d8; font-size: 9px; font-weight: 700; padding: 8px 16px; border-radius: 30px; letter-spacing: 1px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
 
+/* =========================================================
+   TELEGRAM CODE CARD EXACT REPLICA DESIGN (MAIN WEBSITE)
+   ========================================================= */
+.tg-copy-card {
+    background: #1f1f23 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-left: 3.5px solid #ffffff !important;
+    border-radius: 8px !important;
+    margin: 8px 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.tg-copy-header {
+    background: #28282d !important;
+    padding: 6px 10px !important;
+    font-size: 12.5px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    letter-spacing: 0.2px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    font-family: 'Poppins', sans-serif !important;
+}
+
+.tg-copy-body {
+    background: #19191c !important;
+    padding: 8px 10px !important;
+    font-size: 12.5px !important;
+    color: #ffffff !important;
+    line-height: 1.35 !important;
+    margin: 0 !important;
+}
+
+.tg-copy-body ul {
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.tg-copy-body li {
+    position: relative !important;
+    padding-left: 14px !important;
+    margin: 0 0 3px 0 !important;
+    color: #f1f5f9 !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+    font-family: 'Inter', sans-serif !important;
+}
+.tg-copy-body li:last-child { margin-bottom: 0 !important; }
+
+.tg-copy-body li::before {
+    content: "●" !important;
+    position: absolute !important;
+    left: 2px !important;
+    top: 0px !important;
+    color: #ffffff !important;
+    font-size: 8px !important;
+}
+
+/* 🌟 FULL-WIDTH TELEGRAM ACTION BUTTON & ACTIVE GLOW */
+.tg-copy-action-btn,
+.telegram-copy-btn {
+    width: 100% !important;
+    background: #28282d !important;
+    border: none !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #ffffff !important;
+    padding: 8px 10px !important;
+    font-size: 11.5px !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    transition: background 0.15s ease, color 0.15s ease !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+    border-radius: 0 !important;
+}
+
+.tg-copy-action-btn:hover,
+.telegram-copy-btn:hover { 
+    background: #35353c !important; 
+}
+
+.tg-copy-action-btn:active,
+.telegram-copy-btn:active {
+    transform: scale(0.98) !important;
+}
+
+.tg-copy-action-btn.copied-active,
+.telegram-copy-btn.copied-active {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: #ffffff !important;
+    border-top-color: #34d399 !important;
+    box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.2), 0 0 20px rgba(16, 185, 129, 0.5) !important;
+}
+
+/* 🌟 TOP PILL TOAST (Nav buttons stay visible & unobstructed) */
+.spidy-pill-toast {
+    position: fixed;
+    top: 25px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-60px) scale(0.92);
+    opacity: 0;
+    pointer-events: none;
+    padding: 12px 24px;
+    border-radius: 9999px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 99999999;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.25s ease;
+    white-space: nowrap;
+    max-width: 90vw;
+}
+
+.spidy-pill-toast.active {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.spidy-pill-toast.success {
+    background: rgba(8, 22, 14, 0.95);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), 0 0 20px rgba(74, 222, 128, 0.3);
+}
+
+.spidy-pill-toast.error {
+    background: rgba(30, 10, 14, 0.95);
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
 /* HEADER FIX: MODULE OVERLAY BACK BUTTON & TITLE ALIGNMENT */
 .app-header-module {
     display: flex !important;
@@ -1611,7 +1762,7 @@ select.adm-input { appearance: none; -webkit-appearance: none; padding-right: 40
 }
 .btn-confirm-logout:active { transform: scale(0.95); box-shadow: 0 2px 5px rgba(239, 68, 68, 0.4); }
 
-/* UPLOAD POPUP */
+/* UPLOAD TUTORIAL POPUP */
 .ug-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 9999999; opacity: 1; transition: opacity 0.4s ease; padding: 15px; }
 .ug-overlay.hidden { opacity: 0; pointer-events: none; display: none !important; }
 .ug-card { background-color: #000000 !important; width: 100%; max-width: 380px; border-radius: 20px; overflow: hidden; position: relative; transform: scale(1); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 0 40px rgba(255, 255, 255, 0.1), inset 0 0 20px rgba(255, 255, 255, 0.05), 0 25px 60px rgba(0, 0, 0, 0.95); }
@@ -2034,4 +2185,3 @@ select.adm-input { appearance: none; -webkit-appearance: none; padding-right: 40
 @media screen and (min-width: 1200px) {
     .book-container { grid-template-columns: repeat(5, 1fr); }
 }
-
