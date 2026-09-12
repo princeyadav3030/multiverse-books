@@ -339,6 +339,7 @@ main::-webkit-scrollbar { display: none; }
     display: flex !important;
     flex-direction: column !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    transition: all 0.25s ease !important;
 }
 
 .tg-copy-header {
@@ -393,66 +394,67 @@ main::-webkit-scrollbar { display: none; }
 .tg-copy-action-btn,
 .telegram-copy-btn {
     width: 100% !important;
-    background: #28282d !important;
+    background: transparent !important;
     border: none !important;
     border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
     color: #ffffff !important;
-    padding: 8px 10px !important;
-    font-size: 11.5px !important;
+    padding: 10px 12px !important;
+    font-size: 12px !important;
     font-weight: 800 !important;
     cursor: pointer !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 6px !important;
-    transition: background 0.15s ease, color 0.15s ease !important;
+    gap: 7px !important;
+    transition: all 0.25s ease !important;
     text-transform: uppercase !important;
     letter-spacing: 0.6px !important;
     box-sizing: border-box !important;
     outline: none !important;
-    border-radius: 0 !important;
+    border-radius: 0 0 12px 12px !important;
 }
 
 .tg-copy-action-btn:hover,
 .telegram-copy-btn:hover { 
-    background: #35353c !important; 
+    background: rgba(255, 255, 255, 0.04) !important; 
 }
 
 .tg-copy-action-btn:active,
 .telegram-copy-btn:active {
-    transform: scale(0.98) !important;
+    transform: scale(0.985) !important;
 }
 
 .tg-copy-action-btn.copied-active,
 .telegram-copy-btn.copied-active {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-    color: #ffffff !important;
-    border-top-color: #34d399 !important;
-    box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.2), 0 0 20px rgba(16, 185, 129, 0.5) !important;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(5, 150, 105, 0.35) 100%) !important;
+    color: #34d399 !important;
+    border-top: 1px solid rgba(52, 211, 153, 0.4) !important;
+    box-shadow: inset 0 0 15px rgba(16, 185, 129, 0.25), 0 0 20px rgba(16, 185, 129, 0.3) !important;
 }
 
-/* 🌟 TOP PILL TOAST (Nav buttons stay visible & unobstructed) */
+/* 🌟 BOTTOM PILL TOAST (Resting right above the bottom nav bar) */
 .spidy-pill-toast {
     position: fixed;
-    top: 25px;
+    bottom: 78px; /* Positioned right above the bottom bar without covering it */
     left: 50%;
-    transform: translateX(-50%) translateY(-60px) scale(0.92);
+    transform: translateX(-50%) translateY(50px) scale(0.92);
     opacity: 0;
     pointer-events: none;
-    padding: 12px 24px;
+    padding: 11px 22px;
     border-radius: 9999px;
     font-family: 'Poppins', sans-serif;
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 9px;
     z-index: 99999999;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.25s ease;
     white-space: nowrap;
     max-width: 90vw;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.95);
 }
 
 .spidy-pill-toast.active {
@@ -876,13 +878,13 @@ main::-webkit-scrollbar { display: none; }
     position: relative; 
     background: #000000;
     overflow-y: auto; 
-    overflow-x: auto; /* X-axis horizontal panning enable */
+    overflow-x: auto;
     display: flex; 
     flex-direction: column;
     align-items: center; 
     padding: 15px 10px; 
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y pinch-zoom; /* Enable 2D swipe & pinch zoom */
+    touch-action: pan-x pan-y pinch-zoom;
 }
 
 #pdfScrollContainer {
@@ -944,7 +946,6 @@ main::-webkit-scrollbar { display: none; }
     transform-origin: 0% 0%;
 }
 
-/* Precise Specific Word Highlighting (Prevents selecting entire line) */
 .pdf-page-wrapper .textLayer .highlight,
 .highlight-match {
     background-color: rgba(56, 189, 248, 0.38) !important;
@@ -1059,7 +1060,8 @@ main::-webkit-scrollbar { display: none; }
 
 .chat-body { 
     flex: 1; 
-    padding: 15px 12px 65px 12px; 
+    /* Increased bottom padding so the latest card doesn't hide behind admin-notice-bar */
+    padding: 15px 12px 95px 12px; 
     overflow-y: auto; overflow-x: hidden;
     display: flex; flex-direction: column; gap: 14px; 
     background: transparent;
@@ -1629,14 +1631,58 @@ select.adm-input { appearance: none; -webkit-appearance: none; padding-right: 40
 .uc-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
 .uc-footer { text-align: center; font-size: 10px; color: #71717a; font-weight: 600; position: relative; z-index: 1; }
 
-/* PROMPT UI */
-.telegram-prompt-wrapper { margin-bottom: 25px; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; }
-.telegram-prompt-card { background: #121212; border-radius: 6px 12px 12px 6px; overflow: hidden; width: 100%; border: 1px solid rgba(255,255,255,0.15); border-left: 4px solid #7c3aed; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
-.telegram-prompt-header { background: rgba(255,255,255,0.05); padding: 12px 15px; font-weight: 700; color: #fff; font-size: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-.telegram-prompt-body { padding: 16px 15px; color: #e4e4e7; font-size: 10px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-.telegram-prompt-footer { padding: 10px; display: flex; justify-content: center; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); }
-.telegram-copy-btn { background: transparent; border: none; color: #ffffff; display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; font-size: 12px; padding: 10px 15px; border-radius: 6px; transition: 0.2s; width: 100%; justify-content: center; outline: none;}
-.telegram-copy-btn:active { transform: scale(0.97); background: rgba(255,255,255,0.1); }
+/* PROMPT UI (Seamless card without outer gray rectangle box) */
+.telegram-prompt-wrapper { 
+    margin-bottom: 22px; 
+    font-family: 'Inter', sans-serif; 
+    display: flex; 
+    flex-direction: column; 
+    width: 100%;
+}
+.telegram-prompt-card { 
+    background: #131418 !important; 
+    border-radius: 12px !important; 
+    overflow: hidden !important; 
+    width: 100% !important; 
+    border: 1px solid rgba(255, 255, 255, 0.12) !important; 
+    border-left: 4px solid #7c3aed !important; 
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6) !important; 
+    transition: border-color 0.25s ease, box-shadow 0.25s ease !important;
+}
+.telegram-prompt-card.copied-active {
+    border-color: rgba(16, 185, 129, 0.6) !important;
+    border-left-color: #10b981 !important;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.35), 0 4px 18px rgba(0, 0, 0, 0.7) !important;
+}
+
+.telegram-prompt-header { 
+    background: rgba(255, 255, 255, 0.03) !important; 
+    padding: 11px 16px !important; 
+    font-weight: 700 !important; 
+    color: #ffffff !important; 
+    font-size: 12px !important; 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important; 
+    font-family: 'Poppins', sans-serif !important;
+    letter-spacing: 0.3px !important;
+}
+.telegram-prompt-body { 
+    padding: 16px 16px !important; 
+    color: #e4e4e7 !important; 
+    font-size: 12px !important; 
+    line-height: 1.55 !important; 
+    white-space: pre-wrap !important; 
+    word-break: break-word !important; 
+}
+/* Removed distinct gray border box; seamless flush bottom button */
+.telegram-prompt-footer { 
+    padding: 0 !important; 
+    margin: 0 !important;
+    display: flex !important; 
+    justify-content: center !important; 
+    align-items: center !important; 
+    background: transparent !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important; 
+}
 
 /* FILTER SHEET */
 .app-filter-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.04); border-radius: 12px; cursor: pointer; transition: 0.2s; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; }
@@ -2185,3 +2231,4 @@ select.adm-input { appearance: none; -webkit-appearance: none; padding-right: 40
 @media screen and (min-width: 1200px) {
     .book-container { grid-template-columns: repeat(5, 1fr); }
 }
+
