@@ -2,7 +2,7 @@ const admin = require('firebase-admin');
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
-// Firebase Admin Initialize (Sirf ek baar)
+// Firebase Admin Initialize (Singleton Pattern)
 if (!admin.apps.length) {
   try {
     admin.initializeApp({
@@ -30,58 +30,72 @@ const s3Client = new S3Client({
 });
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS configuration (Compatible with Fetch & XHR)
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   );
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
 
-  const { fileName, fileType, userToken } = req.body;
-  if (!fileName || !fileType || !userToken) return res.status(400).json({ error: 'Missing parameters' });
+  const { fileName, userToken } = req.body;
+  if (!fileName || !userToken) {
+    return res.status(400).json({ error: 'Missing parameters: fileName and userToken are required' });
+  }
 
   try {
-    // 1. Check if user is logged in
+    // 1. Verify User Token
     const decodedToken = await admin.auth().verifyIdToken(userToken);
     const userEmail = (decodedToken.email || "").toLowerCase().trim();
 
-    // 2. Admin Check
-    const adminDoc = await db.collection('admins').doc(userEmail).get();
-    if (!adminDoc.exists) {
-      return res.status(403).json({ error: 'Only admins can upload files!' });
+    if (!userEmail) {
+      return res.status(401).json({ error: 'Unauthorized: No valid email associated with token' });
     }
 
-    // 3. FOLDER PRESERVATION LOGIC (covers/ ya pdfs/)
+    // 2. Admin Check against Firestore 'admins' collection
+    const adminDoc = await db.collection('admins').doc(userEmail).get();
+    if (!adminDoc.exists) {
+      return res.status(403).json({ error: 'Access Denied: Only admins can upload files!' });
+    }
+
+    // 3. Clean File Path Construction
     let finalKey = fileName;
     if (fileName.includes('/')) {
       const parts = fileName.split('/');
-      const folder = parts[0]; // 'covers' ya 'pdfs'
+      const folder = parts[0]; // 'covers' or 'pdfs'
       const originalName = parts.slice(1).join('/');
-      finalKey = `${folder}/${Date.now()}-${originalName.replace(/\s+/g, '-')}`;
+      finalKey = `${folder}/${Date.now()}_${originalName.replace(/\s+/g, '-')}`;
     } else {
-      finalKey = `uploads/${Date.now()}-${fileName.replace(/\s+/g, '-')}`;
+      finalKey = `uploads/${Date.now()}_${fileName.replace(/\s+/g, '-')}`;
     }
 
+    // 4. Generate Presigned URL without forcing ContentType constraint into signature
     const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
       Key: finalKey,
-      ContentType: fileType,
     });
 
-    // 10 minutes ke liye presigned URL generate karein
-    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 600 });
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
 
-    return res.status(200).json({ success: true, uploadUrl, fileKey: finalKey });
+    return res.status(200).json({ 
+      success: true, 
+      uploadUrl, 
+      fileKey: finalKey 
+    });
 
   } catch (error) {
-    console.error("Upload URL Error:", error);
-    return res.status(500).json({ error: 'Failed to generate upload URL: ' + error.message });
+    console.error("Upload URL Generation Error:", error);
+    return res.status(500).json({ 
+      error: 'Failed to generate upload URL: ' + (error.message || error) 
+    });
   }
 };
