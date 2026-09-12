@@ -163,7 +163,7 @@ main::-webkit-scrollbar { display: none; }
 .app-tab.active { display: flex; }
 @keyframes fadeInTab { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-.nav-scroll-spacer { height: 80px; width: 100%; flex-shrink: 0; }
+.nav-scroll-spacer { height: 85px; width: 100%; flex-shrink: 0; }
 
 /* BOTTOM NAVIGATION BAR */
 .bottom-nav-bar {
@@ -324,9 +324,7 @@ main::-webkit-scrollbar { display: none; }
 .no-results-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; max-width: 240px; }
 .no-results-badge { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); color: #d4d4d8; font-size: 9px; font-weight: 700; padding: 8px 16px; border-radius: 30px; letter-spacing: 1px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
 
-/* =========================================================
-   🌟 HEADER FIX: BACK BUTTON & ARJUNA NEET TITLE ALIGNMENT
-   ========================================================= */
+/* HEADER FIX: MODULE OVERLAY BACK BUTTON & TITLE ALIGNMENT */
 .app-header-module {
     display: flex !important;
     align-items: center !important;
@@ -684,7 +682,7 @@ main::-webkit-scrollbar { display: none; }
 .rm-submit-btn { width: 100%; padding: 15px; border-radius: 16px; background: #ef4444; color: #fff; border: none; font-size: 15px; font-weight: 800; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3); font-family: 'Poppins', sans-serif; letter-spacing: 0.5px; opacity: 0.5; pointer-events: none; }
 .rm-submit-btn.enabled { opacity: 1; pointer-events: auto; }
 
-/* IN-APP HD PDF VIEWER */
+/* IN-APP HD PDF VIEWER (2D Pan & Zoom Multi-Axis Supported) */
 .pdf-viewer-overlay {
     position: fixed; inset: 0; background: #000000; z-index: 99999999;
     display: flex; flex-direction: column;
@@ -723,16 +721,17 @@ main::-webkit-scrollbar { display: none; }
 .pdf-viewer-container {
     flex: 1; 
     width: 100%; 
+    height: 100%;
     position: relative; 
     background: #000000;
     overflow-y: auto; 
-    overflow-x: auto; 
+    overflow-x: auto; /* X-axis horizontal panning enable */
     display: flex; 
     flex-direction: column;
     align-items: center; 
     padding: 15px 10px; 
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-y pinch-zoom; 
+    touch-action: pan-x pan-y pinch-zoom; /* Enable 2D swipe & pinch zoom */
 }
 
 #pdfScrollContainer {
@@ -794,9 +793,10 @@ main::-webkit-scrollbar { display: none; }
     transform-origin: 0% 0%;
 }
 
+/* Precise Specific Word Highlighting (Prevents selecting entire line) */
 .pdf-page-wrapper .textLayer .highlight,
 .highlight-match {
-    background-color: rgba(56, 189, 248, 0.28) !important;
+    background-color: rgba(56, 189, 248, 0.38) !important;
     border-bottom: 2.5px solid #0284c7 !important;
     border-radius: 2px !important;
     box-shadow: 0 1px 6px rgba(2, 132, 199, 0.45) !important;
@@ -804,7 +804,7 @@ main::-webkit-scrollbar { display: none; }
 
 .pdf-page-wrapper .textLayer .highlight.selected,
 .highlight-match.active-focus {
-    background-color: rgba(37, 99, 235, 0.55) !important;
+    background-color: rgba(16, 185, 129, 0.55) !important;
     border-bottom: 2.5px solid #ffffff !important;
     box-shadow: 0 0 10px rgba(56, 189, 248, 0.8) !important;
 }
@@ -1924,55 +1924,6 @@ select.adm-input { appearance: none; -webkit-appearance: none; padding-right: 40
     flex-shrink: 0;
 }
 
-/* NATIVE PILL TOAST */
-.spidy-pill-toast {
-    position: fixed;
-    bottom: 35px;
-    left: 50%;
-    transform: translateX(-50%) translateY(45px) scale(0.92);
-    opacity: 0;
-    pointer-events: none;
-    padding: 11px 22px;
-    border-radius: 9999px;
-    font-family: 'Poppins', sans-serif;
-    font-size: 13.5px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    z-index: 9999999999;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    transition: transform 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.25s ease;
-    white-space: nowrap;
-    max-width: 90vw;
-}
-
-.spidy-pill-toast.active {
-    transform: translateX(-50%) translateY(0) scale(1);
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.spidy-pill-toast.success {
-    background: rgba(8, 22, 14, 0.95);
-    color: #4ade80;
-    border: 1px solid rgba(74, 222, 128, 0.4);
-    box-shadow: inset 0 0 18px rgba(74, 222, 128, 0.35), 0 10px 32px rgba(0, 0, 0, 0.88);
-}
-
-.spidy-pill-toast.error {
-    background: rgba(26, 10, 12, 0.95);
-    color: #f87171;
-    border: 1px solid rgba(248, 113, 113, 0.4);
-    box-shadow: inset 0 0 18px rgba(248, 113, 113, 0.35), 0 10px 32px rgba(0, 0, 0, 0.88);
-}
-
-.spidy-pill-toast i {
-    font-size: 16px;
-    flex-shrink: 0;
-}
-
 /* TOKEN MODAL */
 .modal-overlay-token { position: fixed; inset: 0; z-index: 9999999; display: grid; place-items: center; padding: 20px; overflow-y: auto; background: #000; pointer-events: auto; }
 .premium-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
@@ -2083,3 +2034,4 @@ select.adm-input { appearance: none; -webkit-appearance: none; padding-right: 40
 @media screen and (min-width: 1200px) {
     .book-container { grid-template-columns: repeat(5, 1fr); }
 }
+
