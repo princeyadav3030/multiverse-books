@@ -151,7 +151,7 @@ function parseMarkdown(rawText) {
         let encodedCopy = encodeURIComponent(copyText);
         let cardTitle = (title || 'Free code').trim();
 
-        return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" data-clipboard="${encodedCopy}" onclick="window.copyFromButton(this)"><i class="far fa-copy"></i> COPY CODE</button></div>`;
+        return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" data-clipboard="${encodedCopy}" onclick="event.stopPropagation(); window.copyFromButton(this)"><i class="far fa-copy"></i> COPY CODE</button></div>`;
     });
 
     safe = safe.replace(/(^|\n)(&gt;|>)\s*(.+?)(?=(\n\n|\n(?!&gt;|>)|$))/gs, function(match, prefix, qTag, content) {
@@ -162,7 +162,7 @@ function parseMarkdown(rawText) {
     safe = safe.replace(/\*([^\*]+)\*/g, '<b>$1</b>');
     safe = safe.replace(/_([^_]+)_/g, '<i>$1</i>');
     safe = safe.replace(/~([^~]+)~/g, '<del>$1</del>');
-    safe = safe.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    safe = safe.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();">$1</a>');
     safe = safe.replace(/\n/g, '<br>');
 
     safe = safe.replace(/(<div class="tg-copy-card">[\s\S]*?<\/div>)/g, function(m) { return m.replace(/<br>/g, ''); });
@@ -220,7 +220,7 @@ function formatTime(dateObj) {
 }
 
 // ==========================================
-// 3. NATIVE PILL TOAST (Top Positioned)
+// 3. NATIVE PILL TOAST (Bottom Positioned)
 // ==========================================
 let pillToastTimer;
 function showToast(message, type = 'success') {
@@ -933,7 +933,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         bubble.dataset.postId = post.id;
 
         let imageHTML = post.imageUrl 
-            ? `<img src="${getSecureAssetUrl(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image">` 
+            ? `<img src="${getSecureAssetUrl(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image" onload="window.recomputeChannelScroll();">` 
             : '';
 
         let quoteHTML = '';
@@ -970,7 +970,14 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         });
 
         bubble.addEventListener('click', (e) => {
-            if (e.target.tagName === 'A' || e.target.closest('.tg-copy-action-btn')) return;
+            if (
+                e.target.tagName === 'A' || 
+                e.target.closest('.tg-copy-action-btn') || 
+                e.target.closest('.telegram-copy-btn') ||
+                e.target.closest('.reaction-pill')
+            ) {
+                return;
+            }
             activePost = post;
             if (contextOverlay) contextOverlay.classList.add('show');
             if (navigator.vibrate) navigator.vibrate(20);
@@ -984,12 +991,14 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         chatBody.style.visibility = 'hidden';
         chatBody.innerHTML = '';
         chatBody.appendChild(fragment);
-        chatBody.scrollTop = chatBody.scrollHeight;
-        
+
         requestAnimationFrame(() => {
             chatBody.scrollTop = chatBody.scrollHeight;
-            chatBody.style.visibility = 'visible';
-            isChannelDataReady = true;
+            requestAnimationFrame(() => {
+                chatBody.scrollTop = chatBody.scrollHeight;
+                chatBody.style.visibility = 'visible';
+                isChannelDataReady = true;
+            });
         });
     } else {
         const prevScrollTop = chatBody.scrollTop;
@@ -998,6 +1007,14 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         chatBody.scrollTop = prevScrollTop;
     }
 }
+
+window.recomputeChannelScroll = function() {
+    if (!chatBody) return;
+    const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
+    if (distanceFromBottom < 160) {
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+};
 
 async function applyReaction(postId, newEmoji) {
     if (!auth.currentUser) {
@@ -1075,7 +1092,6 @@ if (contextOverlay) {
         contextOverlay.classList.remove('show');
     });
 
-    // 🌟 REPORT ISSUE -> SHOWS RED TOAST
     document.getElementById('cmReport')?.addEventListener('click', () => {
         showToast("Post reported successfully!", "error");
         contextOverlay.classList.remove('show');
@@ -1084,31 +1100,33 @@ if (contextOverlay) {
 
 // 🌟 100% BULLETPROOF COPY HANDLER (DIRECT & BACKUP FALLBACK)
 window.copyToClipboard = function(text, btn) {
-    if (!text) {
-        // Fallback: extract directly from parent card's list items
-        if (btn) {
-            const card = btn.closest('.tg-copy-card, .telegram-prompt-card');
-            if (card) {
-                const listItems = card.querySelectorAll('li');
-                if (listItems.length > 0) {
-                    text = Array.from(listItems).map(li => li.textContent.trim()).join('\n');
-                } else {
-                    const bodyEl = card.querySelector('.telegram-prompt-body');
-                    if (bodyEl) text = bodyEl.textContent.trim();
-                }
+    if (!text && btn) {
+        const card = btn.closest('.tg-copy-card, .telegram-prompt-card');
+        if (card) {
+            const listItems = card.querySelectorAll('li');
+            if (listItems.length > 0) {
+                text = Array.from(listItems).map(li => li.textContent.trim()).join('\n');
+            } else {
+                const bodyEl = card.querySelector('.telegram-prompt-body, .tg-copy-body');
+                if (bodyEl) text = bodyEl.textContent.trim();
             }
         }
     }
 
     if (!text) return;
 
+    const parentCard = btn ? btn.closest('.telegram-prompt-card, .tg-copy-card') : null;
+
     const finalizeSuccess = () => {
         if (btn) {
             btn.classList.add('copied-active');
+            if (parentCard) parentCard.classList.add('copied-active');
+
             const orig = btn.innerHTML;
             btn.innerHTML = `<i class="fas fa-check"></i> COPIED!`;
             setTimeout(() => {
                 btn.classList.remove('copied-active');
+                if (parentCard) parentCard.classList.remove('copied-active');
                 btn.innerHTML = orig;
             }, 2000);
         }
@@ -1117,7 +1135,6 @@ window.copyToClipboard = function(text, btn) {
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(finalizeSuccess).catch(() => {
-            // Backup copy via textarea
             const textarea = document.createElement('textarea');
             textarea.value = text;
             document.body.appendChild(textarea);
@@ -1250,7 +1267,7 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // 📝 FETCH PROMPTS (FLUSH BOTTOM BORDER & FULL-WIDTH BUTTON)
+    // 📝 FETCH PROMPTS (CLEAN RECTANGLE-FREE SEAMLESS CARDS)
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if(!container) return;
@@ -1261,19 +1278,30 @@ onAuthStateChanged(auth, async (user) => {
         }
         snapshot.forEach(docSnap => {
             const data = docSnap.data(); 
-            const id = docSnap.id;
             const safeText = sanitizeHTML(data.text);
             const safeInstruction = data.instruction ? sanitizeHTML(data.instruction).replace(/\n/g, "<br>") : "";
             const safeTitle = sanitizeHTML(data.title);
             let instructionHTML = '';
             if(safeInstruction) { 
-                instructionHTML = `<div style="color: #ffffff; font-weight: 600; font-size: 14px; margin-bottom: 8px; margin-left: 2px; line-height: 1.5; font-family: 'Inter', sans-serif;">${safeInstruction}</div>`; 
+                instructionHTML = `<div style="color: #ffffff; font-weight: 600; font-size: 13.5px; margin-bottom: 8px; margin-left: 2px; line-height: 1.5; font-family: 'Inter', sans-serif;">${safeInstruction}</div>`; 
             }
-            container.innerHTML += `<div class="telegram-prompt-wrapper">${instructionHTML}<div class="telegram-prompt-card"><div class="telegram-prompt-header">${safeTitle}</div><div class="telegram-prompt-body">${safeText}</div><div class="telegram-prompt-footer"><button type="button" class="telegram-copy-btn" data-clipboard="${encodeURIComponent(data.text)}" onclick="window.copyFromButton(this)"><i class="far fa-copy"></i> COPY CODE</button></div></div></div>`;
+            container.innerHTML += `
+            <div class="telegram-prompt-wrapper">
+                ${instructionHTML}
+                <div class="telegram-prompt-card">
+                    <div class="telegram-prompt-header">${safeTitle}</div>
+                    <div class="telegram-prompt-body">${safeText}</div>
+                    <div class="telegram-prompt-footer">
+                        <button type="button" class="telegram-copy-btn" data-clipboard="${encodeURIComponent(data.text)}" onclick="event.stopPropagation(); window.copyFromButton(this)">
+                            <i class="far fa-copy"></i> COPY CODE
+                        </button>
+                    </div>
+                </div>
+            </div>`;
         });
     });
 
-    // 📚 FETCH REAL BOOKS WITH CORRECT COVER ARTWORK
+    // 📚 FETCH REAL BOOKS
     const q = query(collection(db, "books"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
         booksData = [];
@@ -1714,6 +1742,9 @@ document.getElementById('open-noti')?.addEventListener('click', () => {
     
     if (livePosts.length > 0) {
         renderChannelFeed(livePosts, true);
+        setTimeout(() => {
+            if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+        }, 150);
     } else {
         renderChannelLoader();
     }
@@ -1846,7 +1877,7 @@ document.getElementById('nav-dev')?.addEventListener('click', () => {
     syncProfileAndRankUI();
 });
 
-// 🌟 COMPREHENSIVE HARDWARE BACK BUTTON LISTENER
+// 🌟 HARDWARE BACK BUTTON LISTENER
 window.addEventListener('popstate', (e) => {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer && pdfViewer.style.display === 'flex') {
@@ -1916,7 +1947,7 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE (2D Pan & Zoom + Exact Highlighting)
+// 13. PDF VIEWER ENGINE
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -2098,7 +2129,6 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// 🌟 2D PINCH & MULTI-AXIS ZOOM ENGINE (X & Y Axis Pan Support)
 function initPinchToZoom() {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
@@ -2279,7 +2309,6 @@ function clearAllHighlights() {
     });
 }
 
-// 🌟 ACCURATE KEYWORD HIGHLIGHTING
 function highlightMatchesInPage(textLayerDiv, query) {
     if (!query || !textLayerDiv) return;
     const cleanQ = cleanUnicodeTextForSearch(query);
@@ -2756,7 +2785,6 @@ function uploadSingleFileTracked(file, type, onProgress) {
 
             const xhr = new XMLHttpRequest(); 
             xhr.open("PUT", authData.uploadUrl, true); 
-            xhr.setRequestHeader("Content-Type", determinedContentType); 
 
             xhr.upload.addEventListener("progress", (e) => {
                 if (e.lengthComputable && onProgress) { 
