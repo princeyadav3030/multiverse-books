@@ -996,7 +996,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
             });
         });
 
-        // Bubble context menu: Exclude any button, link or reaction click
+        // Bubble context menu: Completely bypass buttons, links, or cards
         bubble.addEventListener('click', (e) => {
             if (
                 e.target.tagName === 'A' || 
@@ -1126,7 +1126,7 @@ if (contextOverlay) {
     });
 }
 
-// 🌟 BULLETPROOF COPY HANDLER (Button-only green effect; No custom toast)
+// 🌟 ISOLATED BUTTON-ONLY COPY HANDLER
 window.copyToClipboard = function(text, btn) {
     let copyTargetText = text;
 
@@ -1189,12 +1189,13 @@ window.copyFromButton = function(btn) {
     window.copyToClipboard(text, btn);
 };
 
-// Global Event Delegation for ALL copy buttons across App, Prompts & Channel Posts
+// Global Event Delegation (Intercepts copy clicks completely before bubble context menu)
 document.addEventListener('click', (e) => {
     const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
     if (copyBtn) {
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
         window.copyFromButton(copyBtn);
     }
 }, true);
@@ -1297,7 +1298,7 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // 📝 FETCH PROMPTS (Isolated button-only styling, zero wrapper glow)
+    // 📝 FETCH PROMPTS (Clean Isolated Design)
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if(!container) return;
