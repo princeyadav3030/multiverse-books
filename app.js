@@ -419,7 +419,7 @@ function initPromoCarousel() {
     startAutoSlide();
 }
 
-// 🌟 OPEN BANNER & LOAD SUBJECTS
+// OPEN BANNER & LOAD SUBJECTS
 window.openBannerModules = function(bannerId) {
     const banner = dynamicBannersList.find(b => b.id === bannerId);
     if (!banner) return;
@@ -870,7 +870,7 @@ window.scrollToChannelPost = function(postId) {
         target.classList.remove('highlight-post');
         void target.offsetWidth;
         target.classList.add('highlight-post');
-        setTimeout(() => target.classList.remove('highlight-post'), 2200);
+        setTimeout(() => target.classList.remove('highlight-post'), 2500);
     } else {
         showToast("Original message was deleted or moved.", "error");
     }
@@ -1108,7 +1108,6 @@ if (contextOverlay) {
         showToast("Text copied!", "success");
     });
 
-    // 🌟 FIX: Clean Single URL for Post Links
     document.getElementById('cmCopyLink')?.addEventListener('click', () => {
         if (!activePost) return;
         const cleanBase = window.location.origin + window.location.pathname;
@@ -1298,7 +1297,7 @@ onAuthStateChanged(auth, async (user) => {
     isAppReady.auth = true; 
     tryTransition();
 
-    // 🎴 FETCH MODULE BANNERS
+    // FETCH MODULE BANNERS
     onSnapshot(query(collection(db, "module_banners"), orderBy("createdAt", "desc")), (snapshot) => {
         dynamicBannersList = [];
         snapshot.forEach(docSnap => {
@@ -1309,7 +1308,7 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // 📝 FETCH PROMPTS
+    // FETCH PROMPTS
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if(!container) return;
@@ -1343,7 +1342,7 @@ onAuthStateChanged(auth, async (user) => {
         });
     });
 
-    // 📚 FETCH REAL BOOKS WITH CLEAN SLUGS
+    // FETCH REAL BOOKS WITH CLEAN SLUGS
     const q = query(collection(db, "books"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
         booksData = [];
@@ -1351,7 +1350,6 @@ onAuthStateChanged(auth, async (user) => {
             let data = docSnap.data(); 
             data.id = docSnap.id; 
             
-            // Clean, readable URL slug without % hex encoding
             if (!data.slug || data.slug.includes('%')) {
                 data.slug = generateCleanSlug(data.title, data.id);
             }
@@ -1367,7 +1365,7 @@ onAuthStateChanged(auth, async (user) => {
         tryTransition();
     });
 
-    // 💬 FETCH CHANNEL POSTS
+    // FETCH CHANNEL POSTS
     renderChannelLoader();
     const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
     onSnapshot(channelQuery, (snapshot) => {
@@ -1989,12 +1987,12 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE (Exact Centered Orbit Loader + Stable Zoom)
+// 13. PDF VIEWER ENGINE (1-Line Center Loader + HD Render)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
-    // 🌟 EXACT CENTERED CHARCOAL & BLUE ORBIT SPINNER
+    // 1-Line Clean Center Loader with Active Streaming Tag
     scrollContainer.innerHTML = `
         <div class="pdf-loader-centered-box" id="pdfCenteredLoader">
             <div class="orbit-spinner">
@@ -2003,7 +2001,7 @@ async function renderPdfInModal(pdfUrl) {
                 <div class="orbit-core"></div>
             </div>
             <div class="pdf-loader-text">Loading book securely...</div>
-            <div class="pdf-loader-subtext">Preparing ultra-HD pages</div>
+            <div class="pdf-loader-subtext"><i class="fas fa-bolt"></i> Streaming ultra-HD manuscript...</div>
         </div>`;
 
     cleanupPdfResources();
@@ -2025,7 +2023,6 @@ async function renderPdfInModal(pdfUrl) {
 
         const screenWidth = window.innerWidth;
         const targetCssWidth = Math.min(screenWidth - 16, 760);
-        // Fixed crisp pixel ratio for maximum sharpness
         const pixelRatio = Math.min(window.devicePixelRatio || 2, 2.5);
 
         const firstPage = await pdf.getPage(1);
@@ -2051,7 +2048,7 @@ async function renderPdfInModal(pdfUrl) {
 
         initVirtualizationObserver(pdf, targetCssWidth, pixelRatio);
 
-        // Cached page text for instantaneous search without UI lock
+        // Cached page text for search
         (async () => {
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 if (!currentPdfDocument) break;
@@ -2132,7 +2129,6 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d', { alpha: false });
         
-        // Crisp Ultra-HD Canvas Scaling
         canvas.width = Math.floor(viewport.width * pixelRatio);
         canvas.height = Math.floor(viewport.height * pixelRatio);
         canvas.style.width = `${targetCssWidth}px`;
@@ -2181,7 +2177,6 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// 🌟 STABILIZED MULTI-AXIS PINCH & PAN (Prevents Random Page Jump)
 function initStabilizedPinchToZoom() {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
@@ -2593,7 +2588,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     activeBookId = book.id;
     activeBookTitle = book.title;
     
-    // Clean, readable URL structure without %
     if (!skipPushState) { 
         history.pushState({ popup: 'book' }, '', '?book=' + (book.slug || book.id)); 
     }
@@ -2774,7 +2768,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. UPLOAD SYSTEM (Collision-Proof Slug Auto-Assign)
+// 17. UPLOAD SYSTEM (Full Synchronized R2 Storage)
 // ==========================================
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', function(e) {
@@ -2822,7 +2816,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
             .slice(0, 25);
             
         const safeFilePayload = `${folderPrefix}/${Date.now()}_${rawSafeName || 'file'}.${fileExt}`;
-        const determinedContentType = (type === 'image') ? (file.type || 'image/jpeg') : 'application/pdf';
+        const determinedContentType = (type === 'image') ? (file.type || 'image/jpeg') : (file.type || 'application/pdf');
 
         try {
             const userToken = await auth.currentUser.getIdToken(true);
@@ -2849,6 +2843,10 @@ function uploadSingleFileTracked(file, type, onProgress) {
 
             const xhr = new XMLHttpRequest(); 
             xhr.open("PUT", authData.uploadUrl, true); 
+
+            if (determinedContentType) {
+                xhr.setRequestHeader("Content-Type", determinedContentType);
+            }
 
             xhr.upload.addEventListener("progress", (e) => {
                 if (e.lengthComputable && onProgress) { 
@@ -2983,11 +2981,9 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
         progressFill.style.width = `99%`;
 
-        // Generate collision-proof clean slug
         let baseSlug = generateCleanSlug(inputTitle);
         let finalSlug = baseSlug;
         
-        // Auto-detect duplicate book titles in current collection
         const isDuplicate = booksData.some(b => b.slug === finalSlug);
         if (isDuplicate) {
             const randomHash = Math.random().toString(36).substring(2, 6);
