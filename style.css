@@ -337,10 +337,13 @@ main::-webkit-scrollbar { display: none; }
     display: flex !important;
     flex-direction: column !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
-    transition: all 0.25s ease !important;
     pointer-events: auto !important;
     position: relative !important;
     z-index: 10 !important;
+    transform: none !important; /* Click karne par hilega nahi */
+}
+.tg-copy-card:active {
+    transform: none !important;
 }
 
 .tg-copy-header {
@@ -394,7 +397,7 @@ main::-webkit-scrollbar { display: none; }
     font-size: 8px !important;
 }
 
-/* FULL-WIDTH ACTION BUTTON */
+/* FULL-WIDTH ACTION BUTTON (NO SHRINK / JUMP EFFECT) */
 .tg-copy-action-btn,
 .telegram-copy-btn {
     width: 100% !important;
@@ -410,7 +413,7 @@ main::-webkit-scrollbar { display: none; }
     align-items: center !important;
     justify-content: center !important;
     gap: 7px !important;
-    transition: all 0.25s ease !important;
+    transition: background 0.2s ease, color 0.2s ease !important;
     text-transform: uppercase !important;
     letter-spacing: 0.6px !important;
     box-sizing: border-box !important;
@@ -419,6 +422,7 @@ main::-webkit-scrollbar { display: none; }
     pointer-events: auto !important;
     position: relative !important;
     z-index: 20 !important;
+    transform: none !important;
 }
 
 .tg-copy-action-btn:hover,
@@ -428,7 +432,8 @@ main::-webkit-scrollbar { display: none; }
 
 .tg-copy-action-btn:active,
 .telegram-copy-btn:active {
-    transform: scale(0.985) !important;
+    transform: none !important; /* Scale/shake effect permanently disabled */
+    background: rgba(255, 255, 255, 0.08) !important;
 }
 
 .tg-copy-action-btn.copied-active,
@@ -904,7 +909,7 @@ main::-webkit-scrollbar { display: none; }
     will-change: transform;
 }
 
-/* 🌟 CENTERED HIGH-END LOADER SCREEN FOR PDF VIEWER (1-LINE FIX) 🌟 */
+/* 🌟 CLEAN 1-LINE PDF VIEWER LOADER (NO BLUE SUB-CARD) 🌟 */
 .pdf-loader-centered-box {
     position: absolute;
     top: 50%;
@@ -914,7 +919,7 @@ main::-webkit-scrollbar { display: none; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
+    gap: 16px;
     z-index: 50;
     pointer-events: none;
     width: 90%;
@@ -929,29 +934,11 @@ main::-webkit-scrollbar { display: none; }
     letter-spacing: 0.5px;
     text-align: center;
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
-    white-space: nowrap !important; /* Proper Single Line */
+    white-space: nowrap !important;
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-}
-
-.pdf-loader-subtext {
-    font-family: 'JetBrains Mono', 'Inter', monospace;
-    font-size: 11px;
-    font-weight: 600;
-    color: #38bdf8;
-    background: rgba(56, 189, 248, 0.08);
-    border: 1px solid rgba(56, 189, 248, 0.25);
-    padding: 4px 12px;
-    border-radius: 20px;
-    letter-spacing: 0.5px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
-    margin-top: -2px;
 }
 
 .pdf-page-wrapper {
@@ -1121,9 +1108,10 @@ main::-webkit-scrollbar { display: none; }
 }
 .header-back-btn i { font-size: 15px; }
 
+/* 🌟 EXACT 70PX BOTTOM GAP FOR NOTIFICATION CHANNEL 🌟 */
 .chat-body { 
     flex: 1; 
-    padding: 15px 12px 95px 12px; 
+    padding: 15px 12px 70px 12px !important; 
     overflow-y: auto; overflow-x: hidden;
     display: flex; flex-direction: column; gap: 14px; 
     background: transparent;
@@ -1151,12 +1139,15 @@ main::-webkit-scrollbar { display: none; }
     box-shadow: 0 8px 24px rgba(0,0,0,0.65);
     display: flex; flex-direction: column;
     border: 1px solid var(--card-border-channel);
-    transition: transform 0.12s ease, background-color 0.4s ease;
+    transition: background-color 0.4s ease;
     cursor: pointer;
+    transform: none !important;
 }
-.message-bubble:active { transform: scale(0.985); }
+.message-bubble:active { 
+    transform: none !important; /* Hilna band */
+}
 
-/* 🌟 EXACT WHATSAPP INTERNAL CARD TINT HIGHLIGHT (NO BORDER, NO OUT-GLOW) 🌟 */
+/* WHATSAPP CARD TINT HIGHLIGHT */
 .message-bubble.highlight-post {
     animation: whatsappTintHighlight 2.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
@@ -1166,7 +1157,7 @@ main::-webkit-scrollbar { display: none; }
         background-color: var(--bg-card-channel);
     }
     15%, 70% {
-        background-color: #1e293b !important; /* Authentic Dark Blue WhatsApp Tint */
+        background-color: #1e293b !important;
     }
     100% {
         background-color: var(--bg-card-channel);
