@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { 
     getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, 
-    query, orderBy, setDoc, getDoc, increment, getDocs, runTransaction, Timestamp, limit 
+    query, orderBy, setDoc, getDoc, increment, getDocs, runTransaction, Timestamp, limit, startAfter 
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { 
     getAuth, signInWithEmailAndPassword, GoogleAuthProvider, 
@@ -220,7 +220,7 @@ function formatTime(dateObj) {
 }
 
 // ==========================================
-// 3. TOAST NOTIFICATIONS (Only System/Fallback)
+// 3. TOAST NOTIFICATIONS
 // ==========================================
 let pillToastTimer;
 function showToast(message, type = 'success') {
@@ -250,10 +250,10 @@ function showToast(message, type = 'success') {
     }, 2800);
 }
 
+// Device Fingerprint without volatile screen properties (Rotation-Safe)
 function generateDeviceFingerprint() {
     const nav = window.navigator;
-    const screen = window.screen;
-    const str = nav.userAgent + nav.language + screen.colorDepth + screen.width + screen.height + new Date().getTimezoneOffset();
+    const str = (nav.userAgent || "") + (nav.language || "") + (nav.hardwareConcurrency || "4");
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         let char = str.charCodeAt(i);
@@ -412,7 +412,7 @@ function initPromoCarousel() {
     startAutoSlide();
 }
 
-// 🌟 OPEN BANNER & LOAD SUBJECTS
+// OPEN BANNER & LOAD SUBJECTS
 window.openBannerModules = function(bannerId) {
     const banner = dynamicBannersList.find(b => b.id === bannerId);
     if (!banner) return;
@@ -996,7 +996,6 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
             });
         });
 
-        // Bubble context menu: Completely bypass buttons, links, or cards
         bubble.addEventListener('click', (e) => {
             if (
                 e.target.tagName === 'A' || 
@@ -1126,7 +1125,7 @@ if (contextOverlay) {
     });
 }
 
-// 🌟 ISOLATED BUTTON-ONLY COPY HANDLER
+// ISOLATED BUTTON-ONLY COPY HANDLER
 window.copyToClipboard = function(text, btn) {
     let copyTargetText = text;
 
@@ -1189,7 +1188,6 @@ window.copyFromButton = function(btn) {
     window.copyToClipboard(text, btn);
 };
 
-// Global Event Delegation (Intercepts copy clicks completely before bubble context menu)
 document.addEventListener('click', (e) => {
     const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
     if (copyBtn) {
@@ -1201,7 +1199,7 @@ document.addEventListener('click', (e) => {
 }, true);
 
 // ==========================================
-// 9. AUTHENTICATION OBSERVER
+// 9. AUTHENTICATION & OPTIMIZED DATA OBSERVER
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -1287,7 +1285,7 @@ onAuthStateChanged(auth, async (user) => {
     isAppReady.auth = true; 
     tryTransition();
 
-    // 🎴 FETCH MODULE BANNERS
+    // FETCH MODULE BANNERS
     onSnapshot(query(collection(db, "module_banners"), orderBy("createdAt", "desc")), (snapshot) => {
         dynamicBannersList = [];
         snapshot.forEach(docSnap => {
@@ -1298,7 +1296,7 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // 📝 FETCH PROMPTS (Clean Isolated Design)
+    // FETCH PROMPTS
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if(!container) return;
@@ -1332,8 +1330,8 @@ onAuthStateChanged(auth, async (user) => {
         });
     });
 
-    // 📚 FETCH REAL BOOKS
-    const q = query(collection(db, "books"), orderBy("createdAt", "desc"));
+    // SCALABLE BOOKS QUERY (10,000 Users Optimized Read Pool)
+    const q = query(collection(db, "books"), orderBy("createdAt", "desc"), limit(40));
     onSnapshot(q, (snapshot) => {
         booksData = [];
         snapshot.forEach((docSnap) => {
@@ -1355,9 +1353,9 @@ onAuthStateChanged(auth, async (user) => {
         tryTransition();
     });
 
-    // 💬 FETCH CHANNEL POSTS
+    // CHANNEL POSTS FEED
     renderChannelLoader();
-    const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
+    const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"), limit(50));
     onSnapshot(channelQuery, (snapshot) => {
         const dataArr = [];
         snapshot.forEach(docSnap => {
@@ -1397,7 +1395,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ==========================================
-// 10. LOGIN & LOGOUT
+// 10. LOGIN & LOGOUT HANDLERS
 // ==========================================
 function closeLoginOverlayLocal() {
     const loginOverlay = document.getElementById('loginOverlay');
@@ -1510,7 +1508,7 @@ if (closeUploadPopupBtn && uploadPopup) {
 }
 
 // ==========================================
-// 11. FILTERS
+// 11. SEARCH & CATEGORY FILTERS
 // ==========================================
 const FIXED_EXAM_LIST = [
     "10th", "11th", "12th", "Ssc", "Railway", "Defence", 
@@ -1660,7 +1658,7 @@ const infiniteScrollObserver = new IntersectionObserver((entries) => {
                     document.getElementById('infinite-loader').style.display = 'none'; 
                 }
                 isLoadingMore = false;
-            }, 500);
+            }, 400);
         }
     });
 }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 200px 0px', threshold: 0.1 });
@@ -1813,7 +1811,6 @@ document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => {
 });
 document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => { history.back(); });
 
-// 🌟 TAB SWITCHER WITH SCROLL RESET
 function switchTab(tabId) { 
     document.querySelectorAll('.app-tab').forEach(tab => { 
         tab.style.display = 'none'; 
@@ -1902,7 +1899,7 @@ document.getElementById('nav-dev')?.addEventListener('click', () => {
     syncProfileAndRankUI();
 });
 
-// 🌟 HARDWARE BACK BUTTON LISTENER
+// HARDWARE BACK BUTTON LISTENER
 window.addEventListener('popstate', (e) => {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer && pdfViewer.style.display === 'flex') {
@@ -1954,6 +1951,13 @@ function cleanupPdfResources() {
         pdfVirtualObserver.disconnect();
         pdfVirtualObserver = null;
     }
+    
+    // Explicit GPU Canvas Context Purging
+    document.querySelectorAll('.pdf-page-wrapper canvas').forEach(canvas => {
+        canvas.width = 0;
+        canvas.height = 0;
+    });
+
     renderedPagesMap.clear();
     currentPdfDocument = null;
     pdfTextCache = [];
@@ -1972,14 +1976,21 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE (Full 2D Pan & Zoom Support)
+// 13. PDF VIEWER ENGINE (Centered Loader & Memory Optimized)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
+    
+    // Exact-Center High-End Double Orbit Neon Spinner
     scrollContainer.innerHTML = `
-        <div id="pdfLoadingStatus" style="color: #38bdf8; margin-top: 50px; font-size: 15px; font-weight: 600; text-align: center;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 26px; margin-bottom: 12px; display: block;"></i>
-            Loading book securely...
+        <div class="pdf-loader-centered-box" id="pdfCenteredLoader">
+            <div class="orbit-spinner">
+                <div class="orbit-ring"></div>
+                <div class="orbit-inner-ring"></div>
+                <div class="orbit-core"></div>
+            </div>
+            <div class="pdf-loader-text">Opening Document Securely...</div>
+            <div class="pdf-loader-subtext">Initializing High-Speed Stream</div>
         </div>`;
 
     cleanupPdfResources();
@@ -1988,7 +1999,9 @@ async function renderPdfInModal(pdfUrl) {
         const loadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
-            cMapPacked: true
+            cMapPacked: true,
+            disableAutoFetch: true,
+            disableStream: false
         });
 
         const pdf = await loadingTask.promise;
@@ -2001,7 +2014,8 @@ async function renderPdfInModal(pdfUrl) {
 
         const screenWidth = window.innerWidth;
         const targetCssWidth = Math.min(screenWidth - 20, 720);
-        const pixelRatio = window.devicePixelRatio || 2; 
+        // Memory cap for devicePixelRatio (Max 1.5 to prevent high-res crash)
+        const pixelRatio = Math.min(window.devicePixelRatio || 1.5, 1.5); 
 
         const firstPage = await pdf.getPage(1);
         const firstViewport = firstPage.getViewport({ scale: 1.0 });
@@ -2025,23 +2039,6 @@ async function renderPdfInModal(pdfUrl) {
         }
 
         initVirtualizationObserver(pdf, targetCssWidth, pixelRatio);
-
-        (async () => {
-            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                if (!currentPdfDocument) break;
-                try {
-                    const page = await pdf.getPage(pageNum);
-                    const textContent = await page.getTextContent();
-                    const rawItems = textContent.items.map(item => item.str);
-                    const combinedRaw = rawItems.join(" ");
-                    pdfTextCache[pageNum] = {
-                        raw: combinedRaw,
-                        clean: cleanUnicodeTextForSearch(combinedRaw)
-                    };
-                } catch(e) {}
-            }
-        })();
-
         initPdfScrollTracker();
         initPinchToZoom();
 
@@ -2078,7 +2075,7 @@ function initVirtualizationObserver(pdf, targetCssWidth, pixelRatio) {
         });
     }, {
         root: document.getElementById('pdfContainer'),
-        rootMargin: '700px 0px 700px 0px',
+        rootMargin: '600px 0px 600px 0px',
         threshold: 0.01
     });
 
@@ -2105,7 +2102,7 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
         wrapper.style.height = `${viewport.height}px`;
 
         const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d', { alpha: false });
+        const context = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
         canvas.width = Math.floor(viewport.width * pixelRatio);
         canvas.height = Math.floor(viewport.height * pixelRatio);
         canvas.style.width = `${targetCssWidth}px`;
@@ -2149,12 +2146,18 @@ function unloadSinglePage(pageNum) {
     const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
     if (!wrapper) return;
 
+    // Release Canvas Buffers Immediately
+    const canvas = wrapper.querySelector('canvas');
+    if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+    }
+
     wrapper.classList.add('page-placeholder');
     wrapper.innerHTML = `<span>Page ${pageNum}</span>`;
     renderedPagesMap.delete(pageNum);
 }
 
-// 🌟 MULTI-AXIS PINCH & PAN ENGINE
 function initPinchToZoom() {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
@@ -2164,7 +2167,7 @@ function initPinchToZoom() {
     let initialDistance = 0;
     let lastTap = 0;
 
-    scroller.style.transformOrigin = 'top left';
+    scroller.style.transformOrigin = 'top center';
 
     container.addEventListener('touchstart', (e) => {
         const now = Date.now();
@@ -2172,7 +2175,6 @@ function initPinchToZoom() {
             currentScale = 1;
             scroller.style.transform = `scale(1)`;
             scroller.style.width = '100%';
-            scroller.style.margin = '0 auto';
             return;
         }
         lastTap = now;
@@ -2192,10 +2194,8 @@ function initPinchToZoom() {
                 e.touches[0].pageY - e.touches[1].pageY
             );
             const factor = currentDistance / initialDistance;
-            let newScale = Math.min(Math.max(currentScale * factor, 1), 3.5);
+            let newScale = Math.min(Math.max(currentScale * factor, 1), 3.0);
             scroller.style.transform = `scale(${newScale})`;
-            scroller.style.width = `${100 * newScale}%`;
-            scroller.style.margin = '0';
         }
     }, { passive: true });
 
@@ -2207,8 +2207,6 @@ function initPinchToZoom() {
             if (currentScale <= 1.05) {
                 currentScale = 1;
                 scroller.style.transform = `scale(1)`;
-                scroller.style.width = '100%';
-                scroller.style.margin = '0 auto';
             }
         }
     });
@@ -2336,7 +2334,7 @@ pdfSearchInput?.addEventListener('input', () => {
     clearTimeout(pdfSearchTimer);
     pdfSearchTimer = setTimeout(() => {
         executePdfTextSearch(pdfSearchInput.value.trim());
-    }, 250);
+    }, 350);
 });
 
 function clearAllHighlights() {
@@ -2361,6 +2359,7 @@ function highlightMatchesInPage(textLayerDiv, query) {
     });
 }
 
+// On-Demand Parallel Chunk Search (No startup freeze)
 async function executePdfTextSearch(query) {
     searchMatches = [];
     currentSearchMatchIndex = -1;
@@ -2376,13 +2375,19 @@ async function executePdfTextSearch(query) {
     const lowerRawQuery = query.toLowerCase();
 
     for (let pageNum = 1; pageNum <= pdfTotalPagesCount; pageNum++) {
+        if (!pdfTextCache[pageNum]) {
+            try {
+                const page = await currentPdfDocument.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const combined = textContent.items.map(item => item.str).join(" ");
+                pdfTextCache[pageNum] = { raw: combined, clean: cleanUnicodeTextForSearch(combined) };
+            } catch(e) {
+                continue;
+            }
+        }
+
         let cached = pdfTextCache[pageNum];
-        if (!cached) continue;
-
-        const matchFound = cached.raw.toLowerCase().includes(lowerRawQuery) || 
-                           (cleanQuery.length > 0 && cached.clean.includes(cleanQuery));
-
-        if (matchFound) {
+        if (cached.raw.toLowerCase().includes(lowerRawQuery) || (cleanQuery.length > 0 && cached.clean.includes(cleanQuery))) {
             searchMatches.push(pageNum);
         }
     }
