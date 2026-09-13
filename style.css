@@ -389,12 +389,12 @@ main::-webkit-scrollbar { display: none; }
 .tg-copy-body li:last-child { margin-bottom: 0 !important; }
 
 .tg-copy-body li::before {
-    content: "●" !important;
+    content: "" !important;
     position: absolute !important;
     left: 2px !important;
     top: 0px !important;
     color: #ffffff !important;
-    font-size: 8px !important;
+    font-size: 10px !important;
 }
 
 /* FULL-WIDTH ACTION BUTTON (NO SHRINK / JUMP EFFECT) */
