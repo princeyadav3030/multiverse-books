@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { 
     getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, 
-    query, orderBy, setDoc, getDoc, increment, getDocs, runTransaction, Timestamp, limit, startAfter 
+    query, orderBy, setDoc, getDoc, getDocs, Timestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { 
     getAuth, signInWithEmailAndPassword, GoogleAuthProvider, 
@@ -55,6 +55,18 @@ function getSecureAssetUrl(fileKeyOrUrl) {
     return `${WORKER_PROXY_URL}/${cleanKey}`;
 }
 
+// Helper to generate clean, SEO-friendly kebab-case slugs
+function generateCleanSlug(titleStr, fallbackId = "") {
+    if (!titleStr) return fallbackId || "book-" + Math.random().toString(36).substring(2, 8);
+    const clean = titleStr
+        .toString()
+        .toLowerCase()
+        .trim()
+        .replace(/[\s\W-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    return clean.length > 0 ? clean : (fallbackId || "book-" + Math.random().toString(36).substring(2, 8));
+}
+
 // ==========================================
 // GLOBAL VARIABLES
 // ==========================================
@@ -91,7 +103,7 @@ let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
 let isChannelDataReady = false;
 
-// PDF ENGINE & SCROLLER STATE (VIRTUALIZED)
+// PDF ENGINE & SCROLLER STATE (STABILIZED HD)
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let pdfTextCache = [];
@@ -100,6 +112,7 @@ let currentSearchMatchIndex = -1;
 let renderedPagesMap = new Map();
 let pdfVirtualObserver = null;
 let activeSearchKeyword = "";
+let currentPdfPageInView = 1;
 
 // ==========================================
 // HELPER FUNCTIONS & SANITIZATION
@@ -219,9 +232,6 @@ function formatTime(dateObj) {
     return dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
-// ==========================================
-// 3. TOAST NOTIFICATIONS
-// ==========================================
 let pillToastTimer;
 function showToast(message, type = 'success') {
     let toast = document.getElementById('spidyPillToast');
@@ -233,14 +243,12 @@ function showToast(message, type = 'success') {
     }
 
     clearTimeout(pillToastTimer);
-
     toast.className = `spidy-pill-toast ${type}`;
     const icon = type === 'success' 
         ? '<i class="fas fa-check-circle"></i>' 
         : '<i class="fas fa-circle-exclamation"></i>';
 
     toast.innerHTML = `${icon}<span>${sanitizeHTML(message)}</span>`;
-    
     toast.style.display = "flex";
     void toast.offsetWidth;
     toast.classList.add('active');
@@ -250,10 +258,10 @@ function showToast(message, type = 'success') {
     }, 2800);
 }
 
-// Device Fingerprint without volatile screen properties (Rotation-Safe)
 function generateDeviceFingerprint() {
     const nav = window.navigator;
-    const str = (nav.userAgent || "") + (nav.language || "") + (nav.hardwareConcurrency || "4");
+    const screen = window.screen;
+    const str = nav.userAgent + nav.language + (auth.currentUser ? auth.currentUser.uid : "guest_session");
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         let char = str.charCodeAt(i);
@@ -325,7 +333,6 @@ function renderDynamicBanners(banners) {
 
     track.innerHTML = slidesHTML;
     dotsWrap.innerHTML = dotsHTML;
-
     initPromoCarousel();
 }
 
@@ -412,7 +419,7 @@ function initPromoCarousel() {
     startAutoSlide();
 }
 
-// OPEN BANNER & LOAD SUBJECTS
+// 🌟 OPEN BANNER & LOAD SUBJECTS
 window.openBannerModules = function(bannerId) {
     const banner = dynamicBannersList.find(b => b.id === bannerId);
     if (!banner) return;
@@ -485,7 +492,6 @@ window.openSubjectModulesList = function(subjectKey) {
     };
 
     const modules = (activeBannerData.subjectsData && activeBannerData.subjectsData[subjectKey]) || [];
-    
     document.getElementById('moduleSubjectSubheading').innerText = subjectDisplayNames[subjectKey] || "Modules";
     document.getElementById('moduleCountTextBadge').innerText = `${modules.length} Modules`;
 
@@ -641,6 +647,7 @@ loaderInterval = setInterval(() => {
     }
 }, 200);
 
+// Single Clean Link Opener for Shared Posts
 function checkAndOpenTargetPost() {
     let targetPostId = "";
     const hash = window.location.hash || "";
@@ -661,7 +668,7 @@ function checkAndOpenTargetPost() {
             }
             setTimeout(() => {
                 window.scrollToChannelPost(targetPostId);
-            }, 400);
+            }, 500);
         }, 300);
     }
 }
@@ -680,7 +687,6 @@ function tryTransition() {
 
                 setTimeout(() => {
                     document.getElementById('mainAppWrapper').style.display = 'block';
-
                     checkAndOpenTargetPost();
 
                     if (isDeepLinkLoad && pendingBookSlug) {
@@ -802,7 +808,7 @@ async function syncProfileAndRankUI() {
 }
 
 // ==========================================
-// 8. CHANNEL NOTIFICATIONS & ACTIONS
+// 8. CHANNEL NOTIFICATIONS & WHATSAPP CARD HIGHLIGHT
 // ==========================================
 const chatBody = document.getElementById('chatBody');
 const contextOverlay = document.getElementById('contextOverlay');
@@ -855,11 +861,14 @@ if (chatBody) {
     }, { passive: true });
 }
 
+// WhatsApp Exact Card Tint Highlight
 window.scrollToChannelPost = function(postId) {
     if (!postId) return;
     const target = document.getElementById(`post_${postId}`);
     if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.remove('highlight-post');
+        void target.offsetWidth;
         target.classList.add('highlight-post');
         setTimeout(() => target.classList.remove('highlight-post'), 2200);
     } else {
@@ -1096,25 +1105,29 @@ if (contextOverlay) {
         if (!activePost) return;
         navigator.clipboard.writeText(stripMarkdown(activePost.text));
         contextOverlay.classList.remove('show');
+        showToast("Text copied!", "success");
     });
 
+    // 🌟 FIX: Clean Single URL for Post Links
     document.getElementById('cmCopyLink')?.addEventListener('click', () => {
         if (!activePost) return;
         const cleanBase = window.location.origin + window.location.pathname;
-        const url = `${cleanBase}?post=${activePost.id}#/post/${activePost.id}`;
+        const url = `${cleanBase}#/post/${activePost.id}`;
         navigator.clipboard.writeText(url);
         contextOverlay.classList.remove('show');
+        showToast("Post Link Copied!", "success");
     });
 
     document.getElementById('cmForward')?.addEventListener('click', () => {
         if (!activePost) return;
         const cleanBase = window.location.origin + window.location.pathname;
-        const url = `${cleanBase}?post=${activePost.id}#/post/${activePost.id}`;
+        const url = `${cleanBase}#/post/${activePost.id}`;
         const cleanText = stripMarkdown(activePost.text);
         if (navigator.share) {
             navigator.share({ title: 'SPIDY BOOK HUB', text: cleanText, url: url }).catch(() => {});
         } else {
             navigator.clipboard.writeText(url);
+            showToast("Link copied for sharing!", "success");
         }
         contextOverlay.classList.remove('show');
     });
@@ -1125,7 +1138,7 @@ if (contextOverlay) {
     });
 }
 
-// ISOLATED BUTTON-ONLY COPY HANDLER
+// Button-only copy handler
 window.copyToClipboard = function(text, btn) {
     let copyTargetText = text;
 
@@ -1199,7 +1212,7 @@ document.addEventListener('click', (e) => {
 }, true);
 
 // ==========================================
-// 9. AUTHENTICATION & OPTIMIZED DATA OBSERVER
+// 9. AUTHENTICATION & DATA FETCHING
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -1285,7 +1298,7 @@ onAuthStateChanged(auth, async (user) => {
     isAppReady.auth = true; 
     tryTransition();
 
-    // FETCH MODULE BANNERS
+    // 🎴 FETCH MODULE BANNERS
     onSnapshot(query(collection(db, "module_banners"), orderBy("createdAt", "desc")), (snapshot) => {
         dynamicBannersList = [];
         snapshot.forEach(docSnap => {
@@ -1296,7 +1309,7 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // FETCH PROMPTS
+    // 📝 FETCH PROMPTS
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if(!container) return;
@@ -1330,17 +1343,18 @@ onAuthStateChanged(auth, async (user) => {
         });
     });
 
-    // SCALABLE BOOKS QUERY (10,000 Users Optimized Read Pool)
-    const q = query(collection(db, "books"), orderBy("createdAt", "desc"), limit(40));
+    // 📚 FETCH REAL BOOKS WITH CLEAN SLUGS
+    const q = query(collection(db, "books"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
         booksData = [];
         snapshot.forEach((docSnap) => {
             let data = docSnap.data(); 
             data.id = docSnap.id; 
             
-            const rawTitle = (data.title || "").trim().toLowerCase();
-            const safeCandidate = encodeURIComponent(rawTitle.replace(/\s+/g, '-'));
-            data.slug = (safeCandidate && safeCandidate !== "%20") ? safeCandidate : docSnap.id;
+            // Clean, readable URL slug without % hex encoding
+            if (!data.slug || data.slug.includes('%')) {
+                data.slug = generateCleanSlug(data.title, data.id);
+            }
 
             booksData.push(data);
         });
@@ -1353,9 +1367,9 @@ onAuthStateChanged(auth, async (user) => {
         tryTransition();
     });
 
-    // CHANNEL POSTS FEED
+    // 💬 FETCH CHANNEL POSTS
     renderChannelLoader();
-    const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"), limit(50));
+    const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
     onSnapshot(channelQuery, (snapshot) => {
         const dataArr = [];
         snapshot.forEach(docSnap => {
@@ -1395,7 +1409,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ==========================================
-// 10. LOGIN & LOGOUT HANDLERS
+// 10. LOGIN & LOGOUT
 // ==========================================
 function closeLoginOverlayLocal() {
     const loginOverlay = document.getElementById('loginOverlay');
@@ -1508,7 +1522,7 @@ if (closeUploadPopupBtn && uploadPopup) {
 }
 
 // ==========================================
-// 11. SEARCH & CATEGORY FILTERS
+// 11. FILTERS
 // ==========================================
 const FIXED_EXAM_LIST = [
     "10th", "11th", "12th", "Ssc", "Railway", "Defence", 
@@ -1658,7 +1672,7 @@ const infiniteScrollObserver = new IntersectionObserver((entries) => {
                     document.getElementById('infinite-loader').style.display = 'none'; 
                 }
                 isLoadingMore = false;
-            }, 400);
+            }, 500);
         }
     });
 }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 200px 0px', threshold: 0.1 });
@@ -1760,7 +1774,7 @@ document.getElementById('open-noti')?.addEventListener('click', () => {
     if (livePosts.length > 0) {
         renderChannelFeed(livePosts, true);
         setTimeout(() => {
-            const hasTarget = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
+            const hasTarget = window.location.hash.includes("post/");
             if (chatBody && !hasTarget) {
                 chatBody.scrollTop = chatBody.scrollHeight;
             }
@@ -1899,7 +1913,7 @@ document.getElementById('nav-dev')?.addEventListener('click', () => {
     syncProfileAndRankUI();
 });
 
-// HARDWARE BACK BUTTON LISTENER
+// Hardware Back Button Listener
 window.addEventListener('popstate', (e) => {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer && pdfViewer.style.display === 'flex') {
@@ -1951,13 +1965,6 @@ function cleanupPdfResources() {
         pdfVirtualObserver.disconnect();
         pdfVirtualObserver = null;
     }
-    
-    // Explicit GPU Canvas Context Purging
-    document.querySelectorAll('.pdf-page-wrapper canvas').forEach(canvas => {
-        canvas.width = 0;
-        canvas.height = 0;
-    });
-
     renderedPagesMap.clear();
     currentPdfDocument = null;
     pdfTextCache = [];
@@ -1973,15 +1980,21 @@ function cleanupPdfResources() {
     if (searchCount) searchCount.innerText = '0/0';
     const badge = document.getElementById('pdfPageBadge');
     if (badge) badge.style.display = 'none';
+
+    const scroller = document.getElementById('pdfScrollContainer');
+    if (scroller) {
+        scroller.style.transform = 'none';
+        scroller.style.width = '100%';
+    }
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE (Centered Loader & Memory Optimized)
+// 13. PDF VIEWER ENGINE (Exact Centered Orbit Loader + Stable Zoom)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
-    // Exact-Center High-End Double Orbit Neon Spinner
+    // 🌟 EXACT CENTERED CHARCOAL & BLUE ORBIT SPINNER
     scrollContainer.innerHTML = `
         <div class="pdf-loader-centered-box" id="pdfCenteredLoader">
             <div class="orbit-spinner">
@@ -1989,8 +2002,8 @@ async function renderPdfInModal(pdfUrl) {
                 <div class="orbit-inner-ring"></div>
                 <div class="orbit-core"></div>
             </div>
-            <div class="pdf-loader-text">Opening Document Securely...</div>
-            <div class="pdf-loader-subtext">Initializing High-Speed Stream</div>
+            <div class="pdf-loader-text">Loading book securely...</div>
+            <div class="pdf-loader-subtext">Preparing ultra-HD pages</div>
         </div>`;
 
     cleanupPdfResources();
@@ -1999,9 +2012,7 @@ async function renderPdfInModal(pdfUrl) {
         const loadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
-            cMapPacked: true,
-            disableAutoFetch: true,
-            disableStream: false
+            cMapPacked: true
         });
 
         const pdf = await loadingTask.promise;
@@ -2013,9 +2024,9 @@ async function renderPdfInModal(pdfUrl) {
         document.getElementById('goToPageRange').innerText = `1 - ${pdfTotalPagesCount}`;
 
         const screenWidth = window.innerWidth;
-        const targetCssWidth = Math.min(screenWidth - 20, 720);
-        // Memory cap for devicePixelRatio (Max 1.5 to prevent high-res crash)
-        const pixelRatio = Math.min(window.devicePixelRatio || 1.5, 1.5); 
+        const targetCssWidth = Math.min(screenWidth - 16, 760);
+        // Fixed crisp pixel ratio for maximum sharpness
+        const pixelRatio = Math.min(window.devicePixelRatio || 2, 2.5);
 
         const firstPage = await pdf.getPage(1);
         const firstViewport = firstPage.getViewport({ scale: 1.0 });
@@ -2039,8 +2050,25 @@ async function renderPdfInModal(pdfUrl) {
         }
 
         initVirtualizationObserver(pdf, targetCssWidth, pixelRatio);
+
+        // Cached page text for instantaneous search without UI lock
+        (async () => {
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                if (!currentPdfDocument) break;
+                try {
+                    const page = await pdf.getPage(pageNum);
+                    const textContent = await page.getTextContent();
+                    const combinedRaw = textContent.items.map(i => i.str).join(" ");
+                    pdfTextCache[pageNum] = {
+                        raw: combinedRaw,
+                        clean: cleanUnicodeTextForSearch(combinedRaw)
+                    };
+                } catch(e) {}
+            }
+        })();
+
         initPdfScrollTracker();
-        initPinchToZoom();
+        initStabilizedPinchToZoom();
 
         const savedPage = localStorage.getItem(`last_read_${activeBookSlug}`);
         if (savedPage) {
@@ -2053,10 +2081,10 @@ async function renderPdfInModal(pdfUrl) {
     } catch (err) {
         console.error("PDF Rendering Failed:", err);
         scrollContainer.innerHTML = `
-            <div style="color: #ef4444; margin-top: 50px; text-align: center; padding: 25px;">
-                <i class="fas fa-triangle-exclamation" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
-                <strong>Failed to load book pages</strong>
-                <p style="font-size: 13px; color: #a1a1aa; margin: 10px 0 0 0;">Network interrupted or document unavailable.</p>
+            <div style="color: #ef4444; margin-top: 100px; text-align: center; padding: 25px;">
+                <i class="fas fa-triangle-exclamation" style="font-size: 36px; margin-bottom: 12px; display: block;"></i>
+                <strong style="font-size: 16px;">Failed to load book pages</strong>
+                <p style="font-size: 13px; color: #a1a1aa; margin: 8px 0 0 0;">Network interrupted or document unavailable.</p>
             </div>`;
     }
 }
@@ -2102,7 +2130,9 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
         wrapper.style.height = `${viewport.height}px`;
 
         const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
+        const context = canvas.getContext('2d', { alpha: false });
+        
+        // Crisp Ultra-HD Canvas Scaling
         canvas.width = Math.floor(viewport.width * pixelRatio);
         canvas.height = Math.floor(viewport.height * pixelRatio);
         canvas.style.width = `${targetCssWidth}px`;
@@ -2146,28 +2176,21 @@ function unloadSinglePage(pageNum) {
     const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
     if (!wrapper) return;
 
-    // Release Canvas Buffers Immediately
-    const canvas = wrapper.querySelector('canvas');
-    if (canvas) {
-        canvas.width = 0;
-        canvas.height = 0;
-    }
-
     wrapper.classList.add('page-placeholder');
     wrapper.innerHTML = `<span>Page ${pageNum}</span>`;
     renderedPagesMap.delete(pageNum);
 }
 
-function initPinchToZoom() {
+// 🌟 STABILIZED MULTI-AXIS PINCH & PAN (Prevents Random Page Jump)
+function initStabilizedPinchToZoom() {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
     if (!container || !scroller) return;
 
     let currentScale = 1;
     let initialDistance = 0;
+    let initialMidpointY = 0;
     let lastTap = 0;
-
-    scroller.style.transformOrigin = 'top center';
 
     container.addEventListener('touchstart', (e) => {
         const now = Date.now();
@@ -2175,6 +2198,7 @@ function initPinchToZoom() {
             currentScale = 1;
             scroller.style.transform = `scale(1)`;
             scroller.style.width = '100%';
+            scroller.style.margin = '0 auto';
             return;
         }
         lastTap = now;
@@ -2184,6 +2208,7 @@ function initPinchToZoom() {
                 e.touches[0].pageX - e.touches[1].pageX,
                 e.touches[0].pageY - e.touches[1].pageY
             );
+            initialMidpointY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
         }
     }, { passive: true });
 
@@ -2194,8 +2219,11 @@ function initPinchToZoom() {
                 e.touches[0].pageY - e.touches[1].pageY
             );
             const factor = currentDistance / initialDistance;
-            let newScale = Math.min(Math.max(currentScale * factor, 1), 3.0);
+            let newScale = Math.min(Math.max(currentScale * factor, 1), 3.5);
+            
+            scroller.style.transformOrigin = `center ${initialMidpointY}px`;
             scroller.style.transform = `scale(${newScale})`;
+            scroller.style.width = `${100 * newScale}%`;
         }
     }, { passive: true });
 
@@ -2207,6 +2235,8 @@ function initPinchToZoom() {
             if (currentScale <= 1.05) {
                 currentScale = 1;
                 scroller.style.transform = `scale(1)`;
+                scroller.style.width = '100%';
+                scroller.style.margin = '0 auto';
             }
         }
     });
@@ -2220,12 +2250,11 @@ function initPdfScrollTracker() {
     container.addEventListener('scroll', () => {
         const wrappers = container.querySelectorAll('.pdf-page-wrapper');
         const containerCenter = container.getBoundingClientRect().top + (container.clientHeight / 3);
-        let currentPageNum = 1;
 
         for (let wrap of wrappers) {
             const rect = wrap.getBoundingClientRect();
             if (rect.top <= containerCenter && rect.bottom >= containerCenter) {
-                currentPageNum = parseInt(wrap.dataset.pageNum, 10);
+                currentPdfPageInView = parseInt(wrap.dataset.pageNum, 10);
                 if (badge.innerText !== wrap.dataset.pageNum) {
                     badge.innerText = wrap.dataset.pageNum;
                 }
@@ -2233,14 +2262,14 @@ function initPdfScrollTracker() {
             }
         }
 
-        if (activeBookSlug && currentPageNum > 0) {
-            localStorage.setItem(`last_read_${activeBookSlug}`, currentPageNum);
+        if (activeBookSlug && currentPdfPageInView > 0) {
+            localStorage.setItem(`last_read_${activeBookSlug}`, currentPdfPageInView);
         }
 
         if (pdfTotalPagesCount > 1 && badgeWrap) {
             const isSearchBarOpen = document.getElementById('pdfSearchBar')?.style.display === 'flex';
             const baseTop = isSearchBarOpen ? 20 : 14; 
-            const pageRatio = (currentPageNum - 1) / (pdfTotalPagesCount - 1);
+            const pageRatio = (currentPdfPageInView - 1) / (pdfTotalPagesCount - 1);
             badgeWrap.style.top = `${baseTop + (pageRatio * 68)}%`;
         }
     }, { passive: true });
@@ -2334,7 +2363,7 @@ pdfSearchInput?.addEventListener('input', () => {
     clearTimeout(pdfSearchTimer);
     pdfSearchTimer = setTimeout(() => {
         executePdfTextSearch(pdfSearchInput.value.trim());
-    }, 350);
+    }, 250);
 });
 
 function clearAllHighlights() {
@@ -2359,7 +2388,6 @@ function highlightMatchesInPage(textLayerDiv, query) {
     });
 }
 
-// On-Demand Parallel Chunk Search (No startup freeze)
 async function executePdfTextSearch(query) {
     searchMatches = [];
     currentSearchMatchIndex = -1;
@@ -2375,19 +2403,13 @@ async function executePdfTextSearch(query) {
     const lowerRawQuery = query.toLowerCase();
 
     for (let pageNum = 1; pageNum <= pdfTotalPagesCount; pageNum++) {
-        if (!pdfTextCache[pageNum]) {
-            try {
-                const page = await currentPdfDocument.getPage(pageNum);
-                const textContent = await page.getTextContent();
-                const combined = textContent.items.map(item => item.str).join(" ");
-                pdfTextCache[pageNum] = { raw: combined, clean: cleanUnicodeTextForSearch(combined) };
-            } catch(e) {
-                continue;
-            }
-        }
-
         let cached = pdfTextCache[pageNum];
-        if (cached.raw.toLowerCase().includes(lowerRawQuery) || (cleanQuery.length > 0 && cached.clean.includes(cleanQuery))) {
+        if (!cached) continue;
+
+        const matchFound = cached.raw.toLowerCase().includes(lowerRawQuery) || 
+                           (cleanQuery.length > 0 && cached.clean.includes(cleanQuery));
+
+        if (matchFound) {
             searchMatches.push(pageNum);
         }
     }
@@ -2420,7 +2442,7 @@ pdfSearchPrevBtn?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 14. READ ONLINE CONTROLLER
+// 14. READ ONLINE & BOOK DETAIL CONTROLLER
 // ==========================================
 const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
 if (detectTokenFromUrl) {
@@ -2571,6 +2593,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     activeBookId = book.id;
     activeBookTitle = book.title;
     
+    // Clean, readable URL structure without %
     if (!skipPushState) { 
         history.pushState({ popup: 'book' }, '', '?book=' + (book.slug || book.id)); 
     }
@@ -2751,7 +2774,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. UPLOAD SYSTEM
+// 17. UPLOAD SYSTEM (Collision-Proof Slug Auto-Assign)
 // ==========================================
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', function(e) {
@@ -2960,12 +2983,24 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
         progressFill.style.width = `99%`;
 
+        // Generate collision-proof clean slug
+        let baseSlug = generateCleanSlug(inputTitle);
+        let finalSlug = baseSlug;
+        
+        // Auto-detect duplicate book titles in current collection
+        const isDuplicate = booksData.some(b => b.slug === finalSlug);
+        if (isDuplicate) {
+            const randomHash = Math.random().toString(36).substring(2, 6);
+            finalSlug = `${baseSlug}-${randomHash}`;
+        }
+
         const newBook = { 
             title: inputTitle, 
             author: document.getElementById('inAuthor').value, 
             year: document.getElementById('inYear').value, 
             lang: document.getElementById('inLang').value, 
             exams: document.getElementById('inExams').value, 
+            slug: finalSlug,
             image: coverKey, 
             pdfLink: pdfKey, 
             fileSize: detectedFileSizeMB || "10 MB",
