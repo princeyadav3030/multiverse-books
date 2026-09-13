@@ -24,7 +24,7 @@
     --dev-bg-card: #1c1c1e;
     --dev-text-secondary: #a1a1aa;
 
-    /* Channel Theme */
+    /* Channel & Notification Background Theme */
     --bg-solid-channel: #0a0c10;
     --bg-card-channel: rgba(20, 24, 32, 0.90);
     --card-border-channel: rgba(255, 255, 255, 0.08);
@@ -324,9 +324,7 @@ main::-webkit-scrollbar { display: none; }
 .no-results-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; max-width: 240px; }
 .no-results-badge { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); color: #d4d4d8; font-size: 9px; font-weight: 700; padding: 8px 16px; border-radius: 30px; letter-spacing: 1px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
 
-/* =========================================================
-   TELEGRAM CODE CARD EXACT REPLICA DESIGN (MAIN WEBSITE)
-   ========================================================= */
+/* TELEGRAM CODE CARD EXACT REPLICA DESIGN */
 .tg-copy-card {
     background: #1f1f23 !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -340,7 +338,7 @@ main::-webkit-scrollbar { display: none; }
     flex-direction: column !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
     transition: all 0.25s ease !important;
-    pointer-events: auto !important; /* Overrides .msg-text pointer-events: none */
+    pointer-events: auto !important;
     position: relative !important;
     z-index: 10 !important;
 }
@@ -396,7 +394,7 @@ main::-webkit-scrollbar { display: none; }
     font-size: 8px !important;
 }
 
-/* 🌟 FULL-WIDTH ACTION BUTTON (Direct Clickable) */
+/* FULL-WIDTH ACTION BUTTON */
 .tg-copy-action-btn,
 .telegram-copy-btn {
     width: 100% !important;
@@ -441,7 +439,7 @@ main::-webkit-scrollbar { display: none; }
     box-shadow: inset 0 0 15px rgba(16, 185, 129, 0.25), 0 0 20px rgba(16, 185, 129, 0.3) !important;
 }
 
-/* 🌟 BOTTOM PILL TOAST */
+/* BOTTOM PILL TOAST */
 .spidy-pill-toast {
     position: fixed;
     bottom: 78px;
@@ -844,7 +842,7 @@ main::-webkit-scrollbar { display: none; }
 .rm-submit-btn { width: 100%; padding: 15px; border-radius: 16px; background: #ef4444; color: #fff; border: none; font-size: 15px; font-weight: 800; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3); font-family: 'Poppins', sans-serif; letter-spacing: 0.5px; opacity: 0.5; pointer-events: none; }
 .rm-submit-btn.enabled { opacity: 1; pointer-events: auto; }
 
-/* IN-APP HD PDF VIEWER (2D Pan & Zoom Multi-Axis Supported) */
+/* IN-APP HD PDF VIEWER (Multi-Axis Supported + Viewport Centered Loader) */
 .pdf-viewer-overlay {
     position: fixed; inset: 0; background: #000000; z-index: 99999999;
     display: flex; flex-direction: column;
@@ -898,11 +896,44 @@ main::-webkit-scrollbar { display: none; }
 
 #pdfScrollContainer {
     width: 100%;
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    transform-origin: top left; 
+    transform-origin: top center; 
     will-change: transform;
+}
+
+/* 🌟 CENTERED HIGH-END LOADER SCREEN FOR PDF VIEWER 🌟 */
+.pdf-loader-centered-box {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    z-index: 50;
+    pointer-events: none;
+}
+
+.pdf-loader-text {
+    font-family: 'Poppins', 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #e2e8f0;
+    letter-spacing: 0.5px;
+    text-align: center;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+}
+
+.pdf-loader-subtext {
+    font-size: 11px;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-top: -12px;
 }
 
 .pdf-page-wrapper {
@@ -1009,7 +1040,7 @@ main::-webkit-scrollbar { display: none; }
 }
 #goToPageModal.active { display: flex; }
 
-/* NOTIFICATIONS PANEL */
+/* 🌟 NOTIFICATIONS PANEL WITH BLUEPRINT EDUCATIONAL WALLPAPER 🌟 */
 .notifications-panel { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
     background-color: var(--bg-solid-channel); 
@@ -1017,6 +1048,12 @@ main::-webkit-scrollbar { display: none; }
     transform: translateX(100%); 
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
     overflow: hidden;
+
+    /* Seamless Math/Education Blueprint Background */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 900' width='440' height='440'%3E%3Cdefs%3E%3Cstyle%3E.line%7Bstroke:%232e3748;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;fill:none;opacity:0.75;%7D.fill%7Bfill:%232e3748;opacity:0.75;stroke:none;%7D.glow%7Bstroke:%233d4b63;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;fill:none;opacity:0.9;%7D%3C/style%3E%3C/defs%3E%3Cg class='line'%3E%3Cpath d='M60,80 Q100,95 140,80 Q180,95 220,80 L220,135 Q180,150 140,135 Q100,150 60,135 Z'/%3E%3Cpath d='M140,80 L140,135'/%3E%3Cpath d='M75,98 Q100,108 125,98 M75,112 Q100,122 125,112 M155,98 Q180,108 205,98 M155,112 Q180,122 205,112'/%3E%3Cpolygon points='500,60 550,40 600,60 550,80'/%3E%3Cpath d='M525,70 L525,95 Q550,110 575,95 L575,70'/%3E%3Cpath d='M585,65 L605,85 L605,110'/%3E%3Ccircle cx='605' cy='112' r='2.5' class='fill'/%3E%3Cpath d='M730,40 L765,75 L745,95 L710,60 Z'/%3E%3Cpath d='M710,60 L695,65 L690,50 L705,45 Z'/%3E%3Cpolygon points='690,50 675,50 685,60'/%3E%3Ccircle cx='683' cy='53' r='1.5' class='fill'/%3E%3Cpath d='M800,160 L820,160 M805,160 L805,185 L785,230 Q780,245 800,245 L830,245 Q850,245 845,230 L825,185 L825,160'/%3E%3Cpath d='M795,215 Q815,225 835,215'/%3E%3Ccircle cx='810' cy='230' r='2' class='fill'/%3E%3Ccircle cx='822' cy='224' r='3' class='fill'/%3E%3Cpath d='M60,240 L160,240 L160,265 L60,265 Z'/%3E%3Cpath d='M50,265 L170,265 L170,295 L50,295 Z'/%3E%3Cpath d='M40,295 L180,295 L180,330 L40,330 Z'/%3E%3Cpath d='M65,307 L140,307 M65,317 L110,317'/%3E%3Cpath d='M250,200 L320,270 L305,285 L235,215 Z'/%3E%3Cpolygon points='235,215 225,215 235,225'/%3E%3Cpath d='M280,180 L350,250'/%3E%3Cpath d='M295,195 L302,188 M310,210 L317,203 M325,225 L332,218 M340,240 L347,233'/%3E%3Cpath d='M480,200 Q455,220 465,250 Q475,265 475,280 L505,280 Q505,265 515,250 Q525,220 500,200 Z'/%3E%3Cpath d='M478,280 L502,280 M480,287 L500,287 M485,294 L495,294'/%3E%3Cpath d='M485,240 L490,225 L495,240 M490,225 L490,255' class='glow'/%3E%3Cpath d='M450,215 L440,210 M530,215 L540,210 M490,185 L490,175' class='glow'/%3E%3Ccircle cx='670,220' r='5'/%3E%3Cpath d='M667,225 L645,290 M673,225 L695,290 M653,260 Q670,265 687,260'/%3E%3Cpath d='M100,430 L155,475 L145,488 L90,442 Z M128,463 L103,535 M128,463 L153,535 M128,463 L128,540'/%3E%3Ccircle cx='250' cy='430' r='25'/%3E%3Cellipse cx='250' cy='430' rx='45' ry='12' transform='rotate(-20 250 430)'/%3E%3Crect x='380' y='380' width='80' height='110' rx='6'/%3E%3Cpath d='M400,380 L400,490'/%3E%3Cpath d='M375,395 L385,395 M375,415 L385,415 M375,435 L385,435 M375,455 L385,455 M375,475 L385,475'/%3E%3Cpath d='M415,405 L445,405 M415,425 L445,425 M415,445 L435,445'/%3E%3Cpath d='M580,410 Q620,380 660,410 L665,490 Q620,510 575,490 Z'/%3E%3Cpath d='M600,390 Q620,370 640,390'/%3E%3Crect x='595' y='430' width='50' height='40' rx='4'/%3E%3Cpath d='M790,390 C750,390 740,450 780,470 C800,480 840,470 850,430 C860,390 820,390 790,390 Z'/%3E%3Ccircle cx='765' cy='420' r='4' class='fill'/%3E%3Ccircle cx='785' cy='405' r='4' class='fill'/%3E%3Ccircle cx='810' cy='410' r='4' class='fill'/%3E%3Ccircle cx='830' cy='430' r='4' class='fill'/%3E%3Cpath d='M750,470 L720,510 M720,510 L715,520 L725,515 Z'/%3E%3Cpath d='M80,640 C60,610 110,590 140,610 C160,600 180,620 175,645 C170,665 130,670 95,660 Z'/%3E%3Cpath d='M95,620 L100,605 L110,618 M125,615 L135,602 L140,615 M130,635 Q140,630 150,635'/%3E%3Ctext x='160' y='605' font-size='14' font-family='sans-serif' class='fill'%3Ez%3C/text%3E%3Ctext x='175' y='588' font-size='18' font-family='sans-serif' class='fill'%3EZ%3C/text%3E%3Ctext x='270' y='600' font-size='24' font-family='sans-serif' class='fill'%3E%CF%80%3C/text%3E%3Ctext x='320' y='610' font-size='20' font-family='sans-serif' class='fill'%3E%E2%88%9A%3C/text%3E%3Ctext x='340' y='605' font-size='16' font-family='sans-serif' class='fill'%3Ex%3C/text%3E%3Ctext x='280' y='650' font-size='18' font-family='sans-serif' class='fill'%3EE=mc%C2%B2%3C/text%3E%3Cpath d='M480,630 C470,570 530,570 520,630 Q510,640 500,630 Q490,640 480,630 Z'/%3E%3Ccircle cx='490' cy='600' r='3' class='fill'/%3E%3Ccircle cx='510' cy='600' r='3' class='fill'/%3E%3Cpath d='M475,625 L500,635 L525,625'/%3E%3Ccircle cx='700' cy='610' r='20'/%3E%3Cpath d='M715,625 L745,655' stroke-width='4'/%3E%3Cpath d='M630,730 L690,700 L650,750 L640,735 Z M690,700 L640,735'/%3E%3Cpath d='M800,720 Q815,685 830,680 Q845,685 860,720 Q850,740 830,745 Q810,740 800,720 Z'/%3E%3Ccircle cx='830' cy='710' r='8'/%3E%3Cpath d='M805,725 L785,745 L805,740 M855,725 L875,745 L855,740 M820,745 L815,760 M840,745 L845,760'/%3E%3Cpath d='M110,780 L120,840 L160,840 L170,780 Z M168,795 Q185,795 180,820 Q175,830 163,830'/%3E%3Cpath d='M130,765 Q135,755 130,745 M145,765 Q150,755 145,745'/%3E%3Ccircle cx='280' cy='820' r='8'/%3E%3Ccircle cx='280' cy='845' r='8'/%3E%3Cpath d='M286,823 L325,850 M286,842 L325,815'/%3E%3Cpath d='M440,780 L440,840 Q440,855 455,855 Q470,855 470,840 L470,800 Q470,790 460,790 Q450,790 450,800 L450,835'/%3E%3Ccircle cx='560' cy='800' r='24' class='glow'/%3E%3Ctext x='548' y='808' font-size='22' font-weight='bold' font-family='sans-serif' class='fill'%3EA+%3C/text%3E%3Cpath d='M60,490 L64,500 L74,504 L64,508 L60,518 L56,508 L46,504 L56,500 Z' class='glow'/%3E%3Cpath d='M350,80 L353,88 L361,91 L353,94 L350,102 L347,94 L339,91 L347,88 Z' class='glow'/%3E%3Cpath d='M750,280 L753,288 L761,291 L753,294 L750,302 L747,294 L739,291 L747,288 Z' class='glow'/%3E%3Cpath d='M480,510 L483,516 L489,519 L483,522 L480,528 L477,522 L471,519 L477,516 Z'/%3E%3Cpath d='M850,560 L853,568 L861,571 L853,574 L850,582 L847,574 L839,571 L847,568 Z' class='glow'/%3E%3Ccircle cx='220' cy='360' r='2.5' class='fill'/%3E%3Ccircle cx='540' cy='330' r='2.5' class='fill'/%3E%3Ccircle cx='700' cy='480' r='3' class='fill'/%3E%3Ccircle cx='390' cy='700' r='2.5' class='fill'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 440px 440px;
+    background-position: center top;
 }
 .notifications-panel.active { transform: translateX(0); }
 
@@ -1301,6 +1338,7 @@ main::-webkit-scrollbar { display: none; }
 .cm-item:active { background: rgba(255,255,255,0.08); }
 .cm-item i { font-size: 16px; width: 20px; text-align: center; color: var(--text-secondary); }
 
+/* 🌟 UNIVERSAL NEON ORBIT SPINNER 🌟 */
 .empty-loading {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; height: 100%; color: #94a3b8;
@@ -1309,8 +1347,8 @@ main::-webkit-scrollbar { display: none; }
 }
 .orbit-spinner {
     position: relative;
-    width: 46px;
-    height: 46px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1319,27 +1357,27 @@ main::-webkit-scrollbar { display: none; }
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.05);
-    border-top: 2.5px solid #38bdf8;
+    border: 2.2px solid rgba(255, 255, 255, 0.05);
+    border-top: 2.8px solid #38bdf8;
     border-right: 2px solid rgba(56, 189, 248, 0.4);
-    animation: spinRing 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.45));
+    animation: spinRing 0.9s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.6));
 }
 .orbit-inner-ring {
     position: absolute;
-    inset: 7px;
+    inset: 8px;
     border-radius: 50%;
     border: 2px solid rgba(255, 255, 255, 0.04);
-    border-bottom: 2px solid #94a3b8;
-    border-left: 2px solid rgba(148, 163, 184, 0.3);
-    animation: spinRingReverse 1.4s linear infinite;
+    border-bottom: 2.2px solid #cbd5e1;
+    border-left: 2px solid rgba(203, 213, 225, 0.4);
+    animation: spinRingReverse 1.3s linear infinite;
 }
 .orbit-core {
-    width: 7px;
-    height: 7px;
+    width: 7.5px;
+    height: 7.5px;
     background: #ffffff;
     border-radius: 50%;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.9), 0 0 16px #38bdf8;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.95), 0 0 20px #38bdf8;
     animation: corePulse 1.2s ease-in-out infinite alternate;
 }
 @keyframes spinRing { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -1640,7 +1678,7 @@ select.adm-input { appearance: none; -webkit-appearance: none; padding-right: 40
 .uc-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.3); transform: translateY(-2px); }
 .uc-footer { text-align: center; font-size: 10px; color: #71717a; font-weight: 600; position: relative; z-index: 1; }
 
-/* PROMPT UI (Isolated card style, zero parent glow) */
+/* PROMPT UI */
 .telegram-prompt-wrapper { 
     margin-bottom: 22px; 
     font-family: 'Inter', sans-serif; 
@@ -2180,7 +2218,7 @@ select.adm-input { appearance: none; -webkit-appearance: none; padding-right: 40
 .security-footer-token::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; border-top: 2px dotted rgba(255, 255, 255, 0.25); }
 .footer-item-token { display: flex; align-items: center; gap: 6px; color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
 
-/* RESPONSIVE */
+/* RESPONSIVE BREAKPOINTS */
 @media (max-width: 450px) {
     .uc-body { flex-direction: column; border-bottom: none; padding-bottom: 0; gap: 15px;}
     .uc-actions { border-left: none; border-top: 1px dashed rgba(255,255,255,0.15); padding-left: 0; padding-top: 20px; width: 100%; }
@@ -2234,3 +2272,4 @@ select.adm-input { appearance: none; -webkit-appearance: none; padding-right: 40
 @media screen and (min-width: 1200px) {
     .book-container { grid-template-columns: repeat(5, 1fr); }
 }
+
