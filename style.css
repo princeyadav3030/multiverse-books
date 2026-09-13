@@ -364,7 +364,7 @@ main::-webkit-scrollbar { display: none; }
     padding: 8px 10px !important;
     font-size: 12.5px !important;
     color: #ffffff !important;
-    line-height: 1.35 !important;
+    line-height: 1.65 !important;
     margin: 0 !important;
     pointer-events: auto !important;
 }
