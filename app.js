@@ -1987,12 +1987,12 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE (1-Line Center Loader + HD Render)
+// 13. PDF VIEWER ENGINE (1-Line Center Loader + Clean Text)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
-    // 1-Line Clean Center Loader with Active Streaming Tag
+    // Exact Centered Orbit Spinner + Clean 1-Line Text
     scrollContainer.innerHTML = `
         <div class="pdf-loader-centered-box" id="pdfCenteredLoader">
             <div class="orbit-spinner">
@@ -2001,7 +2001,6 @@ async function renderPdfInModal(pdfUrl) {
                 <div class="orbit-core"></div>
             </div>
             <div class="pdf-loader-text">Loading book securely...</div>
-            <div class="pdf-loader-subtext"><i class="fas fa-bolt"></i> Streaming ultra-HD manuscript...</div>
         </div>`;
 
     cleanupPdfResources();
@@ -2048,7 +2047,7 @@ async function renderPdfInModal(pdfUrl) {
 
         initVirtualizationObserver(pdf, targetCssWidth, pixelRatio);
 
-        // Cached page text for search
+        // Cached page text for instantaneous search
         (async () => {
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 if (!currentPdfDocument) break;
@@ -2768,7 +2767,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. UPLOAD SYSTEM (Full Synchronized R2 Storage)
+// 17. UPLOAD SYSTEM (Original Function Restored)
 // ==========================================
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', function(e) {
@@ -2806,6 +2805,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
     });
 });
 
+// Original Upload Function Restored
 function uploadSingleFileTracked(file, type, onProgress) {
     return new Promise(async (resolve, reject) => {
         const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
@@ -2816,7 +2816,7 @@ function uploadSingleFileTracked(file, type, onProgress) {
             .slice(0, 25);
             
         const safeFilePayload = `${folderPrefix}/${Date.now()}_${rawSafeName || 'file'}.${fileExt}`;
-        const determinedContentType = (type === 'image') ? (file.type || 'image/jpeg') : (file.type || 'application/pdf');
+        const determinedContentType = (type === 'image') ? (file.type || 'image/jpeg') : 'application/pdf';
 
         try {
             const userToken = await auth.currentUser.getIdToken(true);
@@ -2843,10 +2843,6 @@ function uploadSingleFileTracked(file, type, onProgress) {
 
             const xhr = new XMLHttpRequest(); 
             xhr.open("PUT", authData.uploadUrl, true); 
-
-            if (determinedContentType) {
-                xhr.setRequestHeader("Content-Type", determinedContentType);
-            }
 
             xhr.upload.addEventListener("progress", (e) => {
                 if (e.lengthComputable && onProgress) { 
