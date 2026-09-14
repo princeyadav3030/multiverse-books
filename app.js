@@ -2437,7 +2437,7 @@ if (detectTokenFromUrl) {
     const tokenClean = detectTokenFromUrl.trim();
     window.history.replaceState({}, document.title, window.location.pathname);
     
-    // Attempt instant background verification if token is present in URL
+    // Instant background verify attempt
     (async () => {
         const fp = generateDeviceFingerprint();
         try {
@@ -2446,17 +2446,19 @@ if (detectTokenFromUrl) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token: tokenClean, fingerprint: fp })
             });
-            if (res.ok) {
+            const data = await res.json();
+            if (res.ok && data.success) {
                 localStorage.setItem('spidy_secure_session', JSON.stringify({
                     token: tokenClean,
                     fp: fp,
                     expiry: Date.now() + (10 * 24 * 60 * 60 * 1000)
                 }));
-                showToast("Key Verified Automatically! ✨", "success");
+                showToast("Key Verified & Device Bound! ✨", "success");
             } else {
                 document.getElementById('tokenInput').value = tokenClean;
                 document.getElementById('tokenModalOverlay').style.display = 'flex';
                 initParticles('particles');
+                showToast(data.error || "Please verify token", "error");
             }
         } catch (e) {
             document.getElementById('tokenInput').value = tokenClean;
@@ -2706,7 +2708,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 16. TOKEN VERIFICATION CONTROLLER
+// 16. TOKEN VERIFICATION & HANDSHAKE FLOW
 // ==========================================
 document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
     if (history.state && history.state.popup === 'tokenModal') {
@@ -2720,15 +2722,45 @@ document.getElementById('tokenInput')?.addEventListener('input', () => {
     document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
-document.getElementById('getKeyBtn')?.addEventListener('click', () => {
+// 🚀 ADVANCE HANDSHAKE: GET KEY BUTTON
+document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('getKeyBtn');
     const originalContent = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-    
-    setTimeout(() => {
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Securing Link...';
+    btn.style.pointerEvents = 'none';
+
+    try {
+        const fp = generateDeviceFingerprint();
+        
+        // Request signed, 10-minute session from server
+        const sessionRes = await fetch('/api/create-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fingerprint: fp })
+        });
+
+        const sessionData = await sessionRes.json();
+
+        if (sessionRes.ok && sessionData.success) {
+            // Forward user to shortener with session handshake payload
+            const { session, sig, ts } = sessionData;
+            const targetRedirect = `https://arolinks.com/6RTf5?session=${encodeURIComponent(session)}&sig=${encodeURIComponent(sig)}&ts=${encodeURIComponent(ts)}`;
+            
+            setTimeout(() => {
+                window.location.href = targetRedirect;
+            }, 200);
+        } else {
+            // Fallback direct redirect if session service encounters network issue
+            window.location.href = "https://arolinks.com/6RTf5";
+        }
+    } catch (e) {
         window.location.href = "https://arolinks.com/6RTf5";
-        btn.innerHTML = originalContent;
-    }, 600);
+    } finally {
+        setTimeout(() => {
+            btn.innerHTML = originalContent;
+            btn.style.pointerEvents = 'auto';
+        }, 1000);
+    }
 });
 
 document.getElementById('verifyBtn')?.addEventListener('click', async () => {
