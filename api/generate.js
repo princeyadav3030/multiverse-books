@@ -1,25 +1,40 @@
 const { db } = require('../utils/firebaseAdmin');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  const referer = req.headers['referer'] || req.headers['referrer'] || '';
-  const { auth_key, session_pass } = req.query;
+  const { session, sig, ts } = req.query;
+  const referer = (req.headers['referer'] || req.headers['referrer'] || '').toLowerCase();
+  const SECRET = process.env.SHORTLINK_AUTH_SECRET || "SPIDY_BYPASS_SHIELD_99";
 
-  const validSecret = process.env.SHORTLINK_AUTH_SECRET || "SPIDY_BYPASS_SHIELD_99";
+  // Validate Handshake Parameters
+  let isValidHandshake = false;
 
-  // Check 1: Direct link protection (Referer check + Shortener query verification)
-  const isFromShortlink = 
-    referer.includes('arolinks.com') || 
-    referer.includes('droplink') ||
-    auth_key === validSecret ||
-    Boolean(session_pass);
+  if (session && sig && ts) {
+    const timeDiff = Date.now() - Number(ts);
+    // 10 minutes (600,000 ms) expiry window
+    if (timeDiff >= 0 && timeDiff <= 600000) {
+      const expectedSig = crypto
+        .createHmac('sha256', SECRET)
+        .update(`${session}_${ts}`)
+        .digest('hex');
 
-  // Check 2: Block only pure direct browser visits with no context
-  if (!isFromShortlink && !referer) {
+      if (crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) {
+        isValidHandshake = true;
+      }
+    }
+  }
+
+  // Allow verified handshake OR valid shortener referrer
+  const isAuthorizedAccess = isValidHandshake || 
+    referer.includes('arolinks') || 
+    referer.includes('droplink');
+
+  if (!isAuthorizedAccess) {
     res.setHeader('Content-Type', 'text/html');
     return res.status(403).send(`
       <!DOCTYPE html>
@@ -65,7 +80,6 @@ module.exports = async function handler(req, res) {
             overflow: hidden;
           }
 
-          /* Glowing Ambient Background */
           .ambient-glow {
             position: absolute;
             width: 360px;
@@ -90,7 +104,6 @@ module.exports = async function handler(req, res) {
             z-index: 0;
           }
 
-          /* Responsive Glassmorphism Card */
           .security-card {
             position: relative;
             z-index: 1;
@@ -115,7 +128,6 @@ module.exports = async function handler(req, res) {
             100% { transform: scale(1) translateY(0); opacity: 1; }
           }
 
-          /* Pulsing Neon Warning Hexagon */
           .icon-hex {
             width: 68px;
             height: 68px;
@@ -181,7 +193,6 @@ module.exports = async function handler(req, res) {
             font-weight: 700;
           }
 
-          /* Buttons */
           .btn-group {
             display: flex;
             flex-direction: column;
@@ -234,7 +245,6 @@ module.exports = async function handler(req, res) {
             transform: scale(0.96);
           }
 
-          /* Footer */
           .card-footer {
             margin-top: 24px;
             padding-top: 16px;
@@ -288,7 +298,7 @@ module.exports = async function handler(req, res) {
     `);
   }
 
-  // 2. Token Creation
+  // Generate Unique Token
   const token = 'SPIDY-' + uuidv4().substring(0, 8).toUpperCase();
   const expiresAt = Date.now() + (10 * 24 * 60 * 60 * 1000); // 10 Days
 
@@ -299,10 +309,11 @@ module.exports = async function handler(req, res) {
       createdAt: Date.now(),
       expiresAt: expiresAt,
       deviceBound: null,
-      isActivated: false
+      isActivated: false,
+      source: 'website',
+      boundSession: session || 'direct_flow'
     });
 
-    // Redirect back with token
     return res.redirect(`/?t=${token}`);
   } catch (err) {
     console.error("Token Generation Error:", err);
