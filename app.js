@@ -55,7 +55,6 @@ function getSecureAssetUrl(fileKeyOrUrl) {
     return `${WORKER_PROXY_URL}/${cleanKey}`;
 }
 
-// Helper to generate clean, SEO-friendly kebab-case slugs
 function generateCleanSlug(titleStr, fallbackId = "") {
     if (!titleStr) return fallbackId || "book-" + Math.random().toString(36).substring(2, 8);
     const clean = titleStr
@@ -103,7 +102,7 @@ let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
 let isChannelDataReady = false;
 
-// PDF ENGINE & SCROLLER STATE (STABILIZED HD)
+// PDF ENGINE & SCROLLER STATE
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let pdfTextCache = [];
@@ -647,7 +646,6 @@ loaderInterval = setInterval(() => {
     }
 }, 200);
 
-// Single Clean Link Opener for Shared Posts
 function checkAndOpenTargetPost() {
     let targetPostId = "";
     const hash = window.location.hash || "";
@@ -808,7 +806,7 @@ async function syncProfileAndRankUI() {
 }
 
 // ==========================================
-// 8. CHANNEL NOTIFICATIONS & WHATSAPP CARD HIGHLIGHT
+// 8. CHANNEL NOTIFICATIONS
 // ==========================================
 const chatBody = document.getElementById('chatBody');
 const contextOverlay = document.getElementById('contextOverlay');
@@ -861,7 +859,6 @@ if (chatBody) {
     }, { passive: true });
 }
 
-// WhatsApp Exact Card Tint Highlight
 window.scrollToChannelPost = function(postId) {
     if (!postId) return;
     const target = document.getElementById(`post_${postId}`);
@@ -1137,7 +1134,6 @@ if (contextOverlay) {
     });
 }
 
-// Button-only copy handler
 window.copyToClipboard = function(text, btn) {
     let copyTargetText = text;
 
@@ -1342,7 +1338,7 @@ onAuthStateChanged(auth, async (user) => {
         });
     });
 
-    // FETCH REAL BOOKS WITH CLEAN SLUGS
+    // FETCH REAL BOOKS
     const q = query(collection(db, "books"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
         booksData = [];
@@ -1911,7 +1907,6 @@ document.getElementById('nav-dev')?.addEventListener('click', () => {
     syncProfileAndRankUI();
 });
 
-// Hardware Back Button Listener
 window.addEventListener('popstate', (e) => {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer && pdfViewer.style.display === 'flex') {
@@ -1987,12 +1982,11 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE (1-Line Center Loader + Clean Text)
+// 13. PDF VIEWER ENGINE
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
-    // Exact Centered Orbit Spinner + Clean 1-Line Text
     scrollContainer.innerHTML = `
         <div class="pdf-loader-centered-box" id="pdfCenteredLoader">
             <div class="orbit-spinner">
@@ -2047,7 +2041,6 @@ async function renderPdfInModal(pdfUrl) {
 
         initVirtualizationObserver(pdf, targetCssWidth, pixelRatio);
 
-        // Cached page text for instantaneous search
         (async () => {
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 if (!currentPdfDocument) break;
@@ -2438,12 +2431,39 @@ pdfSearchPrevBtn?.addEventListener('click', () => {
 // ==========================================
 // 14. READ ONLINE & BOOK DETAIL CONTROLLER
 // ==========================================
+// Auto-Check Token From URL (?t=KEY)
 const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
 if (detectTokenFromUrl) {
-    document.getElementById('tokenInput').value = detectTokenFromUrl;
+    const tokenClean = detectTokenFromUrl.trim();
     window.history.replaceState({}, document.title, window.location.pathname);
-    document.getElementById('tokenModalOverlay').style.display = 'flex';
-    initParticles('particles');
+    
+    // Attempt instant background verification if token is present in URL
+    (async () => {
+        const fp = generateDeviceFingerprint();
+        try {
+            const res = await fetch('/api/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: tokenClean, fingerprint: fp })
+            });
+            if (res.ok) {
+                localStorage.setItem('spidy_secure_session', JSON.stringify({
+                    token: tokenClean,
+                    fp: fp,
+                    expiry: Date.now() + (10 * 24 * 60 * 60 * 1000)
+                }));
+                showToast("Key Verified Automatically! ✨", "success");
+            } else {
+                document.getElementById('tokenInput').value = tokenClean;
+                document.getElementById('tokenModalOverlay').style.display = 'flex';
+                initParticles('particles');
+            }
+        } catch (e) {
+            document.getElementById('tokenInput').value = tokenClean;
+            document.getElementById('tokenModalOverlay').style.display = 'flex';
+            initParticles('particles');
+        }
+    })();
 }
 
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
@@ -2686,7 +2706,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 16. TOKEN VERIFICATION
+// 16. TOKEN VERIFICATION CONTROLLER
 // ==========================================
 document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
     if (history.state && history.state.popup === 'tokenModal') {
@@ -2719,7 +2739,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 
     inputBox.classList.remove('error-state', 'success-state');
 
-    if (tokenValue.length < 5) {
+    if (tokenValue.length < 4) {
         inputBox.classList.add('error-state');
         setTimeout(() => inputBox.classList.remove('error-state'), 2500); 
         showToast('Invalid Token Format!', 'error');
@@ -2738,14 +2758,14 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 
         const data = await response.json();
 
-        if (response.ok) {
+        if (response.ok && data.success) {
             inputBox.classList.add('success-state');
-            showToast('Access Granted! Valid for 24 Hours.', 'success');
+            showToast('Access Granted! Valid for 10 Days.', 'success');
             
             localStorage.setItem('spidy_secure_session', JSON.stringify({
                 token: tokenValue,
                 fp: currentFingerprint,
-                expiry: Date.now() + 24 * 60 * 60 * 1000 
+                expiry: Date.now() + (10 * 24 * 60 * 60 * 1000)
             }));
 
             setTimeout(() => {
@@ -2756,7 +2776,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 
         } else {
             inputBox.classList.add('error-state');
-            showToast(data.error || 'Verification Failed', 'error');
+            showToast(data.error || 'Invalid Token! Please get a new key.', 'error');
             btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
         }
     } catch (err) {
@@ -2767,7 +2787,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. UPLOAD SYSTEM (Original Function Restored)
+// 17. UPLOAD SYSTEM
 // ==========================================
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', function(e) {
@@ -2805,7 +2825,6 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
     });
 });
 
-// Original Upload Function Restored
 function uploadSingleFileTracked(file, type, onProgress) {
     return new Promise(async (resolve, reject) => {
         const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
