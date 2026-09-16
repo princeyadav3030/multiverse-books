@@ -1631,7 +1631,7 @@ main::-webkit-scrollbar { display: none; }
 }
 
 .community-popup-overlay.active .community-popup-card {
-    transform: scale(1) translateY(0);
+    transform: scale(1) translateY(-30);
 }
 
 .community-badge-wrapper {
