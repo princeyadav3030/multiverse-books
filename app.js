@@ -109,6 +109,7 @@ let pdfTextCache = [];
 let searchMatches = [];
 let currentSearchMatchIndex = -1;
 let renderedPagesMap = new Map();
+let activeRenderTasks = new Map();
 let pdfVirtualObserver = null;
 let activeSearchKeyword = "";
 let currentPdfPageInView = 1;
@@ -418,7 +419,6 @@ function initPromoCarousel() {
     startAutoSlide();
 }
 
-// OPEN BANNER & LOAD SUBJECTS
 window.openBannerModules = function(bannerId) {
     const banner = dynamicBannersList.find(b => b.id === bannerId);
     if (!banner) return;
@@ -565,32 +565,84 @@ document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 5. POPUPS LOGIC
+// 5. UNIFIED COMMUNITY POPUP LOGIC
 // ==========================================
-let popupsInitialized = false;
-function initPremiumPopups() {
-    if(popupsInitialized) return; 
-    popupsInitialized = true;
+let hasClickedWA = false;
+let hasClickedTG = false;
+let communityPopupTimer = null;
 
-    const telegramPopup = document.getElementById('telegramPopup');
-    const whatsappPopup = document.getElementById('whatsappPopup');
-    const tgMaybeLaterBtn = document.getElementById('tgMaybeLaterBtn');
-    const waMaybeLaterBtn = document.getElementById('waMaybeLaterBtn');
+function initCommunityDualPopup() {
+    const popup = document.getElementById('communityPopup');
+    if (!popup) return;
 
-    const closeTgPopup = () => { if(telegramPopup) telegramPopup.classList.add('hide'); };
-    const closeWaPopup = () => { if(whatsappPopup) whatsappPopup.classList.add('hide'); };
+    const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+    const lastLockedTime = localStorage.getItem('spidy_community_popup_locked_until');
+    const now = Date.now();
 
-    if(tgMaybeLaterBtn) tgMaybeLaterBtn.addEventListener('click', closeTgPopup);
-    if(waMaybeLaterBtn) waMaybeLaterBtn.addEventListener('click', closeWaPopup);
+    // Agar 5 din poore nahi hue hain to popup bilkul trigger mat karo
+    if (lastLockedTime && now < parseInt(lastLockedTime, 10)) {
+        return;
+    }
 
-    setTimeout(() => {
-        if(telegramPopup) telegramPopup.classList.remove('hide');
-    }, 60000); 
+    // Website load hone ke theek 3 minutes (180,000 ms) baad popup show hoga
+    clearTimeout(communityPopupTimer);
+    communityPopupTimer = setTimeout(() => {
+        popup.classList.add('active');
+    }, 180000);
 
-    setTimeout(() => {
-        if(telegramPopup) telegramPopup.classList.add('hide'); 
-        if(whatsappPopup) whatsappPopup.classList.remove('hide');
-    }, 300000); 
+    const waCard = document.getElementById('btnJoinWhatsApp');
+    const tgCard = document.getElementById('btnJoinTelegram');
+    const waStatus = document.getElementById('waStatusBtn');
+    const tgStatus = document.getElementById('tgStatusBtn');
+    const maybeLaterBtn = document.getElementById('communityMaybeLaterBtn');
+
+    function checkAndComplete() {
+        if (hasClickedWA && hasClickedTG) {
+            // Dono button click ho chuke hain -> 5 days ke liye lock karo
+            localStorage.setItem('spidy_community_popup_locked_until', (Date.now() + FIVE_DAYS_MS).toString());
+            setTimeout(() => {
+                popup.classList.remove('active');
+                showToast("Official Community Joined! Access Unlocked. ✨", "success");
+            }, 800);
+        }
+    }
+
+    if (waCard) {
+        waCard.onclick = (e) => {
+            e.preventDefault();
+            hasClickedWA = true;
+            if (waStatus) {
+                waStatus.classList.add('completed');
+                waStatus.innerHTML = `<span>Done</span> <i class="fas fa-check" style="font-size:11px;"></i>`;
+            }
+            window.open('https://whatsapp.com/channel/0029Vb6NBZx1yT2GByTTVf2A', '_blank');
+            checkAndComplete();
+        };
+    }
+
+    if (tgCard) {
+        tgCard.onclick = (e) => {
+            e.preventDefault();
+            hasClickedTG = true;
+            if (tgStatus) {
+                tgStatus.classList.add('completed');
+                tgStatus.innerHTML = `<span>Done</span> <i class="fas fa-check" style="font-size:11px;"></i>`;
+            }
+            window.open('https://t.me/MultiverseBooks', '_blank');
+            checkAndComplete();
+        };
+    }
+
+    if (maybeLaterBtn) {
+        maybeLaterBtn.onclick = () => {
+            // Jab tak dono click nahi hote tab tak hide nahi hoga
+            if (!hasClickedWA || !hasClickedTG) {
+                showToast("Dono channels join karein tabhi popup hatega!", "error");
+                return;
+            }
+            popup.classList.remove('active');
+        };
+    }
 }
 
 function checkAndShowUploadTutorialPopup() {
@@ -695,7 +747,7 @@ function tryTransition() {
                             setTimeout(() => loginOverlay.style.opacity = '1', 10);
                         }
                     } else {
-                        initPremiumPopups(); 
+                        initCommunityDualPopup(); 
                     }
                     const loader = document.getElementById("loaderScreen");
                     loader.style.opacity = "0"; 
@@ -1293,7 +1345,6 @@ onAuthStateChanged(auth, async (user) => {
     isAppReady.auth = true; 
     tryTransition();
 
-    // FETCH MODULE BANNERS
     onSnapshot(query(collection(db, "module_banners"), orderBy("createdAt", "desc")), (snapshot) => {
         dynamicBannersList = [];
         snapshot.forEach(docSnap => {
@@ -1304,7 +1355,6 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // FETCH PROMPTS
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if(!container) return;
@@ -1338,7 +1388,6 @@ onAuthStateChanged(auth, async (user) => {
         });
     });
 
-    // FETCH REAL BOOKS
     const q = query(collection(db, "books"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
         booksData = [];
@@ -1361,7 +1410,6 @@ onAuthStateChanged(auth, async (user) => {
         tryTransition();
     });
 
-    // FETCH CHANNEL POSTS
     renderChannelLoader();
     const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
     onSnapshot(channelQuery, (snapshot) => {
@@ -1413,7 +1461,7 @@ function closeLoginOverlayLocal() {
         if (isDeepLinkLoad && !isUserLoggedIn) {
             isDeepLinkLoad = false;
             window.history.replaceState({}, '', window.location.pathname);
-            initPremiumPopups(); 
+            initCommunityDualPopup(); 
         }
     }, 500);
 }
@@ -1958,6 +2006,10 @@ function cleanupPdfResources() {
         pdfVirtualObserver.disconnect();
         pdfVirtualObserver = null;
     }
+    activeRenderTasks.forEach((task) => {
+        try { task.cancel(); } catch(e) {}
+    });
+    activeRenderTasks.clear();
     renderedPagesMap.clear();
     currentPdfDocument = null;
     pdfTextCache = [];
@@ -2016,7 +2068,7 @@ async function renderPdfInModal(pdfUrl) {
 
         const screenWidth = window.innerWidth;
         const targetCssWidth = Math.min(screenWidth - 16, 760);
-        const pixelRatio = Math.min(window.devicePixelRatio || 2, 2.5);
+        const pixelRatio = Math.min(window.devicePixelRatio || 1.5, 1.75);
 
         const firstPage = await pdf.getPage(1);
         const firstViewport = firstPage.getViewport({ scale: 1.0 });
@@ -2040,22 +2092,6 @@ async function renderPdfInModal(pdfUrl) {
         }
 
         initVirtualizationObserver(pdf, targetCssWidth, pixelRatio);
-
-        (async () => {
-            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                if (!currentPdfDocument) break;
-                try {
-                    const page = await pdf.getPage(pageNum);
-                    const textContent = await page.getTextContent();
-                    const combinedRaw = textContent.items.map(i => i.str).join(" ");
-                    pdfTextCache[pageNum] = {
-                        raw: combinedRaw,
-                        clean: cleanUnicodeTextForSearch(combinedRaw)
-                    };
-                } catch(e) {}
-            }
-        })();
-
         initPdfScrollTracker();
         initStabilizedPinchToZoom();
 
@@ -2102,7 +2138,7 @@ function initVirtualizationObserver(pdf, targetCssWidth, pixelRatio) {
 }
 
 async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
-    if (renderedPagesMap.has(pageNum)) return; 
+    if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return; 
     renderedPagesMap.set(pageNum, true);
 
     const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
@@ -2128,11 +2164,15 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
 
         wrapper.appendChild(canvas);
 
-        await page.render({
+        const renderTask = page.render({
             canvasContext: context,
             viewport: viewport,
             transform: [pixelRatio, 0, 0, pixelRatio, 0, 0]
-        }).promise;
+        });
+
+        activeRenderTasks.set(pageNum, renderTask);
+        await renderTask.promise;
+        activeRenderTasks.delete(pageNum);
 
         const textContent = await page.getTextContent();
         const textLayerDiv = document.createElement('div');
@@ -2155,7 +2195,10 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
         }
 
     } catch (e) {
-        renderedPagesMap.delete(pageNum);
+        if (e.name !== 'RenderingCancelledException') {
+            renderedPagesMap.delete(pageNum);
+            activeRenderTasks.delete(pageNum);
+        }
     }
 }
 
@@ -2163,6 +2206,17 @@ function unloadSinglePage(pageNum) {
     if (!renderedPagesMap.has(pageNum)) return;
     const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
     if (!wrapper) return;
+
+    if (activeRenderTasks.has(pageNum)) {
+        try { activeRenderTasks.get(pageNum).cancel(); } catch(e) {}
+        activeRenderTasks.delete(pageNum);
+    }
+
+    const canvas = wrapper.querySelector('canvas');
+    if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+    }
 
     wrapper.classList.add('page-placeholder');
     wrapper.innerHTML = `<span>Page ${pageNum}</span>`;
@@ -2210,7 +2264,6 @@ function initStabilizedPinchToZoom() {
             
             scroller.style.transformOrigin = `center ${initialMidpointY}px`;
             scroller.style.transform = `scale(${newScale})`;
-            scroller.style.width = `${100 * newScale}%`;
         }
     }, { passive: true });
 
@@ -2389,10 +2442,23 @@ async function executePdfTextSearch(query) {
     const cleanQuery = cleanUnicodeTextForSearch(query);
     const lowerRawQuery = query.toLowerCase();
 
+    // Lazy load text content only when user executes search
     for (let pageNum = 1; pageNum <= pdfTotalPagesCount; pageNum++) {
-        let cached = pdfTextCache[pageNum];
-        if (!cached) continue;
+        if (!pdfTextCache[pageNum]) {
+            try {
+                const page = await currentPdfDocument.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const combinedRaw = textContent.items.map(i => i.str).join(" ");
+                pdfTextCache[pageNum] = {
+                    raw: combinedRaw,
+                    clean: cleanUnicodeTextForSearch(combinedRaw)
+                };
+            } catch(e) {
+                continue;
+            }
+        }
 
+        let cached = pdfTextCache[pageNum];
         const matchFound = cached.raw.toLowerCase().includes(lowerRawQuery) || 
                            (cleanQuery.length > 0 && cached.clean.includes(cleanQuery));
 
@@ -2431,13 +2497,11 @@ pdfSearchPrevBtn?.addEventListener('click', () => {
 // ==========================================
 // 14. READ ONLINE & BOOK DETAIL CONTROLLER
 // ==========================================
-// Auto-Check Token From URL (?t=KEY)
 const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
 if (detectTokenFromUrl) {
     const tokenClean = detectTokenFromUrl.trim();
     window.history.replaceState({}, document.title, window.location.pathname);
     
-    // Instant background verify attempt
     (async () => {
         const fp = generateDeviceFingerprint();
         try {
@@ -2632,7 +2696,7 @@ function closeDownloadPageLocal() {
             loader.style.opacity = "0"; 
             setTimeout(() => { 
                 loader.style.display = "none"; 
-                initPremiumPopups(); 
+                initCommunityDualPopup(); 
             }, 300); 
         }, 1500); 
     }
@@ -2722,7 +2786,6 @@ document.getElementById('tokenInput')?.addEventListener('input', () => {
     document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
-// 🚀 ADVANCE HANDSHAKE: GET KEY BUTTON
 document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('getKeyBtn');
     const originalContent = btn.innerHTML;
@@ -2732,7 +2795,6 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     try {
         const fp = generateDeviceFingerprint();
         
-        // Request signed, 10-minute session from server
         const sessionRes = await fetch('/api/create-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2742,7 +2804,6 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
         const sessionData = await sessionRes.json();
 
         if (sessionRes.ok && sessionData.success) {
-            // Forward user to shortener with session handshake payload
             const { session, sig, ts } = sessionData;
             const targetRedirect = `https://arolinks.com/6RTf5?session=${encodeURIComponent(session)}&sig=${encodeURIComponent(sig)}&ts=${encodeURIComponent(ts)}`;
             
@@ -2750,7 +2811,6 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
                 window.location.href = targetRedirect;
             }, 200);
         } else {
-            // Fallback direct redirect if session service encounters network issue
             window.location.href = "https://arolinks.com/6RTf5";
         }
     } catch (e) {
@@ -3128,3 +3188,4 @@ function switchAdminTabLocal(tabName) {
         document.getElementById('admTabPrompt').classList.add('active'); 
     }
 }
+
