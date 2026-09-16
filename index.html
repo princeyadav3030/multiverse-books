@@ -111,31 +111,95 @@
     <!-- Main App Wrapper -->
     <div id="mainAppWrapper" style="display: none; width: 100%; height: 100%;">
         
-        <!-- Premium Dual Popups (Telegram & WA) -->
-        <div class="premium-popup-overlay hide" id="telegramPopup">
-            <div class="premium-popup-content">
-                <img src="https://i.postimg.cc/5N5hTMFM/file-00000000f48c81f88f72564d9597a12c.png" alt="Telegram Banner" class="premium-popup-image">
-                <div class="premium-popup-body">
-                    <h2 class="tg-heading">📢 𝐉𝐨𝐢𝐧 𝐓𝐞𝐥𝐞𝐠𝐫𝐚𝐦 𝐂𝐨𝐦𝐦𝐮𝐧𝐢𝐭𝐲</h2>
-                    <p>𝐒𝐭𝐮𝐝𝐲 𝐦𝐚𝐭𝐞𝐫𝐢𝐚𝐥 𝐤𝐞 𝐥𝐢𝐲𝐞 𝐢𝐝𝐡𝐚𝐫-𝐮𝐝𝐡𝐚𝐫 𝐛𝐡𝐚𝐭𝐚𝐤𝐧𝐚 𝐜𝐡𝐡𝐨𝐝𝐨! 📚 𝐀𝐛 𝐦𝐢𝐥𝐞𝐠𝐚 𝐬𝐚𝐚𝐫𝐚 𝐜𝐨𝐧𝐭𝐞𝐧𝐭 𝐛𝐢𝐥𝐤𝐮𝐥 𝐅𝐑𝐄𝐄. 𝐈𝐧𝐬𝐭𝐚𝐧𝐭 𝐮𝐩𝐝𝐚𝐭𝐞𝐬 𝐚𝐮𝐫 𝐛𝐞𝐬𝐭 𝐛𝐨𝐨𝐤𝐬 𝐩𝐚𝐚𝐧𝐞 𝐤𝐞 𝐥𝐢𝐲𝐞 𝐚𝐚𝐣 𝐡𝐢 𝐡𝐚𝐦𝐚𝐫𝐚 𝐓𝐞𝐥𝐞𝐠𝐫𝐚𝐦 𝐂𝐡𝐚𝐧𝐧𝐞𝐥 𝐣𝐨𝐢𝐧 𝐤𝐚𝐫𝐞.</p>
-                    <a href="https://t.me/MultiverseBooks" target="_blank" class="premium-join-btn tg-btn">
-                        <i class="fab fa-telegram-plane" style="font-size: 20px;"></i> Join Telegram Channel
-                    </a>
-                    <button class="premium-maybe-later" id="tgMaybeLaterBtn">Maybe later</button>
-                </div>
-            </div>
-        </div>
+        <!-- NEW UNIFIED COMMUNITY POPUP -->
+        <div class="community-popup-overlay" id="communityPopup">
+            <div class="community-popup-wrapper">
+                <div class="community-ambient-glow"></div>
+                <div class="community-popup-card">
+                    <div class="community-badge-wrapper">
+                        <div class="community-pill-chip">
+                            <span class="community-pill-emoji">🔥</span>
+                            Join Official Study Community
+                            <span class="community-pill-emoji">✨</span>
+                        </div>
+                    </div>
 
-        <div class="premium-popup-overlay hide" id="whatsappPopup">
-            <div class="premium-popup-content">
-                <img src="https://i.postimg.cc/wBrZLqn7/file-00000000c2a8821191496469bfe78b82.png" alt="WhatsApp Banner" class="premium-popup-image">
-                <div class="premium-popup-body">
-                    <h2 class="wa-heading">📢 𝐉𝐨𝐢𝐧 𝐖𝐡𝐚𝐭𝐬𝐀𝐩𝐩 𝐂𝐨𝐦𝐦𝐮𝐧𝐢𝐭𝐲</h2>
-                    <p>𝐒𝐭𝐮𝐝𝐲 𝐦𝐚𝐭𝐞𝐫𝐢𝐚𝐥 𝐤𝐞 𝐥𝐢𝐲𝐞 𝐢𝐝𝐡𝐚𝐫-𝐮𝐝𝐡𝐚𝐫 𝐛𝐡𝐚𝐭𝐚𝐤𝐧𝐚 𝐜𝐡𝐡𝐨𝐝𝐨! 📚 𝐀𝐛 𝐦𝐢𝐥𝐞𝐠𝐚 𝐬𝐚𝐚𝐫𝐚 𝐜𝐨𝐧𝐭𝐞𝐧𝐭 𝐛𝐢𝐥𝐤𝐮𝐥 𝐅𝐑𝐄𝐄. 𝐈𝐧𝐬𝐭𝐚𝐧𝐭 𝐮𝐩𝐝𝐚𝐭𝐞𝐬 𝐚𝐮𝐫 𝐛𝐞𝐬𝐭 𝐛𝐨𝐨𝐤𝐬 𝐩𝐚𝐚𝐧𝐞 𝐤𝐞 𝐥𝐢𝐲𝐞 𝐚𝐚𝐣 𝐡𝐢 𝐡𝐚𝐦𝐚𝐫𝐚 𝐖𝐡𝐚𝐭𝐬𝐀𝐩𝐩 𝐂𝐡𝐚𝐧𝐧𝐞𝐥 𝐣𝐨𝐢𝐧 𝐤𝐚𝐫𝐞.</p>
-                    <a href="https://whatsapp.com/channel/0029Vb6NBZx1yT2GByTTVf2A" target="_blank" class="premium-join-btn wa-btn">
-                        <i class="fab fa-whatsapp" style="font-size: 22px;"></i> Join WhatsApp Channel
-                    </a>
-                    <button class="premium-maybe-later" id="waMaybeLaterBtn">Maybe later</button>
+                    <h3 class="community-popup-title">𝗙𝗿𝗲𝗲 𝗕𝗼𝗼𝗸𝘀 &amp; 𝗦𝘁𝘂𝗱𝘆 𝗠𝗮𝘁𝗲𝗿𝗶𝗮𝗹</h3>
+                    
+                    <p class="community-popup-desc">
+                        𝐒𝐭𝐮𝐝𝐲 𝐦𝐚𝐭𝐞𝐫𝐢𝐚𝐥 𝐤𝐞 𝐥𝐢𝐲𝐞 𝐢𝐝𝐡𝐚𝐫-𝐮𝐝𝐡𝐚𝐫 𝐛𝐡𝐚𝐭𝐚𝐤𝐧𝐚 𝐜𝐡𝐡𝐨𝐝𝐨! 📚 𝐀𝐛 𝐦𝐢𝐥𝐞𝐠𝐚 𝐬𝐚𝐚𝐫𝐚 𝐜𝐨𝐧𝐭𝐞𝐧𝐭 𝐛𝐢𝐥𝐤𝐮𝐥 𝐅𝐑𝐄𝐄. 𝐈𝐧𝐬𝐭𝐚𝐧𝐭 𝐮𝐩𝐝𝐚𝐭𝐞𝐬 𝐚𝐮𝐫 𝐛𝐞𝐬𝐭 𝐛𝐨𝐨𝐤𝐬 𝐩𝐚𝐚𝐧𝐞 𝐤𝐞 𝐥𝐢𝐲𝐞 𝐚𝐚𝐣 𝐡𝐢 𝐡𝐚𝐦𝐚𝐫𝐚 𝐜𝐡𝐚𝐧𝐧𝐞𝐥 𝐣𝐨𝐢𝐧 𝐤𝐚𝐫𝐞.
+                    </p>
+
+                    <div class="community-channel-list">
+                        <!-- Official WhatsApp Card -->
+                        <div class="community-channel-card" id="btnJoinWhatsApp">
+                            <div class="community-channel-left">
+                                <div class="community-icon-box-3d community-wa-shadow">
+                                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
+                                </div>
+                                <div class="community-channel-meta">
+                                    <h4>Join WhatsApp Channel</h4>
+                                    <div class="community-new-msg-tag">
+                                        1 new message 
+                                        <span class="community-pulse-indicator">
+                                            <span class="community-text-pulse-dot"></span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="community-join-btn community-join-btn-wa" id="waStatusBtn">
+                                <span>Join</span>
+                                <span class="community-icon-circle">
+                                    <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                </span>
+                            </button>
+                        </div>
+
+                        <!-- Official Telegram Card -->
+                        <div class="community-channel-card" id="btnJoinTelegram">
+                            <div class="community-channel-left">
+                                <div class="community-icon-box-3d community-tg-shadow">
+                                    <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" alt="Telegram">
+                                </div>
+                                <div class="community-channel-meta">
+                                    <h4>Join Telegram Channel</h4>
+                                    <div class="community-new-msg-tag">
+                                        1 new message 
+                                        <span class="community-pulse-indicator">
+                                            <span class="community-text-pulse-dot"></span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="community-join-btn community-join-btn-tg" id="tgStatusBtn">
+                                <span>Join</span>
+                                <span class="community-icon-circle">
+                                    <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Single Horizontal Line All-Red Must-Join Strip -->
+                    <div class="community-must-join-strip">
+                        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        <span class="community-must-join-text">
+                            MUST JOIN <b>BOTH CHANNELS</b> TO UNLOCK DAILY FREE PDFS &amp; BOOKS
+                        </span>
+                        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    </div>
+
+                    <!-- Divider Line -->
+                    <div class="community-popup-divider"></div>
+
+                    <!-- Trust Footer -->
+                    <div class="community-trust-footer">
+                        <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+                        100% Free E-Books &amp; Premium Study PDFs
+                    </div>
+
+                    <!-- Close Button -->
+                    <button class="community-maybe-later-btn" id="communityMaybeLaterBtn">MAYBE LATER</button>
                 </div>
             </div>
         </div>
@@ -205,7 +269,6 @@
                         </button>
 
                         <div class="promo-carousel-track" id="promoCarouselTrack">
-                            <!-- Dynamic banners from Firestore 'module_banners' render here -->
                             <div class="promo-slide">
                                 <img src="https://i.postimg.cc/Pq0JLj3C/file-0000000027dc82119d3731d4bfe9bccf.png" alt="Promo Banner" class="promo-banner-img" draggable="false">
                             </div>
@@ -448,11 +511,8 @@
                 </div>
             </nav>
 
-            <!-- ============================================================== -->
-            <!-- 🌟 MODULE BANNER FULLSCREEN OVERLAY (SUBJECT & MODULE VIEWER)  -->
-            <!-- ============================================================== -->
+            <!-- MODULE BANNER FULLSCREEN OVERLAY -->
             <div class="overlay-panel" id="moduleBannerModal" style="z-index: 99999; background: #07090e;">
-                <!-- Header -->
                 <header class="app-header-module">
                     <button class="back-btn-capsule" id="moduleBackBtn" aria-label="Go Back">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
@@ -462,7 +522,6 @@
                     <h1 class="header-text-module" id="moduleHeaderTitle">MODULES</h1>
                 </header>
 
-                <!-- Screen 1: Subject Selection View -->
                 <main class="module-view-screen" id="bannerSubjectsView">
                     <div class="category-header-module">
                         <div class="subject-title-wrap">
@@ -483,12 +542,9 @@
                             <span class="institute-name" id="moduleInstituteText">Physics Wallah</span>
                         </div>
                     </div>
-
-                    <!-- Subject Cards dynamically populated based on what Admin uploaded for this banner -->
                     <div id="subjectCardsList" class="subject-cards-container"></div>
                 </main>
 
-                <!-- Screen 2: Individual Modules List View (PDFs) -->
                 <main class="module-view-screen hidden-view" id="bannerModulesView">
                     <div class="category-header-module">
                         <div class="subject-title-wrap">
@@ -499,8 +555,6 @@
                             <span class="institute-name" id="moduleCountTextBadge">0 Modules</span>
                         </div>
                     </div>
-
-                    <!-- Module PDF Cards with sleek PDF logo, chapters & pages -->
                     <div id="moduleCardsContainer" class="module-cards-container"></div>
                 </main>
             </div>
@@ -590,7 +644,7 @@
                         <div class="dl-box disable-long-press">
                             <i class="fas fa-weight-hanging icon" style="color: #10b981;"></i>
                             <div>
-                                <div class="dl-box-title">File Size & Format</div>
+                                <div class="dl-box-title">File Size &amp; Format</div>
                                 <div class="dl-box-sub" id="dlFileSize">High Quality PDF Document</div>
                             </div>
                         </div>
@@ -690,7 +744,7 @@
                                     <path d="M33 52 L43 62 L67 36" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
                             </div>
-                            <div class="noti-sub-title" id="dynSubtitle">Latest Updates & Notifications</div>
+                            <div class="noti-sub-title" id="dynSubtitle">Latest Updates &amp; Notifications</div>
                         </div>
                     </div>
 
@@ -863,7 +917,7 @@
                     <button id="pdfSearchCloseBtn" title="Close Search" style="background:transparent; border:none; color:#71717a; font-size:16px; cursor:pointer; padding:5px;"><i class="fas fa-times"></i></button>
                 </div>
 
-                <!-- Canvas Scrolling Viewport (Multi-Axis Zoom & Pan) -->
+                <!-- Canvas Scrolling Viewport -->
                 <div id="pdfContainer" class="pdf-viewer-container" style="flex:1; overflow-y:auto; overflow-x:auto; display:flex; flex-direction:column; align-items:center; padding:15px 10px; background:#000000; -webkit-overflow-scrolling:touch; position:relative; touch-action: pan-x pan-y pinch-zoom;">
                     <div id="pdfScrollContainer" style="width:100%; display:flex; flex-direction:column; align-items:center; transform-origin: top center; transition: transform 0.05s ease-out;"></div>
                     
