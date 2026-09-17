@@ -258,6 +258,7 @@ function showToast(message, type = 'success') {
 
 function generateDeviceFingerprint() {
     const nav = window.navigator;
+    const screen = window.screen;
     const str = nav.userAgent + nav.language + (auth.currentUser ? auth.currentUser.uid : "guest_session");
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -1141,7 +1142,7 @@ async function applyReaction(postId, newEmoji) {
     } catch (e) {}
 }
 
-// POST CONTEXT OVERLAY - TOAST COMPLETELY REMOVED
+// POST CONTEXT OVERLAY (NO TOASTS ON COPY / FORWARD)
 if (contextOverlay) {
     contextOverlay.addEventListener('click', (e) => {
         if (e.target === contextOverlay) contextOverlay.classList.remove('show');
@@ -1191,7 +1192,7 @@ if (contextOverlay) {
     });
 }
 
-// IN-CARD COPY HANDLER (Button state changes, no bottom floating toast)
+// IN-CARD COPY HANDLER (Button feedback only, no floating toast)
 window.copyToClipboard = function(text, btn) {
     let copyTargetText = text;
 
@@ -1966,6 +1967,8 @@ window.addEventListener('popstate', (e) => {
     if (pdfViewer && pdfViewer.style.display === 'flex') {
         pdfViewer.style.display = 'none';
         document.getElementById('pdfScrollContainer').innerHTML = '';
+        const oldLoader = document.getElementById('pdfCenteredLoader');
+        if (oldLoader) oldLoader.remove();
         cleanupPdfResources();
         return;
     }
@@ -2032,21 +2035,31 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE (TRUE SYMMETRICAL & CENTERED ZOOM)
+// 13. PDF VIEWER ENGINE (TRUE CENTER LOADER & BALANCED ZOOM)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
+    const container = document.getElementById('pdfContainer');
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
-    // Exact mathematical vertical & horizontal center loader
-    scrollContainer.innerHTML = `
-        <div class="pdf-loader-centered-box" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:99999; pointer-events:none;">
-            <div class="orbit-spinner">
-                <div class="orbit-ring"></div>
-                <div class="orbit-inner-ring"></div>
-                <div class="orbit-core"></div>
-            </div>
-            <div class="pdf-loader-text" style="font-family:'Poppins','Inter',sans-serif; font-size:14px; font-weight:800; color:#f1f5f9; letter-spacing:0.5px; text-shadow:0 2px 10px rgba(0,0,0,0.9);">Loading book securely...</div>
-        </div>`;
+    // Purana loader agar pehle se ho to clean karein
+    const existingLoader = document.getElementById('pdfCenteredLoader');
+    if (existingLoader) existingLoader.remove();
+
+    scrollContainer.innerHTML = '';
+
+    // Loader ko pdfContainer ke exact center me inject karte hain
+    const loaderDiv = document.createElement('div');
+    loaderDiv.id = 'pdfCenteredLoader';
+    loaderDiv.className = 'pdf-loader-centered-box';
+    loaderDiv.innerHTML = `
+        <div class="orbit-spinner">
+            <div class="orbit-ring"></div>
+            <div class="orbit-inner-ring"></div>
+            <div class="orbit-core"></div>
+        </div>
+        <div class="pdf-loader-text">Loading book securely...</div>
+    `;
+    container.appendChild(loaderDiv);
 
     cleanupPdfResources();
 
@@ -2060,6 +2073,11 @@ async function renderPdfInModal(pdfUrl) {
         const pdf = await loadingTask.promise;
         currentPdfDocument = pdf;
         pdfTotalPagesCount = pdf.numPages;
+
+        // Load complete hone par loader remove
+        const loaderToDel = document.getElementById('pdfCenteredLoader');
+        if (loaderToDel) loaderToDel.remove();
+
         scrollContainer.innerHTML = '';
 
         document.getElementById('pdfCurrentPageNum').innerText = `1`;
@@ -2105,6 +2123,9 @@ async function renderPdfInModal(pdfUrl) {
 
     } catch (err) {
         console.error("PDF Rendering Failed:", err);
+        const loaderToDel = document.getElementById('pdfCenteredLoader');
+        if (loaderToDel) loaderToDel.remove();
+
         scrollContainer.innerHTML = `
             <div style="color: #ef4444; margin-top: 120px; text-align: center; padding: 25px;">
                 <i class="fas fa-triangle-exclamation" style="font-size: 36px; margin-bottom: 12px; display: block;"></i>
@@ -2220,7 +2241,7 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// BALANCED NATIVE ZOOM: Left aur Right dono taraf equal horizontal scroll & locked reading position
+// SYMMETRICAL ZOOM (Equal Left & Right scroll margin)
 function applyZoomWidth(scaleFactor, anchorPageNum) {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
@@ -2243,7 +2264,6 @@ function applyZoomWidth(scaleFactor, anchorPageNum) {
     if (targetWrap) {
         requestAnimationFrame(() => {
             targetWrap.scrollIntoView({ behavior: 'auto', block: 'start' });
-            // Equal horizontal center alignment
             const maxScrollLeft = container.scrollWidth - container.clientWidth;
             if (maxScrollLeft > 0) {
                 container.scrollLeft = maxScrollLeft / 2;
@@ -2263,7 +2283,7 @@ function initSymmetricalNativeZoom() {
     container.addEventListener('touchstart', (e) => {
         const now = Date.now();
 
-        // 1. Double-Tap Zoom In / Reset
+        // 1. Double-Tap Zoom In / Out
         if (e.touches.length === 1) {
             if ((now - lastTapTime) < 280) {
                 e.preventDefault();
@@ -2277,7 +2297,7 @@ function initSymmetricalNativeZoom() {
             lastTapTime = now;
         }
 
-        // 2. Multi-touch Pinch Zoom
+        // 2. Pinch Zoom
         if (e.touches.length === 2) {
             startDistance = Math.hypot(
                 e.touches[0].pageX - e.touches[1].pageX,
@@ -2557,6 +2577,8 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         } else {
             document.getElementById('pdfViewerOverlay').style.display = 'none';
             document.getElementById('pdfScrollContainer').innerHTML = ''; 
+            const oldLoader = document.getElementById('pdfCenteredLoader');
+            if (oldLoader) oldLoader.remove();
             cleanupPdfResources();
         }
     };
