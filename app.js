@@ -102,13 +102,15 @@ let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
 let isChannelDataReady = false;
 
-// PDF ENGINE STATE
+// PDF ENGINE & ZOOM STATE
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let renderedPagesMap = new Map();
 let activeRenderTasks = new Map();
 let pdfVirtualObserver = null;
 let currentPdfPageInView = 1;
+let currentZoomScale = 1.0;
+let basePageWidth = 0;
 
 // ==========================================
 // HELPER FUNCTIONS & SANITIZATION
@@ -1139,6 +1141,7 @@ async function applyReaction(postId, newEmoji) {
     } catch (e) {}
 }
 
+// POST CONTEXT OVERLAY - TOAST COMPLETELY REMOVED
 if (contextOverlay) {
     contextOverlay.addEventListener('click', (e) => {
         if (e.target === contextOverlay) contextOverlay.classList.remove('show');
@@ -1160,7 +1163,6 @@ if (contextOverlay) {
         if (!activePost) return;
         navigator.clipboard.writeText(stripMarkdown(activePost.text));
         contextOverlay.classList.remove('show');
-        showToast("Text copied!", "success");
     });
 
     document.getElementById('cmCopyLink')?.addEventListener('click', () => {
@@ -1169,7 +1171,6 @@ if (contextOverlay) {
         const url = `${cleanBase}#/post/${activePost.id}`;
         navigator.clipboard.writeText(url);
         contextOverlay.classList.remove('show');
-        showToast("Post Link Copied!", "success");
     });
 
     document.getElementById('cmForward')?.addEventListener('click', () => {
@@ -1181,18 +1182,16 @@ if (contextOverlay) {
             navigator.share({ title: 'SPIDY BOOK HUB', text: cleanText, url: url }).catch(() => {});
         } else {
             navigator.clipboard.writeText(url);
-            showToast("Link copied for sharing!", "success");
         }
         contextOverlay.classList.remove('show');
     });
 
     document.getElementById('cmReport')?.addEventListener('click', () => {
-        showToast("Post reported successfully!", "error");
         contextOverlay.classList.remove('show');
     });
 }
 
-// CLEAN CLIPBOARD: Button inner feedback only, suppresses redundant spidyPillToast
+// IN-CARD COPY HANDLER (Button state changes, no bottom floating toast)
 window.copyToClipboard = function(text, btn) {
     let copyTargetText = text;
 
@@ -2019,32 +2018,34 @@ function cleanupPdfResources() {
     activeRenderTasks.clear();
     renderedPagesMap.clear();
     currentPdfDocument = null;
+    currentZoomScale = 1.0;
     
     const badge = document.getElementById('pdfPageBadge');
     if (badge) badge.style.display = 'none';
 
     const scroller = document.getElementById('pdfScrollContainer');
     if (scroller) {
-        scroller.style.transform = 'none';
         scroller.style.width = '100%';
+        scroller.style.transform = 'none';
         scroller.style.margin = '0 auto';
     }
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE (BALANCED ZOOM & PAGE LOCKED)
+// 13. PDF VIEWER ENGINE (TRUE SYMMETRICAL & CENTERED ZOOM)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
+    // Exact mathematical vertical & horizontal center loader
     scrollContainer.innerHTML = `
-        <div class="pdf-loader-centered-box" id="pdfCenteredLoader">
+        <div class="pdf-loader-centered-box" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:99999; pointer-events:none;">
             <div class="orbit-spinner">
                 <div class="orbit-ring"></div>
                 <div class="orbit-inner-ring"></div>
                 <div class="orbit-core"></div>
             </div>
-            <div class="pdf-loader-text">Loading book securely...</div>
+            <div class="pdf-loader-text" style="font-family:'Poppins','Inter',sans-serif; font-size:14px; font-weight:800; color:#f1f5f9; letter-spacing:0.5px; text-shadow:0 2px 10px rgba(0,0,0,0.9);">Loading book securely...</div>
         </div>`;
 
     cleanupPdfResources();
@@ -2065,19 +2066,20 @@ async function renderPdfInModal(pdfUrl) {
         document.getElementById('goToPageRange').innerText = `1 - ${pdfTotalPagesCount}`;
 
         const screenWidth = window.innerWidth;
-        const targetCssWidth = Math.min(screenWidth - 16, 760);
+        basePageWidth = Math.min(screenWidth - 16, 760);
         const pixelRatio = Math.min(window.devicePixelRatio || 1.5, 1.75);
 
         const firstPage = await pdf.getPage(1);
         const firstViewport = firstPage.getViewport({ scale: 1.0 });
-        const defaultHeight = targetCssWidth * (firstViewport.height / firstViewport.width);
+        const defaultHeight = basePageWidth * (firstViewport.height / firstViewport.width);
 
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const wrapper = document.createElement('div');
             wrapper.className = 'pdf-page-wrapper page-placeholder';
             wrapper.id = `page_wrapper_${pageNum}`;
             wrapper.dataset.pageNum = pageNum;
-            wrapper.style.width = `${targetCssWidth}px`;
+            wrapper.dataset.aspectRatio = (firstViewport.height / firstViewport.width).toString();
+            wrapper.style.width = `${basePageWidth}px`;
             wrapper.style.height = `${defaultHeight}px`;
             wrapper.innerHTML = `<span>Page ${pageNum}</span>`;
             scrollContainer.appendChild(wrapper);
@@ -2089,9 +2091,9 @@ async function renderPdfInModal(pdfUrl) {
             pageBadge.style.top = '14%'; 
         }
 
-        initVirtualizationObserver(pdf, targetCssWidth, pixelRatio);
+        initVirtualizationObserver(pdf, basePageWidth, pixelRatio);
         initPdfScrollTracker();
-        initSymmetricalPinchAndDoubleTapZoom();
+        initSymmetricalNativeZoom();
 
         const savedPage = localStorage.getItem(`last_read_${activeBookSlug}`);
         if (savedPage) {
@@ -2104,7 +2106,7 @@ async function renderPdfInModal(pdfUrl) {
     } catch (err) {
         console.error("PDF Rendering Failed:", err);
         scrollContainer.innerHTML = `
-            <div style="color: #ef4444; margin-top: 100px; text-align: center; padding: 25px;">
+            <div style="color: #ef4444; margin-top: 120px; text-align: center; padding: 25px;">
                 <i class="fas fa-triangle-exclamation" style="font-size: 36px; margin-bottom: 12px; display: block;"></i>
                 <strong style="font-size: 16px;">Failed to load book pages</strong>
                 <p style="font-size: 13px; color: #a1a1aa; margin: 8px 0 0 0;">Network interrupted or document unavailable.</p>
@@ -2119,7 +2121,7 @@ function initVirtualizationObserver(pdf, targetCssWidth, pixelRatio) {
         entries.forEach(entry => {
             const pageNum = parseInt(entry.target.dataset.pageNum, 10);
             if (entry.isIntersecting) {
-                renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio);
+                renderSingleHdPage(pdf, pageNum, pixelRatio);
             } else {
                 unloadSinglePage(pageNum);
             }
@@ -2135,7 +2137,7 @@ function initVirtualizationObserver(pdf, targetCssWidth, pixelRatio) {
     });
 }
 
-async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
+async function renderSingleHdPage(pdf, pageNum, pixelRatio) {
     if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return; 
     renderedPagesMap.set(pageNum, true);
 
@@ -2145,7 +2147,8 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
     try {
         const page = await pdf.getPage(pageNum);
         const unscaledViewport = page.getViewport({ scale: 1.0 });
-        const scale = targetCssWidth / unscaledViewport.width;
+        const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
+        const scale = currentCssWidth / unscaledViewport.width;
         const viewport = page.getViewport({ scale: scale });
 
         wrapper.classList.remove('page-placeholder');
@@ -2157,8 +2160,8 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
         
         canvas.width = Math.floor(viewport.width * pixelRatio);
         canvas.height = Math.floor(viewport.height * pixelRatio);
-        canvas.style.width = `${targetCssWidth}px`;
-        canvas.style.height = `${viewport.height}px`;
+        canvas.style.width = `100%`;
+        canvas.style.height = `100%`;
 
         wrapper.appendChild(canvas);
 
@@ -2175,8 +2178,8 @@ async function renderSingleHdPage(pdf, pageNum, targetCssWidth, pixelRatio) {
         const textContent = await page.getTextContent();
         const textLayerDiv = document.createElement('div');
         textLayerDiv.className = 'textLayer';
-        textLayerDiv.style.width = `${targetCssWidth}px`;
-        textLayerDiv.style.height = `${viewport.height}px`;
+        textLayerDiv.style.width = `100%`;
+        textLayerDiv.style.height = `100%`;
         wrapper.appendChild(textLayerDiv);
 
         if (window.pdfjsLib && window.pdfjsLib.renderTextLayer) {
@@ -2217,82 +2220,91 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// RAMBAN FIX: Stabilized Focal Zoom + Double Tap (Page drift completely locked)
-function initSymmetricalPinchAndDoubleTapZoom() {
+// BALANCED NATIVE ZOOM: Left aur Right dono taraf equal horizontal scroll & locked reading position
+function applyZoomWidth(scaleFactor, anchorPageNum) {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
     if (!container || !scroller) return;
 
-    let currentScale = 1;
-    let initialDistance = 0;
-    let lastTap = 0;
-    let lockedPageWrapper = null;
+    currentZoomScale = Math.min(Math.max(scaleFactor, 1.0), 3.0);
+    const newWidth = Math.round(basePageWidth * currentZoomScale);
+
+    scroller.style.width = currentZoomScale > 1.0 ? `${newWidth}px` : '100%';
+    scroller.style.margin = '0 auto';
+
+    const wrappers = document.querySelectorAll('.pdf-page-wrapper');
+    wrappers.forEach(wrap => {
+        const aspect = parseFloat(wrap.dataset.aspectRatio) || 1.414;
+        wrap.style.width = `${newWidth}px`;
+        wrap.style.height = `${Math.round(newWidth * aspect)}px`;
+    });
+
+    const targetWrap = document.getElementById(`page_wrapper_${anchorPageNum || currentPdfPageInView}`);
+    if (targetWrap) {
+        requestAnimationFrame(() => {
+            targetWrap.scrollIntoView({ behavior: 'auto', block: 'start' });
+            // Equal horizontal center alignment
+            const maxScrollLeft = container.scrollWidth - container.clientWidth;
+            if (maxScrollLeft > 0) {
+                container.scrollLeft = maxScrollLeft / 2;
+            }
+        });
+    }
+}
+
+function initSymmetricalNativeZoom() {
+    const container = document.getElementById('pdfContainer');
+    if (!container) return;
+
+    let startDistance = 0;
+    let initialZoom = 1.0;
+    let lastTapTime = 0;
 
     container.addEventListener('touchstart', (e) => {
         const now = Date.now();
 
-        // 1. Double Tap Handler: Quick zoom-in or reset
+        // 1. Double-Tap Zoom In / Reset
         if (e.touches.length === 1) {
-            if ((now - lastTap) < 280) {
+            if ((now - lastTapTime) < 280) {
                 e.preventDefault();
-                if (currentScale > 1.1) {
-                    currentScale = 1;
-                    scroller.style.transform = `scale(1)`;
+                if (currentZoomScale > 1.1) {
+                    applyZoomWidth(1.0, currentPdfPageInView);
                 } else {
-                    currentScale = 2.0;
-                    scroller.style.transformOrigin = `50% ${e.touches[0].clientY - container.getBoundingClientRect().top + container.scrollTop}px`;
-                    scroller.style.transform = `scale(${currentScale})`;
+                    applyZoomWidth(2.0, currentPdfPageInView);
                 }
                 return;
             }
-            lastTap = now;
+            lastTapTime = now;
         }
 
-        // 2. Lock the current reading page wrapper before 2-finger zoom starts
+        // 2. Multi-touch Pinch Zoom
         if (e.touches.length === 2) {
-            initialDistance = Math.hypot(
+            startDistance = Math.hypot(
                 e.touches[0].pageX - e.touches[1].pageX,
                 e.touches[0].pageY - e.touches[1].pageY
             );
-
-            lockedPageWrapper = document.getElementById(`page_wrapper_${currentPdfPageInView}`);
+            initialZoom = currentZoomScale;
         }
     }, { passive: false });
 
     container.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && initialDistance > 0) {
+        if (e.touches.length === 2 && startDistance > 0) {
             e.preventDefault();
-            const currentDistance = Math.hypot(
+            const currentDist = Math.hypot(
                 e.touches[0].pageX - e.touches[1].pageX,
                 e.touches[0].pageY - e.touches[1].pageY
             );
-            const factor = currentDistance / initialDistance;
-            let newScale = Math.min(Math.max(currentScale * factor, 1), 3.2);
-
-            // Symmetrical horizontal center origin (50%) prevents lopsided right-overflow
-            scroller.style.transformOrigin = `50% top`;
-            scroller.style.transform = `scale(${newScale})`;
+            const calculatedScale = initialZoom * (currentDist / startDistance);
+            applyZoomWidth(calculatedScale, currentPdfPageInView);
         }
     }, { passive: false });
 
     container.addEventListener('touchend', (e) => {
-        if (e.touches.length < 2 && initialDistance !== 0) {
-            const match = scroller.style.transform.match(/scale\(([^)]+)\)/);
-            if (match) currentScale = parseFloat(match[1]);
-            initialDistance = 0;
-
-            if (currentScale <= 1.05) {
-                currentScale = 1;
-                scroller.style.transform = `scale(1)`;
+        if (e.touches.length < 2) {
+            startDistance = 0;
+            if (currentZoomScale <= 1.05) {
+                applyZoomWidth(1.0, currentPdfPageInView);
             }
-
-            // Keep user anchored to their target page without top/down jump
-            if (lockedPageWrapper && currentScale > 1.05) {
-                requestAnimationFrame(() => {
-                    lockedPageWrapper.scrollIntoView({ behavior: 'auto', block: 'nearest' });
-                });
-            }
-            lockedPageWrapper = null;
         }
     });
 }
@@ -2322,9 +2334,8 @@ function initPdfScrollTracker() {
         }
 
         if (pdfTotalPagesCount > 1 && badgeWrap) {
-            const baseTop = 14; 
             const pageRatio = (currentPdfPageInView - 1) / (pdfTotalPagesCount - 1);
-            badgeWrap.style.top = `${baseTop + (pageRatio * 68)}%`;
+            badgeWrap.style.top = `${14 + (pageRatio * 68)}%`;
         }
     }, { passive: true });
 }
@@ -2374,9 +2385,8 @@ async function jumpToPdfPage(pageNum) {
         document.getElementById('pdfCurrentPageNum').innerText = pageNum.toString();
         
         if (pdfTotalPagesCount > 1 && pdfPageBadge) {
-            const baseTop = 14;
             const pageRatio = (pageNum - 1) / (pdfTotalPagesCount - 1);
-            pdfPageBadge.style.top = `${baseTop + (pageRatio * 68)}%`;
+            pdfPageBadge.style.top = `${14 + (pageRatio * 68)}%`;
         }
     }
 }
