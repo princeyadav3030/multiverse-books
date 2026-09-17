@@ -102,7 +102,7 @@ let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
 let isChannelDataReady = false;
 
-// PDF ENGINE & ZOOM STATE
+// PDF ENGINE & NATIVE ZOOM STATE
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let renderedPagesMap = new Map();
@@ -258,7 +258,6 @@ function showToast(message, type = 'success') {
 
 function generateDeviceFingerprint() {
     const nav = window.navigator;
-    const screen = window.screen;
     const str = nav.userAgent + nav.language + (auth.currentUser ? auth.currentUser.uid : "guest_session");
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -492,8 +491,7 @@ window.openSubjectModulesList = function(subjectKey) {
         let html = "";
         modules.forEach(mod => {
             const rawPdfUrl = mod.pdfLink || "";
-            const resolvedPdf = getSecureAssetUrl(rawPdfUrl);
-            const encodedPdf = encodeURIComponent(resolvedPdf);
+            const encodedPdf = encodeURIComponent(rawPdfUrl);
             const encodedTitle = encodeURIComponent(mod.name || "Module Document");
 
             let pageLabel = "Complete Document";
@@ -521,8 +519,9 @@ window.openSubjectModulesList = function(subjectKey) {
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
-window.readModulePdfDirectly = async function(pdfUrl, title) {
-    if (!pdfUrl) return showToast("Module PDF document not linked yet.", "error");
+// MODULE SECURE HANDSHAKE (Token + Credit Limit Verification)
+window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
+    if (!pdfKeyOrUrl) return showToast("Module PDF document not linked yet.", "error");
 
     if (!isUserLoggedIn || !auth.currentUser) {
         document.getElementById('loginOverlay').style.display = 'flex';
@@ -548,16 +547,53 @@ window.readModulePdfDirectly = async function(pdfUrl, title) {
         return;
     }
 
-    const pdfViewer = document.getElementById('pdfViewerOverlay');
-    const titleEl = document.getElementById('pdfViewerTitle');
+    showToast("Securing module document...", "success");
 
-    if (titleEl) titleEl.innerText = title || "Reading Module...";
-    if (pdfViewer) {
-        history.pushState({ popup: 'pdfViewer' }, '');
-        pdfViewer.style.display = 'flex';
+    try {
+        const userToken = await auth.currentUser.getIdToken(false);
+
+        const response = await fetch('/api/get-book', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                pdfKey: pdfKeyOrUrl,
+                bookSlug: (activeBannerData ? activeBannerData.id : "module-pack"),
+                userToken: userToken,
+                fingerprint: generateDeviceFingerprint()
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            if (typeof data.remainingCredits !== 'undefined') {
+                updateLiveCredits(data.remainingCredits);
+            }
+            syncProfileAndRankUI();
+
+            const pdfViewer = document.getElementById('pdfViewerOverlay');
+            const titleEl = document.getElementById('pdfViewerTitle');
+
+            if (titleEl) titleEl.innerText = title || "Reading Module...";
+            if (pdfViewer) {
+                history.pushState({ popup: 'pdfViewer' }, '');
+                pdfViewer.style.display = 'flex';
+            }
+
+            renderPdfInModal(data.pdfLink);
+        } else {
+            if (response.status === 401 || (data.error && data.error.includes('Unauthorized'))) {
+                localStorage.removeItem('spidy_secure_session');
+                history.pushState({ popup: 'tokenModal' }, '');
+                document.getElementById('tokenModalOverlay').style.display = 'flex';
+                initParticles('particles');
+            } else {
+                showToast(data.error || "Access limit reached!", "error");
+            }
+        }
+    } catch (err) {
+        showToast("Network Error: Could not load module.", "error");
     }
-
-    renderPdfInModal(pdfUrl);
 };
 
 document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
@@ -2035,19 +2071,18 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE (TRUE CENTER LOADER & BALANCED ZOOM)
+// 13. PDF VIEWER ENGINE (BUFFER FREE, DOUBLE TAP ZOOM & FLUID SCROLL)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const container = document.getElementById('pdfContainer');
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
-    // Purana loader agar pehle se ho to clean karein
     const existingLoader = document.getElementById('pdfCenteredLoader');
     if (existingLoader) existingLoader.remove();
 
     scrollContainer.innerHTML = '';
 
-    // Loader ko pdfContainer ke exact center me inject karte hain
+    // Mathematical exact center loader (screen ke theek center me bina overflow)
     const loaderDiv = document.createElement('div');
     loaderDiv.id = 'pdfCenteredLoader';
     loaderDiv.className = 'pdf-loader-centered-box';
@@ -2074,7 +2109,6 @@ async function renderPdfInModal(pdfUrl) {
         currentPdfDocument = pdf;
         pdfTotalPagesCount = pdf.numPages;
 
-        // Load complete hone par loader remove
         const loaderToDel = document.getElementById('pdfCenteredLoader');
         if (loaderToDel) loaderToDel.remove();
 
@@ -2111,7 +2145,7 @@ async function renderPdfInModal(pdfUrl) {
 
         initVirtualizationObserver(pdf, basePageWidth, pixelRatio);
         initPdfScrollTracker();
-        initSymmetricalNativeZoom();
+        initDoubleTapZoomOnly();
 
         const savedPage = localStorage.getItem(`last_read_${activeBookSlug}`);
         if (savedPage) {
@@ -2241,13 +2275,14 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// SYMMETRICAL ZOOM (Equal Left & Right scroll margin)
-function applyZoomWidth(scaleFactor, anchorPageNum) {
+// PURE DOUBLE TAP ZOOM SYSTEM (2-finger pinch removed, free 1-finger horizontal/vertical pan)
+function applyZoomWidth(scaleFactor) {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
     if (!container || !scroller) return;
 
-    currentZoomScale = Math.min(Math.max(scaleFactor, 1.0), 3.0);
+    const prevScale = currentZoomScale;
+    currentZoomScale = scaleFactor;
     const newWidth = Math.round(basePageWidth * currentZoomScale);
 
     scroller.style.width = currentZoomScale > 1.0 ? `${newWidth}px` : '100%';
@@ -2260,75 +2295,48 @@ function applyZoomWidth(scaleFactor, anchorPageNum) {
         wrap.style.height = `${Math.round(newWidth * aspect)}px`;
     });
 
-    const targetWrap = document.getElementById(`page_wrapper_${anchorPageNum || currentPdfPageInView}`);
-    if (targetWrap) {
-        requestAnimationFrame(() => {
-            targetWrap.scrollIntoView({ behavior: 'auto', block: 'start' });
+    // Ratio ke hisaab se scroll maintain karna taaki reading position drift na ho
+    if (prevScale > 0 && currentZoomScale !== prevScale) {
+        const ratio = currentZoomScale / prevScale;
+        container.scrollTop = container.scrollTop * ratio;
+        
+        if (currentZoomScale > 1.0) {
             const maxScrollLeft = container.scrollWidth - container.clientWidth;
             if (maxScrollLeft > 0) {
                 container.scrollLeft = maxScrollLeft / 2;
             }
-        });
+        } else {
+            container.scrollLeft = 0;
+        }
     }
 }
 
-function initSymmetricalNativeZoom() {
+function initDoubleTapZoomOnly() {
     const container = document.getElementById('pdfContainer');
     if (!container) return;
 
-    let startDistance = 0;
-    let initialZoom = 1.0;
     let lastTapTime = 0;
 
-    container.addEventListener('touchstart', (e) => {
-        const now = Date.now();
-
-        // 1. Double-Tap Zoom In / Out
-        if (e.touches.length === 1) {
+    container.addEventListener('touchend', (e) => {
+        // Sirf single touch release par double tap check karein
+        if (e.changedTouches.length === 1) {
+            const now = Date.now();
             if ((now - lastTapTime) < 280) {
                 e.preventDefault();
                 if (currentZoomScale > 1.1) {
-                    applyZoomWidth(1.0, currentPdfPageInView);
+                    applyZoomWidth(1.0);
                 } else {
-                    applyZoomWidth(2.0, currentPdfPageInView);
+                    applyZoomWidth(2.2);
                 }
+                lastTapTime = 0;
                 return;
             }
             lastTapTime = now;
         }
-
-        // 2. Pinch Zoom
-        if (e.touches.length === 2) {
-            startDistance = Math.hypot(
-                e.touches[0].pageX - e.touches[1].pageX,
-                e.touches[0].pageY - e.touches[1].pageY
-            );
-            initialZoom = currentZoomScale;
-        }
-    }, { passive: false });
-
-    container.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && startDistance > 0) {
-            e.preventDefault();
-            const currentDist = Math.hypot(
-                e.touches[0].pageX - e.touches[1].pageX,
-                e.touches[0].pageY - e.touches[1].pageY
-            );
-            const calculatedScale = initialZoom * (currentDist / startDistance);
-            applyZoomWidth(calculatedScale, currentPdfPageInView);
-        }
-    }, { passive: false });
-
-    container.addEventListener('touchend', (e) => {
-        if (e.touches.length < 2) {
-            startDistance = 0;
-            if (currentZoomScale <= 1.05) {
-                applyZoomWidth(1.0, currentPdfPageInView);
-            }
-        }
     });
 }
 
+// BUFFER-FREE SCROLL TRACKER: Kahi bhi auto-scroll/snap nahi hoga, adhe page par bhi safely rukega
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
@@ -2336,13 +2344,14 @@ function initPdfScrollTracker() {
 
     container.addEventListener('scroll', () => {
         const wrappers = container.querySelectorAll('.pdf-page-wrapper');
-        const containerCenter = container.getBoundingClientRect().top + (container.clientHeight / 3);
+        const containerCenter = container.getBoundingClientRect().top + (container.clientHeight / 2);
 
         for (let wrap of wrappers) {
             const rect = wrap.getBoundingClientRect();
+            // Jiska hissa screen center ke samne ho, wahi page number badge me show hoga
             if (rect.top <= containerCenter && rect.bottom >= containerCenter) {
                 currentPdfPageInView = parseInt(wrap.dataset.pageNum, 10);
-                if (badge.innerText !== wrap.dataset.pageNum) {
+                if (badge && badge.innerText !== wrap.dataset.pageNum) {
                     badge.innerText = wrap.dataset.pageNum;
                 }
                 break;
@@ -2590,7 +2599,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     
     activeBookSlug = book.slug || book.id; 
     activeBookId = book.id;
-    activeBookTitle = book.title;
+    activeBookTitle = book.title; 
     
     if (!skipPushState) { 
         history.pushState({ popup: 'book' }, '', '?book=' + (book.slug || book.id)); 
