@@ -30,15 +30,21 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-  let { bookId, userToken, bookSlug } = req.body;
+  let { bookId, userToken, bookSlug, pdfKey } = req.body;
 
-  // Agar Hindi slug frontend se blank aaye toh bookId ko slug bana do taaki error na aaye
-  if (!bookSlug || String(bookSlug).trim() === "") {
-    bookSlug = bookId;
+  // Authentication token zaroori hai
+  if (!userToken) {
+    return res.status(400).json({ error: 'Missing parameters: userToken is required' });
   }
 
-  if (!bookId || !userToken) {
-    return res.status(400).json({ error: 'Missing parameters: bookId or userToken' });
+  // Normal book ya Module me se koi ek identifier hona chahiye
+  if (!bookId && !pdfKey) {
+    return res.status(400).json({ error: 'Missing parameters: Either bookId or pdfKey must be provided' });
+  }
+
+  // Slug fallback logic
+  if (!bookSlug || String(bookSlug).trim() === "") {
+    bookSlug = bookId || (pdfKey ? pdfKey.replace(/[^a-zA-Z0-9_-]/g, '_').slice(-25) : "module-doc");
   }
 
   let uid = null;
@@ -93,7 +99,7 @@ module.exports = async function handler(req, res) {
     if (!isAlreadyOpened && !isSuperAdmin && uniqueAccessedSlugs.size >= 20) {
       return res.status(403).json({ 
         success: false,
-        error: 'Aapka 24 ghante ka limit (20 books) pura ho gaya hai!' 
+        error: 'Aapka 24 ghante ka limit pura ho gaya hai!' 
       });
     }
 
@@ -108,31 +114,34 @@ module.exports = async function handler(req, res) {
         lifetimeDownloads: admin.firestore.FieldValue.increment(1)
       }, { merge: true });
     } else {
-      // Expired items ko database se remove karne ke liye update
+      // Expired items ko database se clean karne ke liye update
       await userRef.set({
         recentDownloads: validHistory
       }, { merge: true });
     }
 
-    // 4. Book Data Fetch
-    const bookDoc = await db.collection('books').doc(bookId).get();
-    if (!bookDoc.exists) {
-      return res.status(404).json({ error: 'Book not found in database!' });
+    // 4. Resolve File Key (Normal Book vs Module Pack)
+    let fileKey = pdfKey;
+
+    // Agar request normal book ki hai aur direct pdfKey nahi mili, toh database se fetch karo
+    if (!fileKey && bookId) {
+      const bookDoc = await db.collection('books').doc(bookId).get();
+      if (!bookDoc.exists) {
+        return res.status(404).json({ error: 'Book not found in database!' });
+      }
+      fileKey = bookDoc.data().pdfLink;
     }
 
-    const fileKey = bookDoc.data().pdfLink;
     if (!fileKey) {
       return res.status(404).json({ error: 'PDF file link missing!' });
     }
 
-    // Vercel .env variable se secure proxy stream build karna
-    const workerBaseUrl = (process.env.WORKER_URL || "").replace(/\/+$/, "");
-    const cleanKey = fileKey.replace(/^\/+/, '');
+    // 5. Proxy URL Generation
+    const cleanKey = String(fileKey).replace(/^\/+/, '');
+    const workerBaseUrl = (process.env.WORKER_URL || "https://spidy-proxy.spidybookhub-backend.workers.dev").replace(/\/+$/, "");
     
-    // Final stream URL
-    const secureWorkerUrl = workerBaseUrl 
-      ? `${workerBaseUrl}/stream?file=${encodeURIComponent(cleanKey)}`
-      : `/api/stream-proxy?file=${encodeURIComponent(cleanKey)}`;
+    // Proxy URL format
+    const secureWorkerUrl = `${workerBaseUrl}/${cleanKey}`;
 
     let remainingCredits = isSuperAdmin ? 9999 : Math.max(0, 20 - uniqueAccessedSlugs.size);
 
