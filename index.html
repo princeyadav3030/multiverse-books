@@ -111,7 +111,7 @@
     <!-- Main App Wrapper -->
     <div id="mainAppWrapper" style="display: none; width: 100%; height: 100%;">
         
-        <!-- NEW UNIFIED COMMUNITY POPUP -->
+        <!-- UNIFIED COMMUNITY POPUP (TRUE CENTERED & BLURRED) -->
         <div class="community-popup-overlay" id="communityPopup">
             <div class="community-popup-wrapper">
                 <div class="community-ambient-glow"></div>
@@ -890,52 +890,41 @@
                 </div>
             </div>
 
-            <!-- PDF Viewer with Zoom & Search Layer -->
-            <div id="pdfViewerOverlay" class="pdf-viewer-overlay" style="display:none; position:fixed; inset:0; background:#09090b; z-index:999999; flex-direction:column;">
+            <!-- PDF Viewer (Fast Native Engine, Circular Close & Full-Width Viewport) -->
+            <div id="pdfViewerOverlay" class="pdf-viewer-overlay" style="display:none;">
                 
-                <!-- Main Header -->
-                <div class="pdf-viewer-header" style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; background:#18181b; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; position:relative; z-index:1000000;">
-                    <div style="display:flex; align-items:center; gap:10px; max-width:70%; overflow:hidden;">
-                        <i class="fas fa-book-open" style="color:#10b981; font-size:16px;"></i>
-                        <h3 id="pdfViewerTitle" class="pdf-viewer-title" style="color:#ffffff; font-size:15px; font-weight:700; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Reading Book...</h3>
+                <!-- Main Header with Clean Title & Circular Border Close Button -->
+                <div class="pdf-viewer-header">
+                    <div class="pdf-viewer-header-left">
+                        <i class="fas fa-book-open pdf-header-book-icon"></i>
+                        <h3 id="pdfViewerTitle" class="pdf-viewer-title">Reading Book...</h3>
                     </div>
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <button id="pdfSearchToggleBtn" title="Search in Document" style="background:transparent; border:none; color:#a1a1aa; font-size:18px; cursor:pointer; padding:5px;"><i class="fas fa-search"></i></button>
-                        <button id="closePdfViewerBtn" class="pdf-viewer-close" style="background:transparent; border:none; color:#a1a1aa; font-size:24px; cursor:pointer; padding:0 5px;"><i class="fas fa-times"></i></button>
+                    <div class="pdf-viewer-header-right">
+                        <button id="closePdfViewerBtn" class="pdf-viewer-close-circle" title="Close Viewer">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Search Bar -->
-                <div id="pdfSearchBar" style="display:none; align-items:center; gap:10px; padding:10px 16px; background:#121214; border-bottom:1px solid rgba(255,255,255,0.1); flex-shrink:0; position:relative; z-index:999999;">
-                    <div style="position:relative; flex:1; display:flex; align-items:center;">
-                        <i class="fas fa-search" style="position:absolute; left:12px; color:#71717a; font-size:13px;"></i>
-                        <input type="text" id="pdfSearchInput" placeholder="Find words in Hindi / English..." autocomplete="off" style="width:100%; background:#1c1c20; border:1px solid rgba(255,255,255,0.15); border-radius:20px; padding:8px 45px 8px 34px; color:#ffffff; font-size:13px; outline:none;">
-                        <span id="pdfSearchCount" style="position:absolute; right:12px; color:#a1a1aa; font-size:11px; font-weight:700;">0/0</span>
-                    </div>
-                    <button id="pdfSearchPrevBtn" title="Previous" style="background:#1c1c20; border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer;"><i class="fas fa-chevron-up"></i></button>
-                    <button id="pdfSearchNextBtn" title="Next" style="background:#1c1c20; border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer;"><i class="fas fa-chevron-down"></i></button>
-                    <button id="pdfSearchCloseBtn" title="Close Search" style="background:transparent; border:none; color:#71717a; font-size:16px; cursor:pointer; padding:5px;"><i class="fas fa-times"></i></button>
-                </div>
-
-                <!-- Canvas Scrolling Viewport -->
-                <div id="pdfContainer" class="pdf-viewer-container" style="flex:1; overflow-y:auto; overflow-x:auto; display:flex; flex-direction:column; align-items:center; padding:15px 10px; background:#000000; -webkit-overflow-scrolling:touch; position:relative; touch-action: pan-x pan-y pinch-zoom;">
-                    <div id="pdfScrollContainer" style="width:100%; display:flex; flex-direction:column; align-items:center; transform-origin: top center; transition: transform 0.05s ease-out;"></div>
+                <!-- Canvas Scrolling Viewport (True Edge Zoom Wrapper) -->
+                <div id="pdfContainer" class="pdf-viewer-container">
+                    <div id="pdfScrollContainer"></div>
                     
                     <!-- Floating Screen-Edge Badge -->
-                    <div id="pdfPageBadge" title="Click to jump to page" style="display:none; position:fixed; right:0; top:45%; transform:translateY(-50%); background:rgba(0,0,0,0.85); color:#ffffff; border:1px solid rgba(255, 255, 255, 0.22); border-right:none; border-radius:20px 0 0 20px; padding:7px 12px 7px 10px; font-size:12.5px; font-weight:800; font-family:'Inter', sans-serif; cursor:pointer; z-index:9999; box-shadow:-4px 4px 15px rgba(0,0,0,0.8); align-items:center; justify-content:center; letter-spacing:0.5px; backdrop-filter:blur(10px); transition: top 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease;">
+                    <div id="pdfPageBadge" title="Click to jump to page">
                         <span id="pdfCurrentPageNum">1</span>
                     </div>
                 </div>
 
                 <!-- "Go to Page" Jump Modal Dialog -->
-                <div id="goToPageModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); z-index:1000000; justify-content:center; align-items:center;">
-                    <div style="background:#18181b; border:1px solid rgba(255,255,255,0.15); border-radius:18px; width:85%; max-width:320px; padding:22px 20px; box-shadow:0 15px 40px rgba(0,0,0,0.9); font-family:'Poppins', sans-serif;">
-                        <h4 style="margin:0 0 6px 0; color:#ffffff; font-size:16px; font-weight:800;">Go to page</h4>
-                        <div id="goToPageRange" style="font-size:12px; color:#a1a1aa; font-weight:600; margin-bottom:15px;">1 - 1</div>
-                        <input type="number" id="goToPageInput" placeholder="Enter page number" inputmode="numeric" style="width:100%; box-sizing:border-box; background:#0d0d10; border:1.5px solid #3b82f6; border-radius:10px; padding:12px 14px; color:#ffffff; font-size:14px; outline:none; margin-bottom:20px; font-family:'Inter', sans-serif;">
-                        <div style="display:flex; justify-content:flex-end; gap:12px;">
-                            <button id="cancelGoToPageBtn" style="background:rgba(255,255,255,0.08); border:none; color:#d4d4d8; padding:8px 18px; border-radius:20px; font-size:13px; font-weight:700; cursor:pointer;">Cancel</button>
-                            <button id="confirmGoToPageBtn" style="background:#3b82f6; border:none; color:#ffffff; padding:8px 22px; border-radius:20px; font-size:13px; font-weight:700; cursor:pointer;">OK</button>
+                <div id="goToPageModal" class="pdf-modal-dialog">
+                    <div class="pdf-modal-box">
+                        <h4 class="pdf-modal-heading">Go to page</h4>
+                        <div id="goToPageRange" class="pdf-modal-subrange">1 - 1</div>
+                        <input type="number" id="goToPageInput" placeholder="Enter page number" inputmode="numeric" class="pdf-modal-input">
+                        <div class="pdf-modal-actions">
+                            <button id="cancelGoToPageBtn" class="pdf-modal-btn cancel">Cancel</button>
+                            <button id="confirmGoToPageBtn" class="pdf-modal-btn confirm">OK</button>
                         </div>
                     </div>
                 </div>
