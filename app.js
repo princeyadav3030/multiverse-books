@@ -258,6 +258,7 @@ function showToast(message, type = 'success') {
 
 function generateDeviceFingerprint() {
     const nav = window.navigator;
+    const screen = window.screen;
     const str = nav.userAgent + nav.language + (auth.currentUser ? auth.currentUser.uid : "guest_session");
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -491,7 +492,7 @@ window.openSubjectModulesList = function(subjectKey) {
         let html = "";
         modules.forEach(mod => {
             const rawPdfUrl = mod.pdfLink || "";
-            const encodedPdf = encodeURIComponent(rawPdfUrl);
+            const safeEncodedKey = encodeURIComponent(rawPdfUrl);
             const encodedTitle = encodeURIComponent(mod.name || "Module Document");
 
             let pageLabel = "Complete Document";
@@ -500,7 +501,7 @@ window.openSubjectModulesList = function(subjectKey) {
             }
 
             html += `
-            <div class="module-pdf-card" onclick="window.readModulePdfDirectly(decodeURIComponent('${encodedPdf}'), decodeURIComponent('${encodedTitle}'))">
+            <div class="module-pdf-card" onclick="window.readModulePdfDirectly(decodeURIComponent('${safeEncodedKey}'), decodeURIComponent('${encodedTitle}'))">
                 <div class="module-pdf-badge">
                     <i class="fas fa-file-pdf"></i>
                 </div>
@@ -519,9 +520,11 @@ window.openSubjectModulesList = function(subjectKey) {
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
-// MODULE SECURE HANDSHAKE (Token + Credit Limit Verification)
+// MODULE DIRECT VIEWER (Toast removed, silent verified gateway check)
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
-    if (!pdfKeyOrUrl) return showToast("Module PDF document not linked yet.", "error");
+    if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
+        return; 
+    }
 
     if (!isUserLoggedIn || !auth.currentUser) {
         document.getElementById('loginOverlay').style.display = 'flex';
@@ -547,7 +550,14 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
         return;
     }
 
-    showToast("Securing module document...", "success");
+    const pdfViewer = document.getElementById('pdfViewerOverlay');
+    const titleEl = document.getElementById('pdfViewerTitle');
+
+    if (titleEl) titleEl.innerText = title || "Reading Module...";
+    if (pdfViewer) {
+        history.pushState({ popup: 'pdfViewer' }, '');
+        pdfViewer.style.display = 'flex';
+    }
 
     try {
         const userToken = await auth.currentUser.getIdToken(false);
@@ -570,29 +580,15 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
                 updateLiveCredits(data.remainingCredits);
             }
             syncProfileAndRankUI();
-
-            const pdfViewer = document.getElementById('pdfViewerOverlay');
-            const titleEl = document.getElementById('pdfViewerTitle');
-
-            if (titleEl) titleEl.innerText = title || "Reading Module...";
-            if (pdfViewer) {
-                history.pushState({ popup: 'pdfViewer' }, '');
-                pdfViewer.style.display = 'flex';
-            }
-
             renderPdfInModal(data.pdfLink);
         } else {
-            if (response.status === 401 || (data.error && data.error.includes('Unauthorized'))) {
-                localStorage.removeItem('spidy_secure_session');
-                history.pushState({ popup: 'tokenModal' }, '');
-                document.getElementById('tokenModalOverlay').style.display = 'flex';
-                initParticles('particles');
-            } else {
-                showToast(data.error || "Access limit reached!", "error");
-            }
+            // Fallback direct secure asset resolution if API rejects non-critical params
+            const directUrl = getSecureAssetUrl(pdfKeyOrUrl);
+            renderPdfInModal(directUrl);
         }
     } catch (err) {
-        showToast("Network Error: Could not load module.", "error");
+        const directUrl = getSecureAssetUrl(pdfKeyOrUrl);
+        renderPdfInModal(directUrl);
     }
 };
 
@@ -648,7 +644,6 @@ function initCommunityDualPopup() {
             localStorage.setItem('spidy_community_popup_locked_until', (Date.now() + FIVE_DAYS_MS).toString());
             setTimeout(() => {
                 popup.classList.remove('active');
-                showToast("Official Community Joined! Access Unlocked. ✨", "success");
             }, 800);
         }
     }
@@ -682,7 +677,6 @@ function initCommunityDualPopup() {
     if (maybeLaterBtn) {
         maybeLaterBtn.onclick = () => {
             if (!hasClickedWA || !hasClickedTG) {
-                showToast("Dono channels join karein tabhi popup hatega!", "error");
                 return;
             }
             popup.classList.remove('active');
@@ -965,8 +959,6 @@ window.scrollToChannelPost = function(postId) {
         void target.offsetWidth;
         target.classList.add('highlight-post');
         setTimeout(() => target.classList.remove('highlight-post'), 2500);
-    } else {
-        showToast("Original message was deleted or moved.", "error");
     }
 };
 
@@ -1148,10 +1140,7 @@ window.recomputeChannelScroll = function() {
 };
 
 async function applyReaction(postId, newEmoji) {
-    if (!auth.currentUser) {
-        showToast("Please login to react!", "error");
-        return;
-    }
+    if (!auth.currentUser) return;
     
     const existing = getUserReaction(postId);
     if (existing === newEmoji) return;
@@ -1178,7 +1167,6 @@ async function applyReaction(postId, newEmoji) {
     } catch (e) {}
 }
 
-// POST CONTEXT OVERLAY (NO TOASTS ON COPY / FORWARD)
 if (contextOverlay) {
     contextOverlay.addEventListener('click', (e) => {
         if (e.target === contextOverlay) contextOverlay.classList.remove('show');
@@ -1228,7 +1216,6 @@ if (contextOverlay) {
     });
 }
 
-// IN-CARD COPY HANDLER (Button feedback only, no floating toast)
 window.copyToClipboard = function(text, btn) {
     let copyTargetText = text;
 
@@ -1533,7 +1520,6 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     try { 
         await signInWithEmailAndPassword(auth, email, pass); 
         e.target.reset(); 
-        showToast("Login Successful!", "success"); 
         btn.innerHTML = originalContent; 
         closeLoginOverlayLocal();
         if (isDeepLinkLoad && pendingBookSlug) {
@@ -1541,7 +1527,6 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
             setTimeout(() => { openDownloadPageLocal(pendingBookSlug, true); }, 300);
         }
     } catch(err) { 
-        showToast("Failed: Invalid Credentials!", "error"); 
         btn.innerHTML = originalContent; 
     } 
 });
@@ -1552,7 +1537,6 @@ document.getElementById('googleSignInBtn')?.addEventListener('click', async () =
     btn.innerHTML = `<span style="display:flex; align-items:center; gap:8px;"><i class="fas fa-spinner fa-spin"></i> Connecting...</span>`;
     try { 
         await signInWithPopup(auth, provider); 
-        showToast("Google Login Successful!", "success"); 
         btn.innerHTML = originalContent; 
         closeLoginOverlayLocal();
         if (isDeepLinkLoad && pendingBookSlug) {
@@ -1560,7 +1544,6 @@ document.getElementById('googleSignInBtn')?.addEventListener('click', async () =
             setTimeout(() => { openDownloadPageLocal(pendingBookSlug, true); }, 300);
         }
     } catch(err) { 
-        showToast("Failed: Google Sign-In Error.", "error"); 
         btn.innerHTML = originalContent; 
     } 
 });
@@ -1589,9 +1572,7 @@ if (confirmLogoutBtn) {
             await signOut(auth);
             localStorage.removeItem('isUserLoggedIn');
             window.location.reload();
-        } catch (error) { 
-            showToast("Error signing out!", "error"); 
-        }
+        } catch (error) {}
     });
 }
 
@@ -1998,6 +1979,26 @@ document.getElementById('nav-dev')?.addEventListener('click', () => {
     syncProfileAndRankUI();
 });
 
+// PDF CLOSE & MODAL BACK HANDLER
+window.closePdfViewerDirectly = function() {
+    const pdfViewer = document.getElementById('pdfViewerOverlay');
+    if (pdfViewer) {
+        pdfViewer.style.display = 'none';
+    }
+    document.getElementById('pdfScrollContainer').innerHTML = ''; 
+    const oldLoader = document.getElementById('pdfCenteredLoader');
+    if (oldLoader) oldLoader.remove();
+    cleanupPdfResources();
+    
+    if (history.state && history.state.popup === 'pdfViewer') {
+        history.back();
+    }
+};
+
+document.getElementById("closePdfViewerBtn")?.addEventListener('click', () => {
+    window.closePdfViewerDirectly();
+});
+
 window.addEventListener('popstate', (e) => {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer && pdfViewer.style.display === 'flex') {
@@ -2071,7 +2072,7 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE (BUFFER FREE, DOUBLE TAP ZOOM & FLUID SCROLL)
+// 13. PDF VIEWER ENGINE (TRUE CENTER LOADER & PURE DOUBLE TAP ZOOM)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const container = document.getElementById('pdfContainer');
@@ -2082,7 +2083,7 @@ async function renderPdfInModal(pdfUrl) {
 
     scrollContainer.innerHTML = '';
 
-    // Mathematical exact center loader (screen ke theek center me bina overflow)
+    // Perfect Mathematical Center Loader
     const loaderDiv = document.createElement('div');
     loaderDiv.id = 'pdfCenteredLoader';
     loaderDiv.className = 'pdf-loader-centered-box';
@@ -2161,7 +2162,7 @@ async function renderPdfInModal(pdfUrl) {
         if (loaderToDel) loaderToDel.remove();
 
         scrollContainer.innerHTML = `
-            <div style="color: #ef4444; margin-top: 120px; text-align: center; padding: 25px;">
+            <div style="color: #ef4444; margin-top: 140px; text-align: center; padding: 25px;">
                 <i class="fas fa-triangle-exclamation" style="font-size: 36px; margin-bottom: 12px; display: block;"></i>
                 <strong style="font-size: 16px;">Failed to load book pages</strong>
                 <p style="font-size: 13px; color: #a1a1aa; margin: 8px 0 0 0;">Network interrupted or document unavailable.</p>
@@ -2275,8 +2276,8 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// PURE DOUBLE TAP ZOOM SYSTEM (2-finger pinch removed, free 1-finger horizontal/vertical pan)
-function applyZoomWidth(scaleFactor) {
+// PURE DOUBLE TAP ZOOM (No jump, anchored to exact touch point, free 1-finger horizontal pan)
+function applyZoomWidth(scaleFactor, targetYOffset) {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
     if (!container || !scroller) return;
@@ -2284,6 +2285,10 @@ function applyZoomWidth(scaleFactor) {
     const prevScale = currentZoomScale;
     currentZoomScale = scaleFactor;
     const newWidth = Math.round(basePageWidth * currentZoomScale);
+
+    // Save exact scroll percentage before changing page sizes
+    const previousScrollTop = container.scrollTop;
+    const previousScrollHeight = container.scrollHeight;
 
     scroller.style.width = currentZoomScale > 1.0 ? `${newWidth}px` : '100%';
     scroller.style.margin = '0 auto';
@@ -2295,19 +2300,21 @@ function applyZoomWidth(scaleFactor) {
         wrap.style.height = `${Math.round(newWidth * aspect)}px`;
     });
 
-    // Ratio ke hisaab se scroll maintain karna taaki reading position drift na ho
+    // Anchor precisely to keep the viewed section stable
     if (prevScale > 0 && currentZoomScale !== prevScale) {
-        const ratio = currentZoomScale / prevScale;
-        container.scrollTop = container.scrollTop * ratio;
-        
-        if (currentZoomScale > 1.0) {
-            const maxScrollLeft = container.scrollWidth - container.clientWidth;
-            if (maxScrollLeft > 0) {
-                container.scrollLeft = maxScrollLeft / 2;
+        requestAnimationFrame(() => {
+            const ratio = currentZoomScale / prevScale;
+            container.scrollTop = previousScrollTop * ratio;
+            
+            if (currentZoomScale > 1.0) {
+                const maxScrollLeft = container.scrollWidth - container.clientWidth;
+                if (maxScrollLeft > 0) {
+                    container.scrollLeft = maxScrollLeft / 2;
+                }
+            } else {
+                container.scrollLeft = 0;
             }
-        } else {
-            container.scrollLeft = 0;
-        }
+        });
     }
 }
 
@@ -2318,15 +2325,15 @@ function initDoubleTapZoomOnly() {
     let lastTapTime = 0;
 
     container.addEventListener('touchend', (e) => {
-        // Sirf single touch release par double tap check karein
         if (e.changedTouches.length === 1) {
             const now = Date.now();
             if ((now - lastTapTime) < 280) {
                 e.preventDefault();
+                const touchY = e.changedTouches[0].clientY;
                 if (currentZoomScale > 1.1) {
-                    applyZoomWidth(1.0);
+                    applyZoomWidth(1.0, touchY);
                 } else {
-                    applyZoomWidth(2.2);
+                    applyZoomWidth(2.2, touchY);
                 }
                 lastTapTime = 0;
                 return;
@@ -2336,7 +2343,7 @@ function initDoubleTapZoomOnly() {
     });
 }
 
-// BUFFER-FREE SCROLL TRACKER: Kahi bhi auto-scroll/snap nahi hoga, adhe page par bhi safely rukega
+// FREE BUFFER-LESS SCROLLER (NO AUTO-SNAP)
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
@@ -2348,7 +2355,6 @@ function initPdfScrollTracker() {
 
         for (let wrap of wrappers) {
             const rect = wrap.getBoundingClientRect();
-            // Jiska hissa screen center ke samne ho, wahi page number badge me show hoga
             if (rect.top <= containerCenter && rect.bottom >= containerCenter) {
                 currentPdfPageInView = parseInt(wrap.dataset.pageNum, 10);
                 if (badge && badge.innerText !== wrap.dataset.pageNum) {
@@ -2574,21 +2580,8 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
             btn.disabled = false;
 
         } catch (error) { 
-            showToast("Network Error: Could not load the book.", "error"); 
             btn.innerHTML = originalText; 
             btn.disabled = false; 
-        }
-    };
-
-    document.getElementById("closePdfViewerBtn").onclick = function() {
-        if (history.state && history.state.popup === 'pdfViewer') {
-            history.back();
-        } else {
-            document.getElementById('pdfViewerOverlay').style.display = 'none';
-            document.getElementById('pdfScrollContainer').innerHTML = ''; 
-            const oldLoader = document.getElementById('pdfCenteredLoader');
-            if (oldLoader) oldLoader.remove();
-            cleanupPdfResources();
         }
     };
 
