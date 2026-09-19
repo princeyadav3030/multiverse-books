@@ -32,25 +32,24 @@ module.exports = async function handler(req, res) {
 
   let { bookId, userToken, bookSlug, pdfKey } = req.body;
 
-  // Authentication token zaroori hai
+  // 1. Validation Checks
   if (!userToken) {
-    return res.status(400).json({ error: 'Missing parameters: userToken is required' });
+    return res.status(400).json({ error: 'Missing parameter: userToken is required' });
   }
 
-  // Normal book ya Module me se koi ek identifier hona chahiye
   if (!bookId && !pdfKey) {
     return res.status(400).json({ error: 'Missing parameters: Either bookId or pdfKey must be provided' });
   }
 
-  // Slug fallback logic
+  // Slug Fallback Handling
   if (!bookSlug || String(bookSlug).trim() === "") {
-    bookSlug = bookId || (pdfKey ? pdfKey.replace(/[^a-zA-Z0-9_-]/g, '_').slice(-25) : "module-doc");
+    bookSlug = bookId || (pdfKey ? String(pdfKey).replace(/[^a-zA-Z0-9_-]/g, '_').slice(-25) : "module-doc");
   }
 
   let uid = null;
   let userEmail = "";
 
-  // 1. Verify User Token
+  // 2. Verify User Token
   try {
     const decodedToken = await admin.auth().verifyIdToken(userToken);
     uid = decodedToken.uid;
@@ -60,14 +59,14 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // 2. Super Admin Check
+    // 3. Super Admin Check
     let isSuperAdmin = false;
     if (userEmail) {
       const adminDoc = await db.collection('admins').doc(userEmail).get();
       isSuperAdmin = adminDoc.exists;
     }
 
-    // 3. User History & 24 Hours Retention Calculation
+    // 4. User History & 24 Hours Retention Calculation
     const userRef = db.collection('users').doc(uid);
     const userSnap = await userRef.get();
     
@@ -99,11 +98,11 @@ module.exports = async function handler(req, res) {
     if (!isAlreadyOpened && !isSuperAdmin && uniqueAccessedSlugs.size >= 20) {
       return res.status(403).json({ 
         success: false,
-        error: 'Aapka 24 ghante ka limit pura ho gaya hai!' 
+        error: 'Aapka 24 ghante ka limit (20 books) pura ho gaya hai!' 
       });
     }
 
-    // Agar nayi unique book kholi gayi hai toh add karo aur DB me update karo
+    // Agar nayi unique book/module open hua toh DB me update karo
     if (!isAlreadyOpened) {
       validHistory.push({ slug: bookSlug, time: now });
       uniqueAccessedSlugs.add(bookSlug);
@@ -114,16 +113,16 @@ module.exports = async function handler(req, res) {
         lifetimeDownloads: admin.firestore.FieldValue.increment(1)
       }, { merge: true });
     } else {
-      // Expired items ko database se clean karne ke liye update
+      // Expired records clean karne ke liye update
       await userRef.set({
         recentDownloads: validHistory
       }, { merge: true });
     }
 
-    // 4. Resolve File Key (Normal Book vs Module Pack)
+    // 5. File Key Resolve (Normal Book vs Module PDF)
     let fileKey = pdfKey;
 
-    // Agar request normal book ki hai aur direct pdfKey nahi mili, toh database se fetch karo
+    // Agar normal book request hai aur direct pdfKey nahi mili, toh database se fetch karo
     if (!fileKey && bookId) {
       const bookDoc = await db.collection('books').doc(bookId).get();
       if (!bookDoc.exists) {
@@ -132,15 +131,34 @@ module.exports = async function handler(req, res) {
       fileKey = bookDoc.data().pdfLink;
     }
 
-    if (!fileKey) {
+    if (!fileKey || String(fileKey).trim() === "") {
       return res.status(404).json({ error: 'PDF file link missing!' });
     }
 
-    // 5. Proxy URL Generation
-    const cleanKey = String(fileKey).replace(/^\/+/, '');
+    // Clean File Path Resolution
+    let cleanKey = String(fileKey).trim().replace(/^\/+/, '');
+
+    // Agar full URL pass hua ho to sirf path extract karein
+    if (cleanKey.startsWith('http://') || cleanKey.startsWith('https://')) {
+      try {
+        const parsedUrl = new URL(cleanKey);
+        cleanKey = parsedUrl.pathname.replace(/^\/+/, '');
+      } catch (e) {
+        // Fallback unchanged
+      }
+    }
+
+    // Agar path me folder nahi hai aur yeh module request hai, to module_pdfs prefix auto-add karein
+    if (!cleanKey.includes('/')) {
+      if (pdfKey) {
+        cleanKey = `module_pdfs/${cleanKey}`;
+      } else {
+        cleanKey = `pdfs/${cleanKey}`;
+      }
+    }
+
+    // 6. Secure Proxy Stream URL Generation
     const workerBaseUrl = (process.env.WORKER_URL || "https://spidy-proxy.spidybookhub-backend.workers.dev").replace(/\/+$/, "");
-    
-    // Proxy URL format
     const secureWorkerUrl = `${workerBaseUrl}/${cleanKey}`;
 
     let remainingCredits = isSuperAdmin ? 9999 : Math.max(0, 20 - uniqueAccessedSlugs.size);
