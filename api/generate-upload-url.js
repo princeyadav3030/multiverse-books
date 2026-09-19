@@ -1,8 +1,14 @@
 const admin = require('firebase-admin');
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { 
+  S3Client, 
+  PutObjectCommand, 
+  CreateMultipartUploadCommand, 
+  UploadPartCommand, 
+  CompleteMultipartUploadCommand 
+} = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
-// Firebase Admin Initialize (Singleton Pattern)
+// Firebase Admin Initialize
 if (!admin.apps.length) {
   try {
     admin.initializeApp({
@@ -14,15 +20,16 @@ if (!admin.apps.length) {
           : undefined,
       }),
     });
-  } catch (e) {
-    console.error("Firebase Admin init error:", e);
+  } catch (err) {
+    console.error("Firebase Admin Error:", err);
   }
 }
 const db = admin.firestore();
 
-const s3Client = new S3Client({
+// Cloudflare R2 Client (S3 Compatible)
+const s3 = new S3Client({
   region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
@@ -30,72 +37,91 @@ const s3Client = new S3Client({
 });
 
 module.exports = async function handler(req, res) {
-  // CORS configuration (Compatible with Fetch & XHR)
-  const origin = req.headers.origin || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
-  );
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+  const { fileName, fileType, fileSize, userToken, action, uploadId, parts } = req.body;
 
-  const { fileName, userToken } = req.body;
-  if (!fileName || !userToken) {
-    return res.status(400).json({ error: 'Missing parameters: fileName and userToken are required' });
+  if (!userToken) {
+    return res.status(401).json({ error: 'Unauthorized: User login zaroori hai.' });
   }
 
   try {
-    // 1. Verify User Token
+    // 1. User Token Verification
     const decodedToken = await admin.auth().verifyIdToken(userToken);
     const userEmail = (decodedToken.email || "").toLowerCase().trim();
 
-    if (!userEmail) {
-      return res.status(401).json({ error: 'Unauthorized: No valid email associated with token' });
+    // 2. Admin Check
+    let isAdmin = false;
+    if (userEmail) {
+      const adminDoc = await db.collection('admins').doc(userEmail).get();
+      isAdmin = adminDoc.exists;
     }
 
-    // 2. Admin Check against Firestore 'admins' collection
-    const adminDoc = await db.collection('admins').doc(userEmail).get();
-    if (!adminDoc.exists) {
-      return res.status(403).json({ error: 'Access Denied: Only admins can upload files!' });
+    // 3. Strict Size Limits (Normal User: 250MB, Admin: 1GB)
+    const MAX_USER_SIZE = 250 * 1024 * 1024;   // 250 MB
+    const MAX_ADMIN_SIZE = 1024 * 1024 * 1024; // 1 GB (1024 MB)
+    const allowedLimit = isAdmin ? MAX_ADMIN_SIZE : MAX_USER_SIZE;
+
+    if (fileSize && fileSize > allowedLimit) {
+      const limitText = isAdmin ? "1 GB" : "250 MB";
+      return res.status(403).json({ 
+        error: `File size limit se zyada hai! Aapka maximum upload limit: ${limitText} hai.` 
+      });
     }
 
-    // 3. Clean File Path Construction
-    let finalKey = fileName;
-    if (fileName.includes('/')) {
-      const parts = fileName.split('/');
-      const folder = parts[0]; // 'covers' or 'pdfs'
-      const originalName = parts.slice(1).join('/');
-      finalKey = `${folder}/${Date.now()}_${originalName.replace(/\s+/g, '-')}`;
-    } else {
-      finalKey = `uploads/${Date.now()}_${fileName.replace(/\s+/g, '-')}`;
+    const bucketName = process.env.R2_BUCKET_NAME || 'spidy-books';
+
+    // 4. Multipart Chunk Upload Handlers (Badi Files ke liye)
+    if (action === "initiateMultipart") {
+      const command = new CreateMultipartUploadCommand({
+        Bucket: bucketName,
+        Key: fileName,
+        ContentType: fileType,
+      });
+      const multipart = await s3.send(command);
+      return res.status(200).json({ uploadId: multipart.UploadId, fileKey: fileName });
     }
 
-    // 4. Generate Presigned URL without forcing ContentType constraint into signature
+    if (action === "getPartUrl") {
+      const { partNumber } = req.body;
+      const command = new UploadPartCommand({
+        Bucket: bucketName,
+        Key: fileName,
+        UploadId: uploadId,
+        PartNumber: partNumber,
+      });
+      const signedUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
+      return res.status(200).json({ signedUrl });
+    }
+
+    if (action === "completeMultipart") {
+      const command = new CompleteMultipartUploadCommand({
+        Bucket: bucketName,
+        Key: fileName,
+        UploadId: uploadId,
+        MultipartUpload: { Parts: parts },
+      });
+      await s3.send(command);
+      return res.status(200).json({ success: true, fileKey: fileName });
+    }
+
+    // 5. Small File (<50MB) Single PUT Upload
     const command = new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: finalKey,
+      Bucket: bucketName,
+      Key: fileName,
+      ContentType: fileType,
     });
+    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
 
-    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
-
-    return res.status(200).json({ 
-      success: true, 
-      uploadUrl, 
-      fileKey: finalKey 
-    });
+    return res.status(200).json({ uploadUrl, fileKey: fileName });
 
   } catch (error) {
-    console.error("Upload URL Generation Error:", error);
-    return res.status(500).json({ 
-      error: 'Failed to generate upload URL: ' + (error.message || error) 
-    });
+    console.error("Upload Error:", error);
+    return res.status(500).json({ error: error.message || 'Server error aa gaya.' });
   }
 };
