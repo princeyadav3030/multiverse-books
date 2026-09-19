@@ -520,12 +520,8 @@ window.openSubjectModulesList = function(subjectKey) {
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
-// MODULE DIRECT VIEWER (Toast removed, silent verified gateway check)
+// MODULE DIRECT VIEWER (Opens PDF Viewer & Shows Image 2 error if link invalid)
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
-    if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
-        return; 
-    }
-
     if (!isUserLoggedIn || !auth.currentUser) {
         document.getElementById('loginOverlay').style.display = 'flex';
         setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10);
@@ -559,6 +555,12 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
         pdfViewer.style.display = 'flex';
     }
 
+    // Agar link empty hai, tab bhi viewer khulega aur Image 2 jaisa failure message screen par aayega
+    if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
+        renderPdfInModal(""); 
+        return;
+    }
+
     try {
         const userToken = await auth.currentUser.getIdToken(false);
 
@@ -582,7 +584,6 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
             syncProfileAndRankUI();
             renderPdfInModal(data.pdfLink);
         } else {
-            // Fallback direct secure asset resolution if API rejects non-critical params
             const directUrl = getSecureAssetUrl(pdfKeyOrUrl);
             renderPdfInModal(directUrl);
         }
@@ -1979,7 +1980,7 @@ document.getElementById('nav-dev')?.addEventListener('click', () => {
     syncProfileAndRankUI();
 });
 
-// PDF CLOSE & MODAL BACK HANDLER
+// DIRECT INSTANT PDF VIEWER CLOSE
 window.closePdfViewerDirectly = function() {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer) {
@@ -1995,7 +1996,9 @@ window.closePdfViewerDirectly = function() {
     }
 };
 
-document.getElementById("closePdfViewerBtn")?.addEventListener('click', () => {
+document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     window.closePdfViewerDirectly();
 });
 
@@ -2072,7 +2075,7 @@ function cleanupPdfResources() {
 }
 
 // ==========================================
-// 13. PDF VIEWER ENGINE (TRUE CENTER LOADER & PURE DOUBLE TAP ZOOM)
+// 13. PDF VIEWER ENGINE (TRUE CENTER LOADER & ACCURATE TARGET ZOOM)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const container = document.getElementById('pdfContainer');
@@ -2083,7 +2086,7 @@ async function renderPdfInModal(pdfUrl) {
 
     scrollContainer.innerHTML = '';
 
-    // Perfect Mathematical Center Loader
+    // Perfect mathematical center loader
     const loaderDiv = document.createElement('div');
     loaderDiv.id = 'pdfCenteredLoader';
     loaderDiv.className = 'pdf-loader-centered-box';
@@ -2098,6 +2101,21 @@ async function renderPdfInModal(pdfUrl) {
     container.appendChild(loaderDiv);
 
     cleanupPdfResources();
+
+    // Link missing ya blank hone par Image 2 jaisa instant screen error[span_3](start_span)[span_3](end_span)
+    if (!pdfUrl || pdfUrl.trim() === "" || pdfUrl === "undefined") {
+        setTimeout(() => {
+            const loaderToDel = document.getElementById('pdfCenteredLoader');
+            if (loaderToDel) loaderToDel.remove();
+            scrollContainer.innerHTML = `
+                <div style="color: #ef4444; margin-top: 140px; text-align: center; padding: 25px;">
+                    <i class="fas fa-triangle-exclamation" style="font-size: 38px; margin-bottom: 14px; display: block;"></i>
+                    <strong style="font-size: 16px; font-weight: 800;">Failed to load book pages</strong>
+                    <p style="font-size: 12.5px; color: #a1a1aa; margin: 8px 0 0 0; font-weight: 500;">Network interrupted or document unavailable.</p>
+                </div>`;
+        }, 300);
+        return;
+    }
 
     try {
         const loadingTask = window.pdfjsLib.getDocument({
@@ -2161,11 +2179,12 @@ async function renderPdfInModal(pdfUrl) {
         const loaderToDel = document.getElementById('pdfCenteredLoader');
         if (loaderToDel) loaderToDel.remove();
 
+        // Image 2 error container[span_4](start_span)[span_4](end_span)
         scrollContainer.innerHTML = `
             <div style="color: #ef4444; margin-top: 140px; text-align: center; padding: 25px;">
-                <i class="fas fa-triangle-exclamation" style="font-size: 36px; margin-bottom: 12px; display: block;"></i>
-                <strong style="font-size: 16px;">Failed to load book pages</strong>
-                <p style="font-size: 13px; color: #a1a1aa; margin: 8px 0 0 0;">Network interrupted or document unavailable.</p>
+                <i class="fas fa-triangle-exclamation" style="font-size: 38px; margin-bottom: 14px; display: block;"></i>
+                <strong style="font-size: 16px; font-weight: 800;">Failed to load book pages</strong>
+                <p style="font-size: 12.5px; color: #a1a1aa; margin: 8px 0 0 0; font-weight: 500;">Network interrupted or document unavailable.</p>
             </div>`;
     }
 }
@@ -2276,8 +2295,8 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// PURE DOUBLE TAP ZOOM (No jump, anchored to exact touch point, free 1-finger horizontal pan)
-function applyZoomWidth(scaleFactor, targetYOffset) {
+// TARGET-LOCKED DOUBLE TAP ZOOM (No jump to next page, anchors right where clicked)
+function applyZoomWidth(scaleFactor, clickedPageNum) {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
     if (!container || !scroller) return;
@@ -2286,9 +2305,9 @@ function applyZoomWidth(scaleFactor, targetYOffset) {
     currentZoomScale = scaleFactor;
     const newWidth = Math.round(basePageWidth * currentZoomScale);
 
-    // Save exact scroll percentage before changing page sizes
-    const previousScrollTop = container.scrollTop;
-    const previousScrollHeight = container.scrollHeight;
+    // Identify target element to anchor to
+    const targetElement = document.getElementById(`page_wrapper_${clickedPageNum || currentPdfPageInView}`);
+    const offsetFromViewportTop = targetElement ? (targetElement.getBoundingClientRect().top - container.getBoundingClientRect().top) : 0;
 
     scroller.style.width = currentZoomScale > 1.0 ? `${newWidth}px` : '100%';
     scroller.style.margin = '0 auto';
@@ -2300,11 +2319,11 @@ function applyZoomWidth(scaleFactor, targetYOffset) {
         wrap.style.height = `${Math.round(newWidth * aspect)}px`;
     });
 
-    // Anchor precisely to keep the viewed section stable
-    if (prevScale > 0 && currentZoomScale !== prevScale) {
+    // Anchor precisely to the exact touched page
+    if (targetElement) {
         requestAnimationFrame(() => {
-            const ratio = currentZoomScale / prevScale;
-            container.scrollTop = previousScrollTop * ratio;
+            const newElementTop = targetElement.offsetTop;
+            container.scrollTop = newElementTop - (currentZoomScale > 1.0 ? 10 : offsetFromViewportTop);
             
             if (currentZoomScale > 1.0) {
                 const maxScrollLeft = container.scrollWidth - container.clientWidth;
@@ -2329,11 +2348,17 @@ function initDoubleTapZoomOnly() {
             const now = Date.now();
             if ((now - lastTapTime) < 280) {
                 e.preventDefault();
-                const touchY = e.changedTouches[0].clientY;
+                
+                // Identify which page was actually touched
+                const touch = e.changedTouches[0];
+                const touchedEl = document.elementFromPoint(touch.clientX, touch.clientY);
+                const pageWrapper = touchedEl ? touchedEl.closest('.pdf-page-wrapper') : null;
+                const clickedPage = pageWrapper ? parseInt(pageWrapper.dataset.pageNum, 10) : currentPdfPageInView;
+
                 if (currentZoomScale > 1.1) {
-                    applyZoomWidth(1.0, touchY);
+                    applyZoomWidth(1.0, clickedPage);
                 } else {
-                    applyZoomWidth(2.2, touchY);
+                    applyZoomWidth(2.2, clickedPage);
                 }
                 lastTapTime = 0;
                 return;
@@ -2343,7 +2368,7 @@ function initDoubleTapZoomOnly() {
     });
 }
 
-// FREE BUFFER-LESS SCROLLER (NO AUTO-SNAP)
+// FREE BUFFER-LESS SCROLL TRACKER
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
