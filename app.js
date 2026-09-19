@@ -555,7 +555,6 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
         pdfViewer.style.display = 'flex';
     }
 
-    // Agar link empty hai, tab bhi viewer khulega aur Image 2 jaisa failure message screen par aayega
     if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
         renderPdfInModal(""); 
         return;
@@ -994,7 +993,7 @@ function updateReactionInDOM(postId) {
             pill.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                applyReaction(postId, pill.dataset.emoji);
+                applyReaction(post.id, pill.dataset.emoji);
             });
         });
     }
@@ -2305,7 +2304,6 @@ function applyZoomWidth(scaleFactor, clickedPageNum) {
     currentZoomScale = scaleFactor;
     const newWidth = Math.round(basePageWidth * currentZoomScale);
 
-    // Identify target element to anchor to
     const targetElement = document.getElementById(`page_wrapper_${clickedPageNum || currentPdfPageInView}`);
     const offsetFromViewportTop = targetElement ? (targetElement.getBoundingClientRect().top - container.getBoundingClientRect().top) : 0;
 
@@ -2319,7 +2317,6 @@ function applyZoomWidth(scaleFactor, clickedPageNum) {
         wrap.style.height = `${Math.round(newWidth * aspect)}px`;
     });
 
-    // Anchor precisely to the exact touched page
     if (targetElement) {
         requestAnimationFrame(() => {
             const newElementTop = targetElement.offsetTop;
@@ -2349,7 +2346,6 @@ function initDoubleTapZoomOnly() {
             if ((now - lastTapTime) < 280) {
                 e.preventDefault();
                 
-                // Identify which page was actually touched
                 const touch = e.changedTouches[0];
                 const touchedEl = document.elementFromPoint(touch.clientX, touch.clientY);
                 const pageWrapper = touchedEl ? touchedEl.closest('.pdf-page-wrapper') : null;
@@ -2605,6 +2601,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
             btn.disabled = false;
 
         } catch (error) { 
+            showToast("Network Error: Could not load the book.", "error"); 
             btn.innerHTML = originalText; 
             btn.disabled = false; 
         }
@@ -2827,7 +2824,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. UPLOAD SYSTEM
+// 17. UPLOAD SYSTEM (1GB CHUNKS & SIZE VALIDATION)
 // ==========================================
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', function(e) {
@@ -2848,6 +2845,17 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
             const sizeInMB = (selectedPdfFile.size / (1024 * 1024)).toFixed(2);
             detectedFileSizeMB = `${sizeInMB} MB`;
 
+            // Client-side quick size check
+            const maxAllowed = IS_SUPER_ADMIN ? (1024 * 1024 * 1024) : (250 * 1024 * 1024);
+            if (selectedPdfFile.size > maxAllowed) {
+                const limitStr = IS_SUPER_ADMIN ? "1 GB" : "250 MB";
+                showToast(`File limit exceed! Max allowed: ${limitStr}`, "error");
+                selectedPdfFile = null;
+                statusP.innerText = "Drag & Drop PDF File";
+                e.target.value = "";
+                return;
+            }
+
             try {
                 if (window.pdfjsLib) {
                     const arrayBuffer = await selectedPdfFile.arrayBuffer();
@@ -2865,68 +2873,121 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
     });
 });
 
-function uploadSingleFileTracked(file, type, onProgress) {
-    return new Promise(async (resolve, reject) => {
-        const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
-        const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
-        const rawSafeName = file.name
-            .replace(/\.[^/.]+$/, "")
-            .replace(/[^a-zA-Z0-9_-]/g, "")
-            .slice(0, 25);
-            
-        const safeFilePayload = `${folderPrefix}/${Date.now()}_${rawSafeName || 'file'}.${fileExt}`;
-        const determinedContentType = (type === 'image') ? (file.type || 'image/jpeg') : 'application/pdf';
+// S3 Multipart Chunked Upload Engine (Supports up to 1GB files without connection timeout)
+async function uploadSingleFileTracked(file, type, onProgress) {
+    const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
+    const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
+    const rawSafeName = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 25);
+    const safeFileName = `${folderPrefix}/${Date.now()}_${rawSafeName || 'file'}.${fileExt}`;
+    const contentType = type === 'image' ? (file.type || 'image/jpeg') : 'application/pdf';
 
-        try {
-            const userToken = await auth.currentUser.getIdToken(true);
-            
-            const authResponse = await fetch('/api/generate-upload-url', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    fileName: safeFilePayload, 
-                    fileType: determinedContentType, 
-                    userToken: userToken 
-                })
-            });
-            
-            if (!authResponse.ok) {
-                const errData = await authResponse.json().catch(() => ({}));
-                return reject(new Error(errData.error || `Upload URL request failed with status ${authResponse.status}`));
-            }
+    const userToken = await auth.currentUser.getIdToken(true);
 
-            const authData = await authResponse.json();
-            if (!authData.uploadUrl) {
-                return reject(new Error("Storage upload URL not provided by server"));
-            }
+    // Chhoti file (< 50MB) direct presigned URL se upload
+    if (file.size < 50 * 1024 * 1024) {
+        const res = await fetch('/api/generate-upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fileName: safeFileName,
+                fileType: contentType,
+                fileSize: file.size,
+                userToken: userToken
+            })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Upload URL failed");
 
-            const xhr = new XMLHttpRequest(); 
-            xhr.open("PUT", authData.uploadUrl, true); 
+        await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", data.uploadUrl, true);
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
+            };
+            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("Storage upload error"));
+            xhr.onerror = () => reject(new Error("Network error"));
+            xhr.send(file);
+        });
 
-            xhr.upload.addEventListener("progress", (e) => {
-                if (e.lengthComputable && onProgress) { 
-                    onProgress(e.loaded, e.total);
-                }
-            });
+        return data.fileKey;
+    }
 
-            xhr.onload = function() {
+    // Badi Files (700MB - 1GB) Multipart 10MB chunks me upload
+    const CHUNK_SIZE = 10 * 1024 * 1024;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+    const initRes = await fetch('/api/generate-upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: "initiateMultipart",
+            fileName: safeFileName,
+            fileType: contentType,
+            fileSize: file.size,
+            userToken: userToken
+        })
+    });
+    const initData = await initRes.json();
+    if (!initRes.ok) throw new Error(initData.error || "Multipart initiation failed");
+
+    const uploadId = initData.uploadId;
+    const parts = [];
+    let uploadedBytes = 0;
+
+    for (let partNumber = 1; partNumber <= totalChunks; partNumber++) {
+        const start = (partNumber - 1) * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+
+        const partUrlRes = await fetch('/api/generate-upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: "getPartUrl",
+                fileName: safeFileName,
+                uploadId: uploadId,
+                partNumber: partNumber,
+                userToken: userToken
+            })
+        });
+        const partUrlData = await partUrlRes.json();
+        if (!partUrlRes.ok) throw new Error(partUrlData.error || `Part ${partNumber} URL error`);
+
+        const partETag = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", partUrlData.signedUrl, true);
+            xhr.onload = () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(authData.fileKey || safeFilePayload);
-                } else { 
-                    reject(new Error(`Storage rejected upload with status: ${xhr.status}`)); 
+                    const etag = xhr.getResponseHeader("ETag");
+                    resolve(etag);
+                } else {
+                    reject(new Error(`Chunk ${partNumber} upload fail ho gaya`));
                 }
             };
+            xhr.onerror = () => reject(new Error("Network disconnect ho gaya"));
+            xhr.send(chunkBlob);
+        });
 
-            xhr.onerror = function() { 
-                reject(new Error("Network / CORS error: Upload to storage failed.")); 
-            }; 
+        parts.push({ PartNumber: partNumber, ETag: partETag });
+        uploadedBytes += chunkBlob.size;
+        if (onProgress) onProgress(uploadedBytes, file.size);
+    }
 
-            xhr.send(file);
-
-        } catch (error) {
-            reject(error);
-        }
+    const completeRes = await fetch('/api/generate-upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: "completeMultipart",
+            fileName: safeFileName,
+            uploadId: uploadId,
+            parts: parts,
+            userToken: userToken
+        })
     });
+    const completeData = await completeRes.json();
+    if (!completeRes.ok) throw new Error(completeData.error || "File assembly failed");
+
+    return completeData.fileKey;
 }
 
 document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
@@ -3010,10 +3071,10 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             stageSub.innerText = "Optimizing image resolution for mobile readers";
         } else if (percent < 85) {
             stageTitle.innerText = "Uploading Manuscript Pages...";
-            stageSub.innerText = "Writing high-speed encrypted stream to Cloudflare R2";
+            stageSub.innerText = "Writing high-speed chunk stream to Cloudflare R2";
         } else {
             stageTitle.innerText = "Finalizing Storage Nodes...";
-            stageSub.innerText = "Preparing document metadata & secure tokens";
+            stageSub.innerText = "Assembling multipart chunks & secure tokens";
         }
     }
 
@@ -3055,6 +3116,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             image: coverKey, 
             pdfLink: pdfKey, 
             fileSize: detectedFileSizeMB || "10 MB",
+            sizeBytes: selectedPdfFile.size,
             fileFormat: "PDF",
             totalPages: detectedTotalPages ? detectedTotalPages.toString() : "100+",
             dateAdded: new Date().toLocaleDateString('en-GB').toUpperCase(), 
