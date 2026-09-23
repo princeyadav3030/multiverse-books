@@ -262,6 +262,7 @@ function showToast(message, type = 'success') {
 
 function generateDeviceFingerprint() {
     const nav = window.navigator;
+    const screen = window.screen;
     const str = nav.userAgent + nav.language + (auth.currentUser ? auth.currentUser.uid : "guest_session");
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -2382,7 +2383,6 @@ function applyTargetLockedZoom(scaleFactor, targetPageNum) {
         wrap.style.height = `${Math.round(newWidth * aspect)}px`;
     });
 
-    // Re-render currently visible HD pages for new zoomed scale
     renderedPagesMap.clear();
     if (currentPdfDocument) {
         initVirtualizationObserver(currentPdfDocument);
@@ -2957,7 +2957,7 @@ async function uploadSingleFileTracked(file, type, onProgress) {
 
     const userToken = await auth.currentUser.getIdToken(true);
 
-    // Hard-locked check: Agar file 50MB se chhoti hai tabhi direct PUT use karega
+    // Hard-locked: Chhoti file (< 50MB) direct PUT karegi
     if (file.size < 50 * 1024 * 1024) {
         const res = await fetch('/api/generate-upload-url', {
             method: 'POST',
@@ -2975,10 +2975,16 @@ async function uploadSingleFileTracked(file, type, onProgress) {
         await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", data.uploadUrl, true);
+            
+            // Explicit header match for AWS Signature parity
+            if (file.type) {
+                xhr.setRequestHeader("Content-Type", file.type);
+            }
+
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
             };
-            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("Storage upload error"));
+            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("Storage upload error during direct PUT"));
             xhr.onerror = () => reject(new Error("Storage network error during direct PUT"));
             xhr.send(file);
         });
