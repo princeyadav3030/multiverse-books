@@ -8,7 +8,7 @@ const {
 } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
-// Firebase Admin Initialize
+// 1. Firebase Admin Initialization
 if (!admin.apps.length) {
   try {
     admin.initializeApp({
@@ -26,7 +26,7 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
-// Cloudflare R2 Client (S3 Compatible with explicit signature version)
+// 2. Cloudflare R2 Client Setup
 const s3 = new S3Client({
   region: "auto",
   endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -37,14 +37,19 @@ const s3 = new S3Client({
 });
 
 module.exports = async function handler(req, res) {
-  // CORS Headers allowing client to access multipart headers & ETag
+  // CORS & Preflight headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-  res.setHeader('Access-Control-Expose-Headers', 'ETag');
+  res.setHeader('Access-Control-Expose-Headers', 'ETag,Content-Length,Content-Range,Accept-Ranges');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
 
   const { fileName, fileType, fileSize, userToken, action, uploadId, parts } = req.body;
 
@@ -53,18 +58,17 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // 1. User Token Verification
+    // 3. User Authentication & Admin Verification
     const decodedToken = await admin.auth().verifyIdToken(userToken);
     const userEmail = (decodedToken.email || "").toLowerCase().trim();
 
-    // 2. Admin Check
     let isAdmin = false;
     if (userEmail) {
       const adminDoc = await db.collection('admins').doc(userEmail).get();
       isAdmin = adminDoc.exists;
     }
 
-    // 3. Strict Size Limits (Normal User: 250MB, Admin: 1GB)
+    // 4. Strict File Size Validation
     const MAX_USER_SIZE = 250 * 1024 * 1024;   // 250 MB
     const MAX_ADMIN_SIZE = 1024 * 1024 * 1024; // 1 GB
     const allowedLimit = isAdmin ? MAX_ADMIN_SIZE : MAX_USER_SIZE;
@@ -73,13 +77,13 @@ module.exports = async function handler(req, res) {
     if (numericFileSize && numericFileSize > allowedLimit) {
       const limitText = isAdmin ? "1 GB" : "250 MB";
       return res.status(403).json({ 
-        error: `File size limit se zyada hai! Maximum limit: ${limitText} hai.` 
+        error: `File size limit se zyada hai! Aapka maximum limit: ${limitText} hai.` 
       });
     }
 
     const bucketName = process.env.R2_BUCKET_NAME || 'spidy-books';
 
-    // 4. Multipart Chunk Upload Handlers (Badi Files ke liye)
+    // 5. Multipart: Initiate Upload
     if (action === "initiateMultipart") {
       const command = new CreateMultipartUploadCommand({
         Bucket: bucketName,
@@ -90,15 +94,16 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ uploadId: multipart.UploadId, fileKey: fileName });
     }
 
+    // 6. Multipart: Get Signed Part URL
     if (action === "getPartUrl") {
       const { partNumber } = req.body;
       const parsedPartNumber = parseInt(partNumber, 10);
       
       if (!uploadId || isNaN(parsedPartNumber)) {
-        return res.status(400).json({ error: "Invalid uploadId or partNumber" });
+        return res.status(400).json({ error: "Invalid uploadId ya partNumber" });
       }
 
-      // UploadPartCommand me ContentType presign nahi karna chahiye taaki client side PUT request reject na ho
+      // ContentType yahan specify nahi karna hai taaki binary chunk PUT reject na ho
       const command = new UploadPartCommand({
         Bucket: bucketName,
         Key: fileName,
@@ -110,13 +115,13 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ signedUrl });
     }
 
+    // 7. Multipart: Complete Upload
     if (action === "completeMultipart") {
       if (!uploadId || !Array.isArray(parts) || parts.length === 0) {
-        return res.status(400).json({ error: "Invalid complete multipart payload" });
+        return res.status(400).json({ error: "Parts payload missing ya invalid hai." });
       }
 
-      // ETag Clean formatting (Quotes check)
-      const cleanParts = parts.map(p => ({
+      const formattedParts = parts.map(p => ({
         PartNumber: parseInt(p.PartNumber, 10),
         ETag: p.ETag ? p.ETag.replace(/^"|"$/g, '') : ''
       })).sort((a, b) => a.PartNumber - b.PartNumber);
@@ -125,25 +130,25 @@ module.exports = async function handler(req, res) {
         Bucket: bucketName,
         Key: fileName,
         UploadId: uploadId,
-        MultipartUpload: { Parts: cleanParts },
+        MultipartUpload: { Parts: formattedParts },
       });
 
       await s3.send(command);
       return res.status(200).json({ success: true, fileKey: fileName });
     }
 
-    // 5. Small File (<50MB) Single PUT Upload
+    // 8. Single Direct PUT (For Small Covers/Files < 50MB)
+    // PutObjectCommand me ContentType sign nahi karenge taaki browser XHR direct PUT me signature drop na kare
     const command = new PutObjectCommand({
       Bucket: bucketName,
-      Key: fileName,
-      ContentType: fileType || 'application/octet-stream',
+      Key: fileName
     });
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
 
     return res.status(200).json({ uploadUrl, fileKey: fileName });
 
   } catch (error) {
-    console.error("Upload Presigned Error:", error);
-    return res.status(500).json({ error: error.message || 'Server error during presigned generation.' });
+    console.error("Presigned URL Generation Error:", error);
+    return res.status(500).json({ error: error.message || 'Server storage presigned error.' });
   }
 };
