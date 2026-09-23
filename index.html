@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
     <!-- Primary Meta Tags -->
     <title>SPIDY BOOK HUB</title>
@@ -111,7 +111,7 @@
     <!-- Main App Wrapper -->
     <div id="mainAppWrapper" style="display: none; width: 100%; height: 100%;">
         
-        <!-- UNIFIED COMMUNITY POPUP (TRUE CENTERED & BLURRED) -->
+        <!-- UNIFIED COMMUNITY POPUP -->
         <div class="community-popup-overlay" id="communityPopup">
             <div class="community-popup-wrapper">
                 <div class="community-ambient-glow"></div>
@@ -189,7 +189,6 @@
                         <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                     </div>
 
-                    <!-- Divider Line -->
                     <div class="community-popup-divider"></div>
 
                     <!-- Trust Footer -->
@@ -297,11 +296,12 @@
                         </div>
                     </div>
                     
+                    <!-- Infinite Pagination Loader & Sentinel -->
                     <div id="infinite-loader" style="display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 20px 0; margin-bottom: 20px;">
                         <i class="fas fa-spinner fa-spin" style="font-size: 26px; color: #10b981;"></i>
                         <span style="color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-top: 10px;">LOADING MORE BOOKS...</span>
                     </div>
-                    <div id="scroll-sentinel" style="height: 1px; width: 100%;"></div>
+                    <div id="scroll-sentinel" style="height: 2px; width: 100%;"></div>
                     
                     <div class="nav-scroll-spacer"></div>
                 </div>
@@ -397,7 +397,7 @@
                                                 <label class="uc-btn"><i class="fas fa-folder-open"></i> Browse Files<input type="file" accept=".pdf" hidden id="filePdfBrowse"></label>
                                             </div>
                                         </div>
-                                        <div class="uc-footer">PDF FILES • Maximum 250MB</div>
+                                        <div class="uc-footer">PDF FILES • Maximum 250MB (Admins up to 1GB)</div>
                                         <input type="hidden" id="inPdfUrl" value="">
                                     </div>
                                 </div>
@@ -593,8 +593,8 @@
                 </div>
             </div>
 
-            <!-- Download Modal -->
-            <div class="download-modal" id="downloadModal" style="display: none; flex-direction: column;">
+            <!-- Download Modal with Isolated Scroll Context -->
+            <div class="download-modal" id="downloadModal" style="display: none;">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
                         <button class="back-btn" id="closeDlBtn"><i class="fas fa-arrow-left"></i></button>
@@ -603,7 +603,7 @@
                     <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
                 </div>
 
-                <div class="dl-content-wrapper" style="display: flex; flex-direction: column; flex: 1; padding: 0;">
+                <div class="dl-content-wrapper">
                     <div style="padding: 15px 20px 15px; flex: 1;">
                         <div class="dl-img-wrapper-outer">
                             <div class="dl-img-container">
@@ -890,10 +890,9 @@
                 </div>
             </div>
 
-            <!-- PDF Viewer (Fast Native Engine, Circular Close & Full-Width Viewport) -->
+            <!-- PDF Viewer (Fast Engine, Compact Close & Full Viewport) -->
             <div id="pdfViewerOverlay" class="pdf-viewer-overlay" style="display:none;">
                 
-                <!-- Main Header with Clean Title & Circular Border Close Button -->
                 <div class="pdf-viewer-header">
                     <div class="pdf-viewer-header-left">
                         <i class="fas fa-book-open pdf-header-book-icon"></i>
@@ -906,7 +905,7 @@
                     </div>
                 </div>
 
-                <!-- Canvas Scrolling Viewport (True Edge Zoom Wrapper) -->
+                <!-- Canvas Scrolling Viewport (Target-Locked Zoom Wrapper) -->
                 <div id="pdfContainer" class="pdf-viewer-container">
                     <div id="pdfScrollContainer"></div>
                     
