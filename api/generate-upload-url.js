@@ -26,7 +26,7 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
-// Cloudflare R2 Client (S3 Compatible)
+// Cloudflare R2 Client (S3 Compatible with explicit signature version)
 const s3 = new S3Client({
   region: "auto",
   endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -37,9 +37,11 @@ const s3 = new S3Client({
 });
 
 module.exports = async function handler(req, res) {
+  // CORS Headers allowing client to access multipart headers & ETag
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Expose-Headers', 'ETag');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
@@ -64,13 +66,14 @@ module.exports = async function handler(req, res) {
 
     // 3. Strict Size Limits (Normal User: 250MB, Admin: 1GB)
     const MAX_USER_SIZE = 250 * 1024 * 1024;   // 250 MB
-    const MAX_ADMIN_SIZE = 1024 * 1024 * 1024; // 1 GB (1024 MB)
+    const MAX_ADMIN_SIZE = 1024 * 1024 * 1024; // 1 GB
     const allowedLimit = isAdmin ? MAX_ADMIN_SIZE : MAX_USER_SIZE;
 
-    if (fileSize && fileSize > allowedLimit) {
+    const numericFileSize = Number(fileSize);
+    if (numericFileSize && numericFileSize > allowedLimit) {
       const limitText = isAdmin ? "1 GB" : "250 MB";
       return res.status(403).json({ 
-        error: `File size limit se zyada hai! Aapka maximum upload limit: ${limitText} hai.` 
+        error: `File size limit se zyada hai! Maximum limit: ${limitText} hai.` 
       });
     }
 
@@ -81,7 +84,7 @@ module.exports = async function handler(req, res) {
       const command = new CreateMultipartUploadCommand({
         Bucket: bucketName,
         Key: fileName,
-        ContentType: fileType,
+        ContentType: fileType || 'application/octet-stream',
       });
       const multipart = await s3.send(command);
       return res.status(200).json({ uploadId: multipart.UploadId, fileKey: fileName });
@@ -89,23 +92,42 @@ module.exports = async function handler(req, res) {
 
     if (action === "getPartUrl") {
       const { partNumber } = req.body;
+      const parsedPartNumber = parseInt(partNumber, 10);
+      
+      if (!uploadId || isNaN(parsedPartNumber)) {
+        return res.status(400).json({ error: "Invalid uploadId or partNumber" });
+      }
+
+      // UploadPartCommand me ContentType presign nahi karna chahiye taaki client side PUT request reject na ho
       const command = new UploadPartCommand({
         Bucket: bucketName,
         Key: fileName,
         UploadId: uploadId,
-        PartNumber: partNumber,
+        PartNumber: parsedPartNumber,
       });
+
       const signedUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
       return res.status(200).json({ signedUrl });
     }
 
     if (action === "completeMultipart") {
+      if (!uploadId || !Array.isArray(parts) || parts.length === 0) {
+        return res.status(400).json({ error: "Invalid complete multipart payload" });
+      }
+
+      // ETag Clean formatting (Quotes check)
+      const cleanParts = parts.map(p => ({
+        PartNumber: parseInt(p.PartNumber, 10),
+        ETag: p.ETag ? p.ETag.replace(/^"|"$/g, '') : ''
+      })).sort((a, b) => a.PartNumber - b.PartNumber);
+
       const command = new CompleteMultipartUploadCommand({
         Bucket: bucketName,
         Key: fileName,
         UploadId: uploadId,
-        MultipartUpload: { Parts: parts },
+        MultipartUpload: { Parts: cleanParts },
       });
+
       await s3.send(command);
       return res.status(200).json({ success: true, fileKey: fileName });
     }
@@ -114,14 +136,14 @@ module.exports = async function handler(req, res) {
     const command = new PutObjectCommand({
       Bucket: bucketName,
       Key: fileName,
-      ContentType: fileType,
+      ContentType: fileType || 'application/octet-stream',
     });
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
 
     return res.status(200).json({ uploadUrl, fileKey: fileName });
 
   } catch (error) {
-    console.error("Upload Error:", error);
-    return res.status(500).json({ error: error.message || 'Server error aa gaya.' });
+    console.error("Upload Presigned Error:", error);
+    return res.status(500).json({ error: error.message || 'Server error during presigned generation.' });
   }
 };
