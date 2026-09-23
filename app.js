@@ -74,7 +74,7 @@ let mainFilteredData = [];
 let lastVisibleBookDoc = null;
 let hasMoreBooksToFetch = true;
 let isFetchingBooksBatch = false;
-const BATCH_SIZE = 12; // Ek baar me sirf 12 books fetch hongi taaki Firestore limit safe rahe
+const BATCH_SIZE = 12;
 
 let activeBookSlug = ""; 
 let activeBookId = "";
@@ -105,7 +105,7 @@ let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
 let isChannelDataReady = false;
 
-// PDF ENGINE & TARGET-LOCKED ZOOM STATE
+// HD PDF ENGINE & STABLE VIEWPORT STATE
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let renderedPagesMap = new Map();
@@ -114,6 +114,7 @@ let pdfVirtualObserver = null;
 let currentPdfPageInView = 1;
 let currentZoomScale = 1.0;
 let basePageWidth = 0;
+let basePageAspectRatio = 1.414;
 
 // ==========================================
 // HELPER FUNCTIONS & SANITIZATION
@@ -522,7 +523,7 @@ window.openSubjectModulesList = function(subjectKey) {
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
-// MODULE DIRECT VIEWER (Native Centered Orbit Loader + Smooth Display)
+// MODULE DIRECT VIEWER
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
         document.getElementById('loginOverlay').style.display = 'flex';
@@ -680,9 +681,7 @@ function initCommunityDualPopup() {
 
     if (maybeLaterBtn) {
         maybeLaterBtn.onclick = () => {
-            if (!hasClickedWA || !hasClickedTG) {
-                return;
-            }
+            if (!hasClickedWA || !hasClickedTG) return;
             popup.classList.remove('active');
         };
     }
@@ -1422,7 +1421,6 @@ onAuthStateChanged(auth, async (user) => {
         });
     });
 
-    // FIRESTORE QUOTA SAFE: Batch Pagination (Sirf initial 12 books fetch hongi)
     await loadInitialBooksBatch();
 
     renderChannelLoader();
@@ -1524,21 +1522,19 @@ async function loadNextBooksBatch() {
             return;
         }
 
-        const newBatch = [];
         snapshot.forEach((docSnap) => {
             let data = docSnap.data();
             data.id = docSnap.id;
             if (!data.slug || data.slug.includes('%')) {
                 data.slug = generateCleanSlug(data.title, data.id);
             }
-            newBatch.push(data);
             booksData.push(data);
         });
 
         lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
         hasMoreBooksToFetch = snapshot.docs.length === BATCH_SIZE;
 
-        applyMasterFilter(true); // Retain active filters on newly fetched data
+        applyMasterFilter(true);
 
     } catch (err) {
         console.error("Next batch fetch error:", err);
@@ -1791,7 +1787,6 @@ document.getElementById('closeAuthorFilterBtn')?.addEventListener('click', () =>
     }
 });
 
-// Real Scroll Sentinel for Cloud Firestore Quota Protection
 const infiniteScrollObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
         if (entry.isIntersecting && hasMoreBooksToFetch && !isFetchingBooksBatch) {
@@ -2030,7 +2025,7 @@ document.getElementById('nav-dev')?.addEventListener('click', () => {
     syncProfileAndRankUI();
 });
 
-// DIRECT INSTANT PDF VIEWER CLOSE (Direct back without double-stage popstate jump)
+// DIRECT INSTANT PDF VIEWER CLOSE
 window.closePdfViewerDirectly = function() {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer) {
@@ -2119,7 +2114,7 @@ function cleanupPdfResources() {
     const scroller = document.getElementById('pdfScrollContainer');
     if (scroller) {
         scroller.style.width = '100%';
-        scroller.style.transform = 'none';
+        scroller.style.minWidth = '100%';
         scroller.style.margin = '0 auto';
     }
 }
@@ -2144,7 +2139,7 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
 }
 
 // ==========================================
-// 14. PDF VIEWER ENGINE (MEMORY EFFICIENT & TARGET LOCKED ZOOM)
+// 14. ULTRA HD PDF VIEWER (STABLE SCROLL & TARGET ZOOM)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const container = document.getElementById('pdfContainer');
@@ -2188,22 +2183,26 @@ async function renderPdfInModal(pdfUrl) {
         document.getElementById('goToPageRange').innerText = `1 - ${pdfTotalPagesCount}`;
 
         const screenWidth = window.innerWidth;
-        basePageWidth = Math.min(screenWidth - 16, 760);
-        const pixelRatio = Math.min(window.devicePixelRatio || 1.5, 1.75);
+        basePageWidth = Math.min(screenWidth - 12, 780);
 
         const firstPage = await pdf.getPage(1);
         const firstViewport = firstPage.getViewport({ scale: 1.0 });
-        const defaultHeight = basePageWidth * (firstViewport.height / firstViewport.width);
+        basePageAspectRatio = (firstViewport.height / firstViewport.width) || 1.414;
+        const defaultHeight = Math.round(basePageWidth * basePageAspectRatio);
 
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const wrapper = document.createElement('div');
             wrapper.className = 'pdf-page-wrapper page-placeholder';
             wrapper.id = `page_wrapper_${pageNum}`;
             wrapper.dataset.pageNum = pageNum;
-            wrapper.dataset.aspectRatio = (firstViewport.height / firstViewport.width).toString();
+            wrapper.dataset.aspectRatio = basePageAspectRatio.toString();
             wrapper.style.width = `${basePageWidth}px`;
             wrapper.style.height = `${defaultHeight}px`;
-            wrapper.innerHTML = `<span>Page ${pageNum}</span>`;
+            wrapper.innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center; gap:8px; opacity:0.6;">
+                    <i class="fas fa-book-open" style="font-size:18px;"></i>
+                    <span>Page ${pageNum}</span>
+                </div>`;
             scrollContainer.appendChild(wrapper);
         }
 
@@ -2213,7 +2212,7 @@ async function renderPdfInModal(pdfUrl) {
             pageBadge.style.top = '14%'; 
         }
 
-        initVirtualizationObserver(pdf, basePageWidth, pixelRatio);
+        initVirtualizationObserver(pdf);
         initPdfScrollTracker();
         initTargetLockedDoubleTapZoom();
 
@@ -2239,21 +2238,21 @@ async function renderPdfInModal(pdfUrl) {
     }
 }
 
-function initVirtualizationObserver(pdf, targetCssWidth, pixelRatio) {
+function initVirtualizationObserver(pdf) {
     if (pdfVirtualObserver) pdfVirtualObserver.disconnect();
 
     pdfVirtualObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             const pageNum = parseInt(entry.target.dataset.pageNum, 10);
             if (entry.isIntersecting) {
-                requestAnimationFrame(() => renderSingleHdPage(pdf, pageNum, pixelRatio));
+                requestAnimationFrame(() => renderSingleHdPage(pdf, pageNum));
             } else {
                 unloadSinglePage(pageNum);
             }
         });
     }, {
         root: document.getElementById('pdfContainer'),
-        rootMargin: '300px 0px 300px 0px',
+        rootMargin: '450px 0px 450px 0px',
         threshold: 0.01
     });
 
@@ -2262,7 +2261,8 @@ function initVirtualizationObserver(pdf, targetCssWidth, pixelRatio) {
     });
 }
 
-async function renderSingleHdPage(pdf, pageNum, pixelRatio) {
+// ULTRA-HD PIN-SHARP PAGE RENDERING
+async function renderSingleHdPage(pdf, pageNum) {
     if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return; 
     renderedPagesMap.set(pageNum, true);
 
@@ -2273,27 +2273,28 @@ async function renderSingleHdPage(pdf, pageNum, pixelRatio) {
         const page = await pdf.getPage(pageNum);
         const unscaledViewport = page.getViewport({ scale: 1.0 });
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
-        const scale = currentCssWidth / unscaledViewport.width;
-        const viewport = page.getViewport({ scale: scale });
-
-        wrapper.classList.remove('page-placeholder');
-        wrapper.innerHTML = ''; 
-        wrapper.style.height = `${viewport.height}px`;
+        const currentScale = currentCssWidth / unscaledViewport.width;
+        
+        // Full Crystal-Clear HD Resolution: Minimum 2.5x Multiplier for sharp text
+        const devicePR = Math.max(window.devicePixelRatio || 1, 2.5);
+        const viewport = page.getViewport({ scale: currentScale });
 
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d', { alpha: false });
         
-        canvas.width = Math.floor(viewport.width * pixelRatio);
-        canvas.height = Math.floor(viewport.height * pixelRatio);
+        canvas.width = Math.floor(viewport.width * devicePR);
+        canvas.height = Math.floor(viewport.height * devicePR);
         canvas.style.width = `100%`;
         canvas.style.height = `100%`;
 
+        wrapper.classList.remove('page-placeholder');
+        wrapper.innerHTML = ''; 
         wrapper.appendChild(canvas);
 
         const renderTask = page.render({
             canvasContext: context,
             viewport: viewport,
-            transform: [pixelRatio, 0, 0, pixelRatio, 0, 0]
+            transform: [devicePR, 0, 0, devicePR, 0, 0]
         });
 
         activeRenderTasks.set(pageNum, renderTask);
@@ -2341,11 +2342,15 @@ function unloadSinglePage(pageNum) {
     }
 
     wrapper.classList.add('page-placeholder');
-    wrapper.innerHTML = `<span>Page ${pageNum}</span>`;
+    wrapper.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; opacity:0.6;">
+            <i class="fas fa-book-open" style="font-size:18px;"></i>
+            <span>Page ${pageNum}</span>
+        </div>`;
     renderedPagesMap.delete(pageNum);
 }
 
-// TARGET-LOCKED DOUBLE TAP ZOOM (Exact wahi page lock rahega jaha zoom in ya out kiya gaya)
+// TARGET-LOCKED DOUBLE TAP ZOOM: Allows Full Horizontal Panning
 function applyTargetLockedZoom(scaleFactor, targetPageNum) {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
@@ -2358,15 +2363,30 @@ function applyTargetLockedZoom(scaleFactor, targetPageNum) {
     currentZoomScale = scaleFactor;
     const newWidth = Math.round(basePageWidth * currentZoomScale);
 
-    scroller.style.width = currentZoomScale > 1.0 ? `${newWidth}px` : '100%';
-    scroller.style.margin = '0 auto';
+    if (currentZoomScale > 1.0) {
+        scroller.style.width = `${newWidth}px`;
+        scroller.style.minWidth = `${newWidth}px`;
+        container.style.overflowX = "auto";
+        container.style.touchAction = "pan-x pan-y pinch-zoom";
+    } else {
+        scroller.style.width = '100%';
+        scroller.style.minWidth = '100%';
+        container.style.overflowX = "hidden";
+        container.style.touchAction = "pan-y pinch-zoom";
+    }
 
     const wrappers = document.querySelectorAll('.pdf-page-wrapper');
     wrappers.forEach(wrap => {
-        const aspect = parseFloat(wrap.dataset.aspectRatio) || 1.414;
+        const aspect = parseFloat(wrap.dataset.aspectRatio) || basePageAspectRatio;
         wrap.style.width = `${newWidth}px`;
         wrap.style.height = `${Math.round(newWidth * aspect)}px`;
     });
+
+    // Re-render currently visible HD pages for new zoomed scale
+    renderedPagesMap.clear();
+    if (currentPdfDocument) {
+        initVirtualizationObserver(currentPdfDocument);
+    }
 
     if (targetElement) {
         requestAnimationFrame(() => {
@@ -2547,7 +2567,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     const downloadModal = document.getElementById("downloadModal");
     downloadModal.style.display = "flex";
     
-    // Nayi book kholne par scroll reset to 0
     downloadModal.scrollTop = 0;
     const dlWrapper = downloadModal.querySelector('.dl-content-wrapper');
     if (dlWrapper) dlWrapper.scrollTop = 0;
@@ -2880,7 +2899,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 18. UPLOAD PIPELINE WITH ROBUST ERROR HANDLING
+// 18. STRICT MULTIPART UPLOAD PIPELINE
 // ==========================================
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', function(e) {
@@ -2912,7 +2931,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
             }
 
             try {
-                if (window.pdfjsLib && selectedPdfFile.size < 50 * 1024 * 1024) {
+                if (window.pdfjsLib && selectedPdfFile.size < 40 * 1024 * 1024) {
                     const arrayBuffer = await selectedPdfFile.arrayBuffer();
                     const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
                     const pdfDoc = await loadingTask.promise;
@@ -2938,6 +2957,7 @@ async function uploadSingleFileTracked(file, type, onProgress) {
 
     const userToken = await auth.currentUser.getIdToken(true);
 
+    // Hard-locked check: Agar file 50MB se chhoti hai tabhi direct PUT use karega
     if (file.size < 50 * 1024 * 1024) {
         const res = await fetch('/api/generate-upload-url', {
             method: 'POST',
@@ -2950,7 +2970,7 @@ async function uploadSingleFileTracked(file, type, onProgress) {
             })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Upload URL failed");
+        if (!res.ok) throw new Error(data.error || "Upload URL generation failed");
 
         await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
@@ -2966,6 +2986,7 @@ async function uploadSingleFileTracked(file, type, onProgress) {
         return data.fileKey;
     }
 
+    // 50MB+ (jaise 125MB ya 669MB) files ke liye 10MB chunks multipart upload
     const CHUNK_SIZE = 10 * 1024 * 1024;
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
