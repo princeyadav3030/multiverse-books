@@ -54,11 +54,7 @@
                 </svg> 
                 PDF
             </div>
-            
-            <div class="tag">
-                <i class="fas fa-file-lines" style="color: #ffffff; font-size: 11px;"></i> NOTES
-            </div>
-            
+            <div class="tag"><i class="fas fa-file-lines" style="color: #ffffff; font-size: 11px;"></i> NOTES</div>
             <div class="tag"><i class="fa-solid fa-square-root-variable"></i> FORMULA</div>
             <div class="tag"><i class="fa-solid fa-layer-group"></i> MORE</div>
         </div>
@@ -180,7 +176,6 @@
                         </div>
                     </div>
 
-                    <!-- Single Horizontal Line All-Red Must-Join Strip -->
                     <div class="community-must-join-strip">
                         <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                         <span class="community-must-join-text">
@@ -191,28 +186,27 @@
 
                     <div class="community-popup-divider"></div>
 
-                    <!-- Trust Footer -->
                     <div class="community-trust-footer">
                         <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
                         100% Free E-Books &amp; Premium Study PDFs
                     </div>
 
-                    <!-- Close Button -->
                     <button class="community-maybe-later-btn" id="communityMaybeLaterBtn">MAYBE LATER</button>
                 </div>
             </div>
         </div>
 
         <div class="app-container">
-            <!-- Persistent Header -->
-            <header id="main-header">
+            <!-- Persistent Header with Upload Button & Translucent Blur Header -->
+            <header id="main-header" class="modern-glow-header">
                 <div class="header-left">
                     <div class="icon-box" id="open-menu"><i class="fas fa-bars"></i></div>
                     <span class="header-title" id="dynamic-header-title">SPIDY BOOK HUB</span>
                 </div>
                 <div class="header-icons" id="dynamic-header-icons">
-                    <div class="icon-box" id="open-search"><i class="fas fa-search"></i></div>
-                    <div class="icon-box bell-wrapper" id="open-noti"><i class="fas fa-bell"></i><span class="blink-dot"></span></div>
+                    <div class="icon-box" id="open-upload-btn" title="Upload Book"><i class="fa-solid fa-arrow-up-from-bracket"></i></div>
+                    <div class="icon-box" id="open-search" title="Search"><i class="fas fa-search"></i></div>
+                    <div class="icon-box bell-wrapper" id="open-noti" title="Notifications"><i class="fas fa-bell"></i><span class="blink-dot"></span></div>
                 </div>
                 <div class="search-box-expanded" id="search-box">
                     <div class="search-input-wrapper"><i class="fas fa-search"></i><input type="text" class="search-input" id="app-search-input" placeholder="Search titles, authors, or exams..."></div>
@@ -236,7 +230,6 @@
                         <a href="#" class="menu-item active" id="menu-home-side"><i class="fas fa-home"></i><span>Home</span></a>
                         <a href="https://t.me/SpidyBookHub_Bot" target="_blank" class="menu-item normal" id="menu-contact"><i class="fas fa-envelope"></i><span>Contact</span></a>
                         <a href="#" class="menu-item normal" id="menu-bookmarks"><i class="far fa-bookmark"></i><span>Bookmarks</span></a>
-                        <a href="#" class="menu-item normal" id="menu-dmca"><i class="fas fa-shield-halved"></i><span>DMCA Request</span></a>
                     </div>
                     <div class="menu-section">
                         <div class="section-title">COMMUNITY</div>
@@ -252,12 +245,9 @@
                 </div>
             </div>
 
-            <!-- Main Content Area -->
+            <!-- Main Content Area: Pure Single Page Home Flow -->
             <main id="mainContentArea">
-                
-                <!-- TAB 1: HOME -->
-                <div id="tab-home" class="app-tab active">
-                    
+                <div id="tab-home" class="app-tab active" style="padding-bottom: 35px;">
                     <!-- Dynamic Module & Promo Banner Carousel -->
                     <div class="promo-carousel-container" id="promoCarouselContainer">
                         <button class="promo-arrow-btn arrow-prev" id="promoPrevBtn" aria-label="Previous Slide">
@@ -302,214 +292,175 @@
                         <span style="color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-top: 10px;">LOADING MORE BOOKS...</span>
                     </div>
                     <div id="scroll-sentinel" style="height: 2px; width: 100%;"></div>
-                    
-                    <div class="nav-scroll-spacer"></div>
-                </div>
-
-                <!-- TAB 2: UPLOAD (Vault Panel) -->
-                <div id="tab-upload" class="app-tab" style="display: none; padding: 0;">
-                    <div class="adm-tabs-container" style="padding: 15px 12px 0px; background: #000000; border-bottom: 1px solid rgba(255,255,255,0.08); width: 100%; box-sizing: border-box;">
-                        <div class="adm-tabs" style="display: flex; gap: 10px; padding-bottom: 12px; margin-bottom: 0;">
-                            <button class="adm-tab-btn active" id="admTabAdd"><i class="fas fa-plus"></i> Add Book</button>
-                            <button class="adm-tab-btn" id="admTabPrompt"><i class="fas fa-terminal"></i> Prompts</button>
-                        </div>
-                    </div>
-
-                    <div class="adm-content-area" id="admContentArea" style="padding: 20px 15px 0;">
-                        <div id="sectionAddBook" class="adm-section active">
-                            <form id="addBookForm" class="seamless-form-container">
-                                
-                                <div class="seamless-header" style="display: flex; align-items: center; gap: 15px; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px dashed rgba(255,255,255,0.15);">
-                                    <div class="icon-wrapper" style="width: 44px; height: 44px; background: rgba(124, 58, 237, 0.15); border: 1px solid rgba(124, 58, 237, 0.3); border-radius: 12px; display: flex; justify-content: center; align-items: center; color: #c084fc; font-size: 18px; box-shadow: 0 0 15px rgba(124, 58, 237, 0.2); flex-shrink: 0;">
-                                        <i class="fas fa-pen-nib"></i>
-                                    </div>
-                                    <h2 style="font-size: 1.25rem; font-weight: 800; color: #fff; letter-spacing: 0.5px; margin: 0; font-family: 'Poppins', sans-serif;">Enter Book Details</h2>
-                                </div>
-
-                                <div class="adm-form-group">
-                                    <label class="adm-label">Book Title</label>
-                                    <div class="adm-input-icon-wrapper">
-                                        <i class="fas fa-book-bookmark field-icon"></i>
-                                        <input type="text" id="inTitle" class="adm-input with-icon" placeholder="e.g. Vocab - 15000+ Vocabularies" required autocomplete="off">
-                                    </div>
-                                </div>
-
-                                <div class="adm-form-group">
-                                    <label class="adm-label">Author Name</label>
-                                    <div class="adm-input-icon-wrapper">
-                                        <i class="fas fa-user-pen field-icon"></i>
-                                        <input type="text" id="inAuthor" class="adm-input with-icon" placeholder="e.g. Neetu Singh Mam" required autocomplete="off">
-                                    </div>
-                                </div>
-
-                                <div class="adm-form-group"><label class="adm-label">Publish Year</label>
-                                    <select id="inYear" class="adm-input" required>
-                                        <option value="2023">2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
-                                    </select>
-                                </div>
-                                <div class="adm-form-group"><label class="adm-label">Language</label>
-                                    <select id="inLang" class="adm-input"><option value="Hindi">Hindi</option><option value="English">English</option><option value="Bilingual">Bilingual</option></select>
-                                </div>
-
-                                <div class="adm-form-group">
-                                    <label class="adm-label">Exam Relevance</label>
-                                    <div class="adm-input-icon-wrapper">
-                                        <i class="fas fa-graduation-cap field-icon"></i>
-                                        <input type="text" id="inExams" class="adm-input with-icon" placeholder="e.g. SSC, BPSC, RRB" required autocomplete="off">
-                                    </div>
-                                </div>
-                                
-                                <div class="adm-form-group" style="margin-top: 10px;">
-                                    <div class="upload-card upload-purple">
-                                        <div class="uc-header"><i class="fas fa-image"></i> COVER IMAGE <span class="uc-badge badge-purple">Image</span></div>
-                                        <div class="uc-body">
-                                            <div class="uc-illustration">
-                                                <i class="fas fa-photo-video uc-icon uc-purple-glow"></i>
-                                                <div class="uc-upload-btn-circle"><i class="fas fa-cloud-upload-alt"></i></div>
-                                            </div>
-                                            <div class="uc-actions">
-                                                <p>Drag & Drop Cover Image</p>
-                                                <div class="uc-divider"><span>or</span></div>
-                                                <label class="uc-btn"><i class="fas fa-image"></i> Choose from Gallery<input type="file" accept="image/*" hidden id="fileCoverGallery"></label>
-                                                <label class="uc-btn"><i class="fas fa-folder-open"></i> Browse Files<input type="file" accept="image/*" hidden id="fileCoverBrowse"></label>
-                                            </div>
-                                        </div>
-                                        <div class="uc-footer">JPG, PNG • Maximum 5MB</div>
-                                        <input type="hidden" id="inImage" value="">
-                                    </div>
-                                </div>
-
-                                <div class="adm-form-group">
-                                    <div class="upload-card upload-red">
-                                        <div class="uc-header"><i class="far fa-file-pdf"></i> BOOK PDF FILE <span class="uc-badge badge-red">PDF</span></div>
-                                        <div class="uc-body">
-                                            <div class="uc-illustration">
-                                                <div class="custom-pdf-wrap">
-                                                    <i class="fas fa-file uc-icon uc-red-glow"></i>
-                                                    <span class="pdf-center-text">PDF</span>
-                                                </div>
-                                                <div class="uc-upload-btn-circle red-circle"><i class="fas fa-cloud-upload-alt"></i></div>
-                                            </div>
-                                            <div class="uc-actions">
-                                                <p>Drag & Drop PDF File</p>
-                                                <div class="uc-divider"><span>or</span></div>
-                                                <label class="uc-btn"><i class="fas fa-image"></i> Choose from Gallery<input type="file" accept=".pdf" hidden id="filePdfGallery"></label>
-                                                <label class="uc-btn"><i class="fas fa-folder-open"></i> Browse Files<input type="file" accept=".pdf" hidden id="filePdfBrowse"></label>
-                                            </div>
-                                        </div>
-                                        <div class="uc-footer">PDF FILES • Maximum 250MB (Admins up to 1GB)</div>
-                                        <input type="hidden" id="inPdfUrl" value="">
-                                    </div>
-                                </div>
-                                
-                                <button type="submit" id="publishBtn" class="adm-submit-btn">
-                                    <span class="btn-text" style="display: flex; align-items: center; justify-content: center; gap: 10px;"><i class="fas fa-cloud-upload-alt"></i> Publish Book</span>
-                                </button>
-                            </form>
-                        </div>
-
-                        <div id="sectionPrompt" class="adm-section">
-                            <div id="promptsContainer" style="display: flex; flex-direction: column; gap: 25px;">
-                                <div style="text-align:center; padding:20px; color:#a1a1aa; font-weight:800;">Loading prompts...</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="nav-scroll-spacer"></div>
-                </div>
-
-                <!-- TAB 3: ME (My Profile) -->
-                <div id="tab-about" class="app-tab" style="display: none; padding: 0; position: relative; overflow: hidden;">
-                    <div class="premium-bg">
-                        <div class="grid-overlay"></div>
-                        <div class="particles-container" id="particlesTabMe"></div>
-                    </div>
-
-                    <div class="dev-scroll-area" style="position: relative; z-index: 1;">
-                        <div class="dev-hero-banner" id="profileBanner">
-                            <div class="banner-fade-bottom"></div>
-                            
-                            <button class="dev-back-btn" id="admin-logout-btn" title="Log Out" style="position: absolute; top: 15px; left: 15px; right: auto; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); z-index: 100; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                                <i class="fas fa-power-off"></i>
-                            </button>
-
-                            <div class="hero-content-wrapper">
-                                <div class="social-bar-left">
-                                    <a href="https://github.com/PRINCE_YADAV" target="_blank" class="hero-soc-btn"><i class="fab fa-github"></i></a>
-                                    <a href="https://t.me/MultiverseBooks" target="_blank" class="hero-soc-btn"><i class="fab fa-telegram-plane"></i></a>
-                                    <a href="https://www.instagram.com/PRINCE_YADAV_3030" target="_blank" class="hero-soc-btn"><i class="fab fa-instagram"></i></a>
-                                    <a href="https://youtube.com/@PRINCE_YADAV" target="_blank" class="hero-soc-btn"><i class="fab fa-youtube"></i></a>
-                                </div>
-
-                                <div class="profile-avatar-container">
-                                    <div class="dev-profile-img-wrapper">
-                                        <img id="profile-avatar-ui" src="https://i.postimg.cc/D0BF1b77/file-000000000e847207a64f6711d825a859.png" class="dev-profile-img" alt="Profile" oncontextmenu="return false;" draggable="false">
-                                    </div>
-                                    <div class="profile-shield">
-                                        <i class="fas fa-shield-alt"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="premium-bio-section">
-                            <div class="bio-greeting" id="profile-name-ui">Spidy Book Hub</div>
-                            <div class="bio-email" id="profile-email-ui">Please login to sync progress</div>
-                        </div>
-
-                        <div class="stats-container">
-                            <div class="stat-card card-read">
-                                <div class="icon-box"><i class="fas fa-book-open"></i></div>
-                                <div class="stat-info">
-                                    <div class="stat-label">Read</div>
-                                    <div class="stat-value" id="profile-downloads">0</div>
-                                </div>
-                            </div>
-                            
-                            <div class="stat-card card-bookmark">
-                                <div class="icon-box"><i class="fas fa-bookmark"></i></div>
-                                <div class="stat-info">
-                                    <div class="stat-label">Save</div>
-                                    <div class="stat-value" id="profile-saved">0</div>
-                                </div>
-                            </div>
-
-                            <div class="stat-card card-credit">
-                                <div class="icon-box"><i class="fas fa-bolt"></i></div>
-                                <div class="stat-info">
-                                    <div class="stat-label">Credits</div>
-                                    <div class="stat-value" id="profile-credits">--</div>
-                                </div>
-                            </div>
-
-                            <div class="stat-card card-premium">
-                                <div class="icon-box"><i class="fas fa-crown"></i></div>
-                                <div class="stat-info">
-                                    <div class="stat-label">Rank</div>
-                                    <div class="stat-value" id="profile-rank">#--</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="nav-scroll-spacer"></div>
-                    </div>
                 </div>
             </main>
 
-            <!-- Bottom Navigation Bar -->
-            <nav class="bottom-nav-bar">
-                <div class="bottom-nav-item active" id="nav-home">
-                    <div class="nav-icon-pill"><i class="fas fa-home"></i></div>
-                    <span class="nav-label">𝐇𝐨𝐦𝐞</span>
+            <!-- FULLSCREEN UPLOAD HUB OVERLAY (NEW UPDATE UI INTEGRATION) -->
+            <div class="overlay-panel upload-modal-fullscreen" id="uploadModalOverlay" style="z-index: 10000; background: #0a0c10;">
+                <!-- Header with Centered Title & Round Back Circle -->
+                <header class="upload-modal-header" id="uploadHubHeader">
+                    <div class="back-icon-box" id="closeUploadHubBtn" title="Back">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    <div class="header-title-centered">UPLOAD BOOKS</div>
+                    <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
+                </header>
+
+                <!-- No-Shake White Segmented Slider -->
+                <div class="adm-tabs-container">
+                    <div class="adm-switch-pill-track" id="switchTrack">
+                        <button type="button" class="adm-switch-item active" id="admTabAdd">
+                            <i class="fas fa-book-medical"></i>
+                            <span>Add Book</span>
+                        </button>
+                        <button type="button" class="adm-switch-item" id="admTabPrompt">
+                            <i class="fas fa-terminal"></i>
+                            <span>Prompts</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="bottom-nav-item" id="nav-upload">
-                    <div class="nav-icon-pill"><i class="fas fa-cloud-upload-alt"></i></div>
-                    <span class="nav-label">𝐔𝐩𝐥𝐨𝐚𝐝</span>
+
+                <!-- Scrollable Form Body -->
+                <div class="adm-content-area" id="admContentArea">
+                    <!-- SECTION 1: ADD BOOK FORM -->
+                    <div id="sectionAddBook" class="adm-section active">
+                        <form id="addBookForm">
+                            <div class="seamless-header">
+                                <div class="icon-wrapper">
+                                    <i class="fas fa-pen-nib"></i>
+                                </div>
+                                <h2>Enter Book Details</h2>
+                            </div>
+
+                            <!-- Book Title -->
+                            <div class="adm-form-group">
+                                <label class="adm-label">Book Title</label>
+                                <div class="adm-input-icon-wrapper" id="wrapTitle">
+                                    <i class="fas fa-book-bookmark field-icon"></i>
+                                    <input type="text" id="inTitle" class="adm-input with-icon" placeholder="e.g. Vocab - 15000+ Vocabularies" required autocomplete="off">
+                                </div>
+                            </div>
+
+                            <!-- Author Name: Human Person Icon -->
+                            <div class="adm-form-group">
+                                <label class="adm-label">Author Name</label>
+                                <div class="adm-input-icon-wrapper" id="wrapAuthor">
+                                    <i class="fas fa-user field-icon"></i>
+                                    <input type="text" id="inAuthor" class="adm-input with-icon" placeholder="e.g. Neetu Singh Mam" required autocomplete="off">
+                                </div>
+                            </div>
+
+                            <!-- Publish Year: Modal Picker -->
+                            <div class="adm-form-group">
+                                <label class="adm-label">Publish Year</label>
+                                <div class="adm-input-icon-wrapper has-value" id="openYearModalBtn">
+                                    <i class="fas fa-calendar-check field-icon is-active"></i>
+                                    <div class="custom-select-trigger" id="yearSelectDisplay">
+                                        <span id="selectedYearText">2026</span>
+                                        <i class="fas fa-chevron-down arrow-icon"></i>
+                                    </div>
+                                    <input type="hidden" id="inYear" value="2026">
+                                </div>
+                            </div>
+
+                            <!-- Language: Modal Picker -->
+                            <div class="adm-form-group">
+                                <label class="adm-label">Language</label>
+                                <div class="adm-input-icon-wrapper has-value" id="openLangModalBtn">
+                                    <i class="fas fa-globe field-icon is-active"></i>
+                                    <div class="custom-select-trigger" id="langSelectDisplay">
+                                        <span id="selectedLangText">Hindi</span>
+                                        <i class="fas fa-chevron-down arrow-icon"></i>
+                                    </div>
+                                    <input type="hidden" id="inLang" value="Hindi">
+                                </div>
+                            </div>
+
+                            <!-- Exam Relevance -->
+                            <div class="adm-form-group">
+                                <label class="adm-label">Exam Relevance</label>
+                                <div class="adm-input-icon-wrapper" id="wrapExams">
+                                    <i class="fas fa-graduation-cap field-icon"></i>
+                                    <input type="text" id="inExams" class="adm-input with-icon" placeholder="e.g. SSC, BPSC, RRB" required autocomplete="off">
+                                </div>
+                            </div>
+                            
+                            <!-- Cover Image Upload Box -->
+                            <div class="adm-form-group" style="margin-top: 4px;" id="cardCoverContainer">
+                                <div class="upload-card-box upload-purple">
+                                    <div class="uc-header">
+                                        <i class="fas fa-image"></i> COVER IMAGE 
+                                        <span class="uc-badge badge-purple">Image</span>
+                                    </div>
+                                    <div class="uc-body">
+                                        <div class="uc-illustration">
+                                            <i class="fas fa-photo-video uc-icon uc-purple-glow"></i>
+                                            <div class="uc-upload-btn-circle"><i class="fas fa-cloud-upload-alt"></i></div>
+                                        </div>
+                                        <div class="uc-actions">
+                                            <p id="coverStatusText" title="Drag & Drop Cover Image">Drag &amp; Drop Cover Image</p>
+                                            <div class="uc-divider"><span>or</span></div>
+                                            <label class="uc-btn">
+                                                <i class="fas fa-image"></i> Choose from Gallery
+                                                <input type="file" accept="image/*" hidden id="fileCoverGallery">
+                                            </label>
+                                            <label class="uc-btn">
+                                                <i class="fas fa-folder-open"></i> Browse Files
+                                                <input type="file" accept="image/*" hidden id="fileCoverBrowse">
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="uc-footer">JPG, PNG • Maximum 5MB</div>
+                                </div>
+                            </div>
+
+                            <!-- Book PDF Upload Box -->
+                            <div class="adm-form-group" style="margin-top: 2px;" id="cardPdfContainer">
+                                <div class="upload-card-box upload-red">
+                                    <div class="uc-header">
+                                        <i class="far fa-file-pdf"></i> BOOK PDF FILE 
+                                        <span class="uc-badge badge-red">PDF</span>
+                                    </div>
+                                    <div class="uc-body">
+                                        <div class="uc-illustration">
+                                            <div class="custom-pdf-wrap">
+                                                <i class="fas fa-file uc-icon uc-red-glow"></i>
+                                                <span class="pdf-center-text">PDF</span>
+                                            </div>
+                                            <div class="uc-upload-btn-circle red-circle"><i class="fas fa-cloud-upload-alt"></i></div>
+                                        </div>
+                                        <div class="uc-actions">
+                                            <p id="pdfStatusText" title="Drag & Drop PDF File">Drag &amp; Drop PDF File</p>
+                                            <div class="uc-divider"><span>or</span></div>
+                                            <label class="uc-btn">
+                                                <i class="fas fa-file-pdf"></i> Choose from Gallery
+                                                <input type="file" accept=".pdf" hidden id="filePdfGallery">
+                                            </label>
+                                            <label class="uc-btn">
+                                                <i class="fas fa-folder-open"></i> Browse Files
+                                                <input type="file" accept=".pdf" hidden id="filePdfBrowse">
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="uc-footer">PDF FILES • Maximum 250MB (Admins up to 1GB)</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Solid White Publish Action Button -->
+                            <button type="submit" id="publishBtn" class="adm-submit-btn-white">
+                                <i class="fas fa-cloud-arrow-up"></i> Upload &amp; Publish
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- SECTION 2: PROMPTS FEED -->
+                    <div id="sectionPrompt" class="adm-section">
+                        <div id="promptsContainer" style="display: flex; flex-direction: column;">
+                            <div style="text-align:center; padding:20px; color:#8b949e; font-weight:700;">Loading prompts...</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="bottom-nav-item" id="nav-dev">
-                    <div class="nav-icon-pill"><i class="fas fa-user-tie"></i></div>
-                    <span class="nav-label">𝐌𝐞</span>
-                </div>
-            </nav>
+            </div>
 
             <!-- MODULE BANNER FULLSCREEN OVERLAY -->
             <div class="overlay-panel" id="moduleBannerModal" style="z-index: 99999; background: #07090e;">
@@ -776,54 +727,6 @@
                 </div>
             </div>
 
-            <!-- DMCA Panel -->
-            <div class="overlay-panel" id="dmca-panel">
-                <div class="modal-header-fixed">
-                    <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
-                        <button class="back-btn" id="close-dmca-btn"><i class="fas fa-arrow-left"></i></button>
-                        <h1 class="modal-title">DMCA REQUEST</h1>
-                    </div>
-                    <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
-                </div>
-                <div class="dmca-content" style="display: flex; flex-direction: column; padding: 0;">
-                    <div style="padding: 20px 0 30px; flex: 1;">
-                        <div class="dmca-hero">
-                            <h1 class="dmca-hero-title">COPYRIGHT DISCLAIMER</h1>
-                            <p class="dmca-hero-subtitle">
-                                <span class="dmca-badge badge-edu"><i class="fas fa-graduation-cap"></i> Educational</span>
-                                <span class="dmca-badge badge-res"><i class="fas fa-flask"></i> Research</span>
-                                <span class="dmca-badge badge-ref"><i class="fas fa-book-open"></i> Reference</span>
-                            </p>
-                        </div>
-                        <div class="dmca-section">
-                            <h2 class="dmca-section-title"><span class="dmca-mini-icon icon-ownership"><i class="fas fa-book"></i></span>Content Ownership</h2>
-                            <p>This website is created solely for educational, informational and archival purposes. We do not claim ownership of any copyrighted material shared on this platform. All copyrights and intellectual property rights belong to their respective authors, publishers and owners.</p>
-                        </div>
-                        <div class="dmca-section">
-                            <h2 class="dmca-section-title"><span class="dmca-mini-icon icon-concerns"><i class="fas fa-copyright"></i></span>Copyright Concerns</h2>
-                            <p>If you are the copyright owner of any material available here and believe that your content has been shared without proper authorization, please contact us.</p>
-                        </div>
-                        <div class="dmca-section">
-                            <h2 class="dmca-section-title"><span class="dmca-mini-icon icon-contact"><i class="fas fa-envelope"></i></span>Contact Information</h2>
-                            <a href="https://t.me/SpidyBookHub_Bot" target="_blank" class="dmca-contact-link"><i class="fab fa-telegram-plane"></i> Spidy Book Hub Support</a>
-                            <p style="margin-top: 15px; font-weight: bold; color: #a1a1aa; font-size: 0.75rem;">⏱ Review Time: 24–48 Hours</p>
-                        </div>
-                        <div class="dmca-section">
-                            <h2 class="dmca-section-title"><span class="dmca-mini-icon icon-notice"><i class="fas fa-shield-alt"></i></span>Important Notice</h2>
-                            <p>The materials shared on this platform are intended for educational, research, review and reference purposes only. Users are encouraged to support authors and publishers by purchasing original books whenever possible.</p>
-                        </div>
-                        <div class="dmca-section">
-                            <h2 class="dmca-section-title"><span class="dmca-mini-icon icon-resp"><i class="fas fa-user-shield"></i></span>User Responsibility</h2>
-                            <p>Users are solely responsible for how they access, download, share or use any content available through this platform. This website and its administrators cannot be held responsible for any misuse or unauthorized use of the materials.</p>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top: auto; width: 100%; padding: 20px 10px; background: transparent; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: center; align-items: center; font-size: clamp(8px, 2.5vw, 10px); font-weight: 800; color: #a1a1aa; letter-spacing: 0.5px; flex-shrink: 0; box-sizing: border-box; text-align: center;">
-                        © 2026 SPIDY BOOK HUB <span style="color: #3f3f46; margin: 0 6px;">|</span> MADE WITH <i class="fas fa-heart" style="color: #ff4757; margin: 0 3px;"></i> BY PRINCE YADAV
-                    </div>
-                </div>
-            </div>
-
             <!-- Token Verification Overlay -->
             <div id="tokenModalOverlay" class="modal-overlay-token" style="display: none;">
                 <div class="premium-bg">
@@ -890,9 +793,8 @@
                 </div>
             </div>
 
-            <!-- PDF Viewer (Fast Engine, Compact Close & Full Viewport) -->
+            <!-- PDF Viewer -->
             <div id="pdfViewerOverlay" class="pdf-viewer-overlay" style="display:none;">
-                
                 <div class="pdf-viewer-header">
                     <div class="pdf-viewer-header-left">
                         <i class="fas fa-book-open pdf-header-book-icon"></i>
@@ -905,17 +807,13 @@
                     </div>
                 </div>
 
-                <!-- Canvas Scrolling Viewport (Target-Locked Zoom Wrapper) -->
                 <div id="pdfContainer" class="pdf-viewer-container">
                     <div id="pdfScrollContainer"></div>
-                    
-                    <!-- Floating Screen-Edge Badge -->
                     <div id="pdfPageBadge" title="Click to jump to page">
                         <span id="pdfCurrentPageNum">1</span>
                     </div>
                 </div>
 
-                <!-- "Go to Page" Jump Modal Dialog -->
                 <div id="goToPageModal" class="pdf-modal-dialog">
                     <div class="pdf-modal-box">
                         <h4 class="pdf-modal-heading">Go to page</h4>
@@ -927,7 +825,6 @@
                         </div>
                     </div>
                 </div>
-
             </div>
 
             <!-- Report Issue Modal -->
@@ -965,6 +862,38 @@
         </div>
     </div>
 
+    <!-- Dynamic Auto-Rolling Year Picker Modal -->
+    <div class="center-popup-overlay" id="yearPopupOverlay">
+        <div class="center-popup-box">
+            <div class="popup-modal-header">
+                <div class="popup-modal-title">
+                    <i class="fas fa-calendar-check"></i>
+                    Select Publish Year
+                </div>
+                <button class="popup-modal-close" id="closeYearModalBtn">✕</button>
+            </div>
+            <div class="popup-modal-grid" id="yearOptionsList"></div>
+        </div>
+    </div>
+
+    <!-- Center Modal: Language Picker -->
+    <div class="center-popup-overlay" id="langPopupOverlay">
+        <div class="center-popup-box">
+            <div class="popup-modal-header">
+                <div class="popup-modal-title">
+                    <i class="fas fa-globe"></i>
+                    Select Language
+                </div>
+                <button class="popup-modal-close" id="closeLangModalBtn">✕</button>
+            </div>
+            <div class="popup-modal-grid three-col" id="langOptionsList">
+                <div class="popup-select-option active" data-lang="Hindi">Hindi</div>
+                <div class="popup-select-option" data-lang="English">English</div>
+                <div class="popup-select-option" data-lang="Bilingual">Bilingual</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Notification Context Menu -->
     <div class="context-overlay" id="contextOverlay">
         <div class="context-menu" id="contextMenu">
@@ -990,7 +919,7 @@
         </div>
     </div>
 
-    <!-- Top Positioned Native Toast Pill Container -->
+    <!-- Native Toast Pill Container -->
     <div id="spidyPillToast" class="spidy-pill-toast"></div>
 
     <!-- Upload Tutorial Popup -->
