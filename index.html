@@ -197,15 +197,15 @@
         </div>
 
         <div class="app-container">
-            <!-- Persistent Header with Modern Luxury Menu Icon & Upload Button -->
+            <!-- Persistent Header with Modern Luxury Menu Icon (Direct SVG with High Contrast) -->
             <header id="main-header" class="modern-glow-header">
                 <div class="header-left">
                     <div class="icon-box modern-menu-box" id="open-menu" title="Menu">
-                        <div class="modern-menu-bars">
-                            <span class="menu-line bar-long"></span>
-                            <span class="menu-line bar-mid"></span>
-                            <span class="menu-line bar-short"></span>
-                        </div>
+                        <svg width="20" height="15" viewBox="0 0 20 15" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
+                            <rect x="0" y="0" width="20" height="2.2" rx="1.1" fill="#FFFFFF"/>
+                            <rect x="0" y="6.4" width="16" height="2.2" rx="1.1" fill="#FFFFFF"/>
+                            <rect x="0" y="12.8" width="11" height="2.2" rx="1.1" fill="#FFFFFF"/>
+                        </svg>
                     </div>
                     <span class="header-title" id="dynamic-header-title">SPIDY BOOK HUB</span>
                 </div>
@@ -251,7 +251,7 @@
                 </div>
             </div>
 
-            <!-- Main Content Area: Pure Single Page Home Flow -->
+            <!-- Main Content Area: Single Page Home Flow -->
             <main id="mainContentArea">
                 <div id="tab-home" class="app-tab active" style="padding-bottom: 35px;">
                     <!-- Dynamic Module & Promo Banner Carousel -->
@@ -391,7 +391,7 @@
                                 </div>
                             </div>
                             
-                            <!-- Cover Image Upload Box -->
+                            <!-- Cover Image Upload Box: 1 SINGLE PROPER BUTTON -->
                             <div class="adm-form-group" style="margin-top: 4px;" id="cardCoverContainer">
                                 <div class="upload-card-box upload-purple">
                                     <div class="uc-header">
@@ -406,14 +406,10 @@
                                         <div class="uc-actions">
                                             <p id="coverStatusText" title="Drag & Drop Cover Image">Drag &amp; Drop Cover Image</p>
                                             <div class="uc-divider"><span>or</span></div>
-                                            <div class="uc-buttons-stack">
-                                                <label class="uc-btn">
-                                                    <i class="fas fa-image"></i> Choose from Gallery
-                                                    <input type="file" accept="image/*" hidden id="fileCoverGallery">
-                                                </label>
-                                                <label class="uc-btn">
-                                                    <i class="fas fa-folder-open"></i> Browse Files
-                                                    <input type="file" accept="image/*" hidden id="fileCoverBrowse">
+                                            <div class="uc-single-btn-wrap">
+                                                <label class="uc-btn uc-btn-primary">
+                                                    <i class="fas fa-image"></i> Choose Cover Image
+                                                    <input type="file" accept="image/*" hidden id="fileCoverSelect">
                                                 </label>
                                             </div>
                                         </div>
@@ -422,7 +418,7 @@
                                 </div>
                             </div>
 
-                            <!-- Book PDF Upload Box -->
+                            <!-- Book PDF Upload Box: 1 SINGLE PROPER BUTTON -->
                             <div class="adm-form-group" style="margin-top: 2px;" id="cardPdfContainer">
                                 <div class="upload-card-box upload-red">
                                     <div class="uc-header">
@@ -440,14 +436,10 @@
                                         <div class="uc-actions">
                                             <p id="pdfStatusText" title="Drag & Drop PDF File">Drag &amp; Drop PDF File</p>
                                             <div class="uc-divider"><span>or</span></div>
-                                            <div class="uc-buttons-stack">
-                                                <label class="uc-btn">
-                                                    <i class="fas fa-file-pdf"></i> Choose from Gallery
-                                                    <input type="file" accept=".pdf" hidden id="filePdfGallery">
-                                                </label>
-                                                <label class="uc-btn">
-                                                    <i class="fas fa-folder-open"></i> Browse Files
-                                                    <input type="file" accept=".pdf" hidden id="filePdfBrowse">
+                                            <div class="uc-single-btn-wrap">
+                                                <label class="uc-btn uc-btn-primary">
+                                                    <i class="fas fa-file-pdf"></i> Select Book PDF
+                                                    <input type="file" accept=".pdf" hidden id="filePdfSelect">
                                                 </label>
                                             </div>
                                         </div>
@@ -554,7 +546,7 @@
                 </div>
             </div>
 
-            <!-- Download Modal with Chevron Back Button -->
+            <!-- Download Modal with Chevron Left Back Button -->
             <div class="download-modal" id="downloadModal" style="display: none;">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
@@ -653,7 +645,7 @@
                 </div>
             </div>
             
-            <!-- Bookmarks Panel with Chevron Back Button -->
+            <!-- Bookmarks Panel with Chevron Left Back Button -->
             <div class="overlay-panel" id="bookmarks-panel">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
