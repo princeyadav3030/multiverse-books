@@ -197,10 +197,16 @@
         </div>
 
         <div class="app-container">
-            <!-- Persistent Header with Upload Button & Translucent Blur Header -->
+            <!-- Persistent Header with Modern Luxury Menu Icon & Upload Button -->
             <header id="main-header" class="modern-glow-header">
                 <div class="header-left">
-                    <div class="icon-box" id="open-menu"><i class="fas fa-bars"></i></div>
+                    <div class="icon-box modern-menu-box" id="open-menu" title="Menu">
+                        <div class="modern-menu-bars">
+                            <span class="menu-line bar-long"></span>
+                            <span class="menu-line bar-mid"></span>
+                            <span class="menu-line bar-short"></span>
+                        </div>
+                    </div>
                     <span class="header-title" id="dynamic-header-title">SPIDY BOOK HUB</span>
                 </div>
                 <div class="header-icons" id="dynamic-header-icons">
@@ -295,9 +301,9 @@
                 </div>
             </main>
 
-            <!-- FULLSCREEN UPLOAD HUB OVERLAY (NEW UPDATE UI INTEGRATION) -->
+            <!-- FULLSCREEN UPLOAD HUB OVERLAY -->
             <div class="overlay-panel upload-modal-fullscreen" id="uploadModalOverlay" style="z-index: 10000; background: #0a0c10;">
-                <!-- Header with Centered Title & Round Back Circle -->
+                <!-- Header with Centered Title & Round Chevron Back Circle -->
                 <header class="upload-modal-header" id="uploadHubHeader">
                     <div class="back-icon-box" id="closeUploadHubBtn" title="Back">
                         <i class="fas fa-chevron-left"></i>
@@ -400,14 +406,16 @@
                                         <div class="uc-actions">
                                             <p id="coverStatusText" title="Drag & Drop Cover Image">Drag &amp; Drop Cover Image</p>
                                             <div class="uc-divider"><span>or</span></div>
-                                            <label class="uc-btn">
-                                                <i class="fas fa-image"></i> Choose from Gallery
-                                                <input type="file" accept="image/*" hidden id="fileCoverGallery">
-                                            </label>
-                                            <label class="uc-btn">
-                                                <i class="fas fa-folder-open"></i> Browse Files
-                                                <input type="file" accept="image/*" hidden id="fileCoverBrowse">
-                                            </label>
+                                            <div class="uc-buttons-stack">
+                                                <label class="uc-btn">
+                                                    <i class="fas fa-image"></i> Choose from Gallery
+                                                    <input type="file" accept="image/*" hidden id="fileCoverGallery">
+                                                </label>
+                                                <label class="uc-btn">
+                                                    <i class="fas fa-folder-open"></i> Browse Files
+                                                    <input type="file" accept="image/*" hidden id="fileCoverBrowse">
+                                                </label>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="uc-footer">JPG, PNG • Maximum 5MB</div>
@@ -432,14 +440,16 @@
                                         <div class="uc-actions">
                                             <p id="pdfStatusText" title="Drag & Drop PDF File">Drag &amp; Drop PDF File</p>
                                             <div class="uc-divider"><span>or</span></div>
-                                            <label class="uc-btn">
-                                                <i class="fas fa-file-pdf"></i> Choose from Gallery
-                                                <input type="file" accept=".pdf" hidden id="filePdfGallery">
-                                            </label>
-                                            <label class="uc-btn">
-                                                <i class="fas fa-folder-open"></i> Browse Files
-                                                <input type="file" accept=".pdf" hidden id="filePdfBrowse">
-                                            </label>
+                                            <div class="uc-buttons-stack">
+                                                <label class="uc-btn">
+                                                    <i class="fas fa-file-pdf"></i> Choose from Gallery
+                                                    <input type="file" accept=".pdf" hidden id="filePdfGallery">
+                                                </label>
+                                                <label class="uc-btn">
+                                                    <i class="fas fa-folder-open"></i> Browse Files
+                                                    <input type="file" accept=".pdf" hidden id="filePdfBrowse">
+                                                </label>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="uc-footer">PDF FILES • Maximum 250MB (Admins up to 1GB)</div>
@@ -544,11 +554,11 @@
                 </div>
             </div>
 
-            <!-- Download Modal with Isolated Scroll Context -->
+            <!-- Download Modal with Chevron Back Button -->
             <div class="download-modal" id="downloadModal" style="display: none;">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
-                        <button class="back-btn" id="closeDlBtn"><i class="fas fa-arrow-left"></i></button>
+                        <button class="back-btn back-chevron-btn" id="closeDlBtn" title="Back"><i class="fas fa-chevron-left"></i></button>
                         <h1 class="modal-title">SPIDY BOOK HUB</h1>
                     </div>
                     <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
@@ -643,11 +653,11 @@
                 </div>
             </div>
             
-            <!-- Bookmarks Panel -->
+            <!-- Bookmarks Panel with Chevron Back Button -->
             <div class="overlay-panel" id="bookmarks-panel">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
-                        <button class="back-btn" id="close-bookmarks-btn"><i class="fas fa-arrow-left"></i></button>
+                        <button class="back-btn back-chevron-btn" id="close-bookmarks-btn" title="Back"><i class="fas fa-chevron-left"></i></button>
                         <h1 class="modal-title">SAVED BOOKS</h1>
                     </div>
                     <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
@@ -673,7 +683,7 @@
                 </div>
             </div>
 
-            <!-- Notifications Channel Panel -->
+            <!-- Notifications Channel Panel with Chevron Right Close Button -->
             <div class="notifications-panel" id="noti-panel">
                 <div class="noti-header-premium">
                     <div class="noti-header-left">
@@ -699,8 +709,8 @@
                         </div>
                     </div>
 
-                    <div class="header-back-btn" id="close-noti-btn" title="Back">
-                        <i class="fas fa-arrow-right"></i>
+                    <div class="header-back-btn back-chevron-btn" id="close-noti-btn" title="Back">
+                        <i class="fas fa-chevron-right"></i>
                     </div>
                 </div>
 
