@@ -67,7 +67,7 @@ function generateCleanSlug(titleStr, fallbackId = "") {
 }
 
 // ==========================================
-// GLOBAL STATE & PAGINATION MANAGEMENT
+// 3. GLOBAL STATE & PAGINATION
 // ==========================================
 let booksData = [];
 let mainFilteredData = [];
@@ -93,19 +93,18 @@ let selectedPdfFile = null;
 let detectedTotalPages = 0;
 let detectedFileSizeMB = "0 MB";
 
-// DYNAMIC MODULE BANNERS
+// Dynamic Module Banners
 let dynamicBannersList = [];
 let activeBannerData = null;
 let activeSubjectKey = null;
 
-// CHANNEL NOTIFICATIONS STATE
+// Channel Notifications State
 let livePosts = [];
 let activePost = null;
 let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
-let isChannelDataReady = false;
 
-// HD PDF ENGINE & STABLE VIEWPORT STATE
+// PDF Engine State
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let renderedPagesMap = new Map();
@@ -117,7 +116,7 @@ let basePageWidth = 0;
 let basePageAspectRatio = 1.414;
 
 // ==========================================
-// HELPER FUNCTIONS & SANITIZATION
+// 4. SANITIZATION & HELPERS
 // ==========================================
 function sanitizeHTML(str) {
     if (typeof str !== 'string') return str;
@@ -127,23 +126,17 @@ function sanitizeHTML(str) {
     });
 }
 
+function escapeHTML(str) {
+    if (!str) return "";
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
 function getHighQualityAvatar(url) {
     if (!url) return DEFAULT_AVATAR;
     if (url.includes('googleusercontent.com')) {
         return url.replace(/=s\d+(-c)?/g, '=s400-c');
     }
     return url;
-}
-
-function formatNameSerifSmallCaps(nameStr) {
-    if (!nameStr) return "";
-    const words = nameStr.trim().split(/\s+/);
-    return words.map(word => {
-        if (word.length === 0) return "";
-        const firstLetter = word.charAt(0).toUpperCase();
-        const restLetters = word.slice(1).toLowerCase();
-        return `<span style="display:inline-flex;align-items:baseline;margin:0 5px 0 0;letter-spacing:0;"><span style="font-family:'Times New Roman',Times,serif;font-weight:900;font-size:1.18em;line-height:1;margin:0;padding:0;">${firstLetter}</span><span style="font-family:'Times New Roman',Times,serif;font-variant:small-caps;font-weight:700;font-size:0.95em;letter-spacing:0.8px;line-height:1;margin:0;padding:0;">${restLetters}</span></span>`;
-    }).join('');
 }
 
 function stripMarkdown(text) {
@@ -193,11 +186,6 @@ function parseMarkdown(rawText) {
     return safe;
 }
 
-function escapeHTML(str) {
-    if (!str) return "";
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-}
-
 function formatReactionCount(num) {
     if (!num || num <= 0) return '0';
     if (num >= 1000000) {
@@ -237,12 +225,7 @@ function formatTime(dateObj) {
 let pillToastTimer;
 function showToast(message, type = 'success') {
     let toast = document.getElementById('spidyPillToast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'spidyPillToast';
-        toast.className = 'spidy-pill-toast';
-        document.body.appendChild(toast);
-    }
+    if (!toast) return;
 
     clearTimeout(pillToastTimer);
     toast.className = `spidy-pill-toast ${type}`;
@@ -262,7 +245,6 @@ function showToast(message, type = 'success') {
 
 function generateDeviceFingerprint() {
     const nav = window.navigator;
-    const screen = window.screen;
     const str = nav.userAgent + nav.language + (auth.currentUser ? auth.currentUser.uid : "guest_session");
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -293,7 +275,7 @@ function initParticles(containerId) {
 }
 
 // ==========================================
-// 4. PROMO & MODULE CAROUSEL CONTROLLER
+// 5. PROMO & MODULE CAROUSEL
 // ==========================================
 let currentPromoIndex = 0;
 let promoAutoSlideInterval;
@@ -343,11 +325,7 @@ function initPromoCarousel() {
         currentPromoIndex = index;
         track.style.transform = `translateX(-${currentPromoIndex * 100}%)`;
         dots.forEach((dot, idx) => {
-            if (idx === currentPromoIndex) {
-                dot.classList.add('active');
-            } else {
-                dot.classList.remove('active');
-            }
+            dot.classList.toggle('active', idx === currentPromoIndex);
         });
     }
 
@@ -524,7 +502,6 @@ window.openSubjectModulesList = function(subjectKey) {
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
-// MODULE DIRECT VIEWER
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
         document.getElementById('loginOverlay').style.display = 'flex';
@@ -568,7 +545,6 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 
     try {
         const userToken = await auth.currentUser.getIdToken(false);
-
         const response = await fetch('/api/get-book', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -581,20 +557,13 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
         });
 
         const data = await response.json();
-
         if (response.ok && data.success) {
-            if (typeof data.remainingCredits !== 'undefined') {
-                updateLiveCredits(data.remainingCredits);
-            }
-            syncProfileAndRankUI();
             renderPdfInModal(data.pdfLink);
         } else {
-            const directUrl = getSecureAssetUrl(pdfKeyOrUrl);
-            renderPdfInModal(directUrl);
+            renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl));
         }
     } catch (err) {
-        const directUrl = getSecureAssetUrl(pdfKeyOrUrl);
-        renderPdfInModal(directUrl);
+        renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl));
     }
 };
 
@@ -616,7 +585,7 @@ document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 5. UNIFIED COMMUNITY POPUP LOGIC
+// 6. COMMUNITY POPUP & TUTORIAL POPUP
 // ==========================================
 let hasClickedWA = false;
 let hasClickedTG = false;
@@ -630,9 +599,7 @@ function initCommunityDualPopup() {
     const lastLockedTime = localStorage.getItem('spidy_community_popup_locked_until');
     const now = Date.now();
 
-    if (lastLockedTime && now < parseInt(lastLockedTime, 10)) {
-        return;
-    }
+    if (lastLockedTime && now < parseInt(lastLockedTime, 10)) return;
 
     clearTimeout(communityPopupTimer);
     communityPopupTimer = setTimeout(() => {
@@ -648,9 +615,7 @@ function initCommunityDualPopup() {
     function checkAndComplete() {
         if (hasClickedWA && hasClickedTG) {
             localStorage.setItem('spidy_community_popup_locked_until', (Date.now() + FIVE_DAYS_MS).toString());
-            setTimeout(() => {
-                popup.classList.remove('active');
-            }, 800);
+            setTimeout(() => { popup.classList.remove('active'); }, 800);
         }
     }
 
@@ -702,8 +667,14 @@ function checkAndShowUploadTutorialPopup() {
     }
 }
 
+document.getElementById('closeUploadPopupBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('uploadPopup')?.classList.add('hidden');
+});
+
 // ==========================================
-// 6. INITIAL LOADER & DEEP LINKING
+// 7. INITIAL LOADER & DEEP LINKING
 // ==========================================
 const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
@@ -803,101 +774,12 @@ function tryTransition() {
     }
 }
 
-// ==========================================
-// 7. CREDITS & RANKING SYSTEM
-// ==========================================
-function updateLiveCredits(remainingCount) {
-    if (IS_SUPER_ADMIN) {
-        document.getElementById('profile-credits').innerHTML = `<span style="font-size: 24px;">&infin;</span>`; 
-        return;
-    }
-    const safeCount = Math.max(0, remainingCount !== undefined ? remainingCount : 0);
-    document.getElementById('profile-credits').innerText = safeCount;
-}
-
 function syncAndSanitizeBookmarks() {
     if (!booksData || booksData.length === 0) return;
     const existingSlugs = new Set(booksData.map(b => b.slug));
     const existingIds = new Set(booksData.map(b => b.id));
     savedBooks = savedBooks.filter(item => existingSlugs.has(item) || existingIds.has(item));
     localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
-    const savedCountEl = document.getElementById('profile-saved');
-    if (savedCountEl) savedCountEl.innerText = savedBooks.length;
-}
-
-async function syncProfileAndRankUI() {
-    if (!auth.currentUser) return;
-    
-    const formattedNameHTML = formatNameSerifSmallCaps(CURRENT_ADMIN_NAME);
-    const profileNameEl = document.getElementById('profile-name-ui');
-    if (profileNameEl) profileNameEl.innerHTML = formattedNameHTML;
-    
-    const emailEl = document.getElementById('profile-email-ui');
-    if (emailEl) {
-        emailEl.innerText = auth.currentUser.email || "No Email linked";
-        emailEl.style.fontWeight = "600";
-    }
-    
-    const avatarEl = document.getElementById('profile-avatar-ui');
-    if (avatarEl) {
-        avatarEl.src = CURRENT_ADMIN_PHOTO;
-        avatarEl.onerror = () => { avatarEl.src = DEFAULT_AVATAR; };
-    }
-    
-    syncAndSanitizeBookmarks();
-
-    try {
-        const userRef = doc(db, "users", auth.currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists()) {
-            const data = userSnap.data();
-            const now = Date.now();
-            const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-
-            const validDownloads = (data.recentDownloads || []).filter(item => {
-                const time = typeof item === 'number' ? item : item.time;
-                return (now - time) < TWENTY_FOUR_HOURS;
-            });
-            
-            if (validDownloads.length !== (data.recentDownloads || []).length) {
-                await updateDoc(userRef, { recentDownloads: validDownloads });
-            }
-
-            const uniqueSlugs = new Set(validDownloads.map(i => i.slug).filter(Boolean));
-            const remaining = Math.max(0, 20 - uniqueSlugs.size);
-            updateLiveCredits(remaining);
-
-            document.getElementById('profile-downloads').innerText = validDownloads.length;
-        }
-
-        const userToken = await auth.currentUser.getIdToken(false);
-        const rankRes = await fetch('/api/get-rank', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken })
-        }).catch(() => null);
-        
-        if (rankRes && rankRes.ok) {
-            const rankData = await rankRes.json();
-            const rankElement = document.getElementById('profile-rank');
-            if (rankElement && rankData.success) {
-                const rank = rankData.rank;
-                if (rank === 1) {
-                    rankElement.style.color = "#fbbf24";
-                    rankElement.innerHTML = `<i class="fas fa-crown"></i> #1`;
-                } else if (rank <= 3) {
-                    rankElement.style.color = rank === 2 ? "#9ca3af" : "#b45309";
-                    rankElement.innerText = "#" + rank;
-                } else {
-                    rankElement.style.color = "#ffffff";
-                    rankElement.innerText = "#" + rank;
-                }
-            }
-        }
-    } catch (error) {
-        console.error("Profile rank sync error:", error);
-    }
 }
 
 // ==========================================
@@ -1033,7 +915,6 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
                 <i class="fas fa-bullhorn" style="font-size:26px; color:var(--text-secondary); opacity:0.6;"></i>
                 No channel updates posted yet.
             </div>`;
-        isChannelDataReady = true;
         return;
     }
 
@@ -1059,7 +940,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         bubble.dataset.postId = post.id;
 
         let imageHTML = post.imageUrl 
-            ? `<img src="${getSecureAssetUrl(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image" onload="window.recomputeChannelScroll();">` 
+            ? `<img src="${getSecureAssetUrl(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image">` 
             : '';
 
         let quoteHTML = '';
@@ -1124,7 +1005,6 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
             requestAnimationFrame(() => {
                 chatBody.scrollTop = chatBody.scrollHeight;
                 chatBody.style.visibility = 'visible';
-                isChannelDataReady = true;
             });
         });
     } else {
@@ -1134,14 +1014,6 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         chatBody.scrollTop = prevScrollTop;
     }
 }
-
-window.recomputeChannelScroll = function() {
-    if (!chatBody) return;
-    const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
-    if (distanceFromBottom < 180) {
-        chatBody.scrollTop = chatBody.scrollHeight;
-    }
-};
 
 async function applyReaction(postId, newEmoji) {
     if (!auth.currentUser) return;
@@ -1220,80 +1092,41 @@ if (contextOverlay) {
     });
 }
 
-window.copyToClipboard = function(text, btn) {
-    let copyTargetText = text;
-
-    if (!copyTargetText && btn) {
-        const card = btn.closest('.tg-copy-card, .telegram-prompt-card');
-        if (card) {
-            const listItems = card.querySelectorAll('li');
-            if (listItems.length > 0) {
-                copyTargetText = Array.from(listItems).map(li => li.textContent.trim()).join('\n');
-            } else {
-                const bodyEl = card.querySelector('.telegram-prompt-body, .tg-copy-body');
-                if (bodyEl) copyTargetText = bodyEl.textContent.trim();
-            }
-        }
-    }
-
-    if (!copyTargetText) return;
-
-    const finalizeSuccess = () => {
-        if (btn) {
-            btn.classList.add('copied-active');
-            const orig = btn.innerHTML;
-            btn.innerHTML = `<i class="fas fa-check"></i> COPIED!`;
-            setTimeout(() => {
-                btn.classList.remove('copied-active');
-                btn.innerHTML = orig;
-            }, 2000);
-        }
-    };
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(copyTargetText).then(finalizeSuccess).catch(() => {
-            const textarea = document.createElement('textarea');
-            textarea.value = copyTargetText;
-            document.body.appendChild(textarea);
-            textarea.select();
-            try {
-                document.execCommand('copy');
-                finalizeSuccess();
-            } catch (err) {}
-            document.body.removeChild(textarea);
-        });
-    } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = copyTargetText;
-        document.body.appendChild(textarea);
-        textarea.select();
-        try {
-            document.execCommand('copy');
-            finalizeSuccess();
-        } catch (err) {}
-        document.body.removeChild(textarea);
-    }
-};
-
-window.copyFromButton = function(btn) {
-    if (!btn) return;
-    const rawData = btn.getAttribute('data-clipboard');
-    let text = rawData ? decodeURIComponent(rawData) : '';
-    window.copyToClipboard(text, btn);
-};
-
+// Global Copy Handler
 document.addEventListener('click', (e) => {
     const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
     if (copyBtn) {
         e.preventDefault();
         e.stopPropagation();
-        e.stopImmediatePropagation();
-        window.copyFromButton(copyBtn);
+        
+        let copyTargetText = "";
+        const rawData = copyBtn.getAttribute('data-clipboard');
+        if (rawData) copyTargetText = decodeURIComponent(rawData);
+
+        if (!copyTargetText) {
+            const card = copyBtn.closest('.tg-copy-card, .telegram-prompt-card');
+            if (card) {
+                const bodyEl = card.querySelector('.telegram-prompt-body, .tg-copy-body');
+                if (bodyEl) copyTargetText = bodyEl.textContent.trim();
+            }
+        }
+
+        if (copyTargetText) {
+            navigator.clipboard.writeText(copyTargetText).then(() => {
+                copyBtn.classList.add('copied-active');
+                const orig = copyBtn.innerHTML;
+                copyBtn.innerHTML = `<i class="fas fa-check"></i> COPIED!`;
+                setTimeout(() => {
+                    copyBtn.classList.remove('copied-active');
+                    copyBtn.innerHTML = orig;
+                }, 2000);
+            });
+        }
     }
 }, true);
 
 // ==========================================
-// 9. AUTHENTICATION & SECURE PAGINATED FETCHING
+// 9. AUTHENTICATION OBSERVER
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -1314,9 +1147,6 @@ onAuthStateChanged(auth, async (user) => {
         CURRENT_ADMIN_EMAIL = user.email;
 
         try {
-            const userRef = doc(db, "users", user.uid);
-            const userSnap = await getDoc(userRef);
-            
             const cleanEmail = user.email ? user.email.toLowerCase().trim() : "";
             const adminDocRef = doc(db, "admins", cleanEmail);
             const adminDocSnap = await getDoc(adminDocRef);
@@ -1327,24 +1157,7 @@ onAuthStateChanged(auth, async (user) => {
             } else {
                 IS_SUPER_ADMIN = false;
                 document.getElementById('sidebarRoleText').innerText = "Verified User";
-                switchAdminTabLocal('add');
             }
-
-            if (!userSnap.exists()) {
-                await setDoc(userRef, { 
-                    email: user.email, 
-                    name: dName, 
-                    photo: CURRENT_ADMIN_PHOTO, 
-                    recentDownloads: [], 
-                    lifetimeDownloads: 0, 
-                    timeSpentSeconds: 0,
-                    createdAt: new Date().getTime() 
-                }, { merge: true });
-                updateLiveCredits(20); 
-            }
-
-            syncProfileAndRankUI();
-
         } catch (error) { 
             IS_SUPER_ADMIN = false; 
         }
@@ -1358,22 +1171,6 @@ onAuthStateChanged(auth, async (user) => {
         CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
         const sidebarAvatar = document.getElementById('sidebarProfileImg');
         if (sidebarAvatar) sidebarAvatar.src = DEFAULT_AVATAR;
-
-        const profileNameEl = document.getElementById('profile-name-ui');
-        if (profileNameEl) profileNameEl.innerHTML = formatNameSerifSmallCaps("Guest User");
-
-        const emailEl = document.getElementById('profile-email-ui');
-        if (emailEl) {
-            emailEl.innerText = "Please login to sync progress";
-            emailEl.style.fontWeight = "600";
-        }
-        const avatarEl = document.getElementById('profile-avatar-ui');
-        if (avatarEl) avatarEl.src = DEFAULT_AVATAR;
-
-        document.getElementById('profile-credits').innerText = "--";
-        document.getElementById('profile-downloads').innerText = "0";
-        document.getElementById('profile-saved').innerText = "0";
-        document.getElementById('profile-rank').innerText = "#--";
     }
 
     isAppReady.auth = true; 
@@ -1394,23 +1191,23 @@ onAuthStateChanged(auth, async (user) => {
         if(!container) return;
         container.innerHTML = '';
         if(snapshot.empty) { 
-            container.innerHTML = `<div style="text-align:center; padding:20px; color:#a1a1aa; font-weight:800;">No prompts available yet.</div>`; 
+            container.innerHTML = `<div style="text-align:center; padding:20px; color:#8b949e; font-weight:700;">No prompts available yet.</div>`; 
             return; 
         }
         snapshot.forEach(docSnap => {
             const data = docSnap.data(); 
             const safeText = sanitizeHTML(data.text);
             const safeInstruction = data.instruction ? sanitizeHTML(data.instruction).replace(/\n/g, "<br>") : "";
-            const safeTitle = sanitizeHTML(data.title);
+            const safeTitle = sanitizeHTML(data.title || "Book Name & Author");
             let instructionHTML = '';
             if(safeInstruction) { 
-                instructionHTML = `<div style="color: #ffffff; font-weight: 600; font-size: 13.5px; margin-bottom: 8px; margin-left: 2px; line-height: 1.5; font-family: 'Inter', sans-serif;">${safeInstruction}</div>`; 
+                instructionHTML = `<div class="prompt-instruction-text">${safeInstruction}</div>`; 
             }
             container.innerHTML += `
             <div class="telegram-prompt-wrapper">
                 ${instructionHTML}
                 <div class="telegram-prompt-card">
-                    <div class="telegram-prompt-header">${safeTitle}</div>
+                    <div class="telegram-prompt-header"><span>${safeTitle}</span></div>
                     <div class="telegram-prompt-body">${safeText}</div>
                     <div class="telegram-prompt-footer">
                         <button type="button" class="telegram-copy-btn" data-clipboard="${encodeURIComponent(data.text)}">
@@ -1498,7 +1295,6 @@ async function loadInitialBooksBatch() {
         isAppReady.data = true;
         tryTransition();
     } catch (e) {
-        console.error("Books Initial Fetch Error:", e);
         isAppReady.data = true;
         tryTransition();
     }
@@ -1534,11 +1330,9 @@ async function loadNextBooksBatch() {
 
         lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
         hasMoreBooksToFetch = snapshot.docs.length === BATCH_SIZE;
-
         applyMasterFilter(true);
 
     } catch (err) {
-        console.error("Next batch fetch error:", err);
     } finally {
         isFetchingBooksBatch = false;
         if (!hasMoreBooksToFetch && infiniteLoader) {
@@ -1569,11 +1363,9 @@ document.getElementById('toggleEye')?.addEventListener('click', () => {
     if (passInput.type === 'password') { 
         passInput.type = 'text'; 
         eyeIcon.classList.replace('fa-eye', 'fa-eye-slash'); 
-        eyeIcon.style.color = '#00d2ff'; 
     } else { 
         passInput.type = 'password'; 
         eyeIcon.classList.replace('fa-eye-slash', 'fa-eye'); 
-        eyeIcon.style.color = '#a1a1aa'; 
     }
 });
 
@@ -1615,17 +1407,10 @@ document.getElementById('googleSignInBtn')?.addEventListener('click', async () =
     } 
 });
 
-const logoutBtn = document.getElementById('admin-logout-btn');
 const logoutOverlay = document.getElementById('customLogoutOverlay');
 const cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
 const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
 
-if (logoutBtn) logoutBtn.addEventListener('click', () => { 
-    if (logoutOverlay) { 
-        logoutOverlay.style.display = 'flex'; 
-        setTimeout(() => logoutOverlay.classList.add('show'), 10); 
-    } 
-});
 if (cancelLogoutBtn) cancelLogoutBtn.addEventListener('click', () => { 
     if (logoutOverlay) { 
         logoutOverlay.classList.remove('show'); 
@@ -1640,17 +1425,6 @@ if (confirmLogoutBtn) {
             localStorage.removeItem('isUserLoggedIn');
             window.location.reload();
         } catch (error) {}
-    });
-}
-
-const uploadPopup = document.getElementById('uploadPopup');
-const closeUploadPopupBtn = document.getElementById('closeUploadPopupBtn');
-
-if (closeUploadPopupBtn && uploadPopup) {
-    closeUploadPopupBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        uploadPopup.classList.add('hidden');
     });
 }
 
@@ -1869,7 +1643,7 @@ document.getElementById('savedBooksContainer')?.addEventListener('click', (e) =>
 });
 
 // ==========================================
-// 13. NAVIGATION & MODALS
+// 13. PANELS, MODALS & UPLOAD TRIGGER
 // ==========================================
 document.getElementById('open-search')?.addEventListener('click', () => { 
     history.pushState({ popup: 'search' }, ''); 
@@ -1910,6 +1684,31 @@ if (closeNotiBtn) {
     });
 }
 
+// HEADER UPLOAD BUTTON HANDLER
+document.getElementById('open-upload-btn')?.addEventListener('click', () => {
+    if (!isUserLoggedIn) {
+        const loginOverlay = document.getElementById('loginOverlay');
+        loginOverlay.style.display = 'flex';
+        setTimeout(() => loginOverlay.style.opacity = '1', 10);
+        return;
+    }
+
+    const uploadModal = document.getElementById('uploadModalOverlay');
+    if (uploadModal) {
+        history.pushState({ popup: 'uploadModal' }, '');
+        uploadModal.classList.add('active');
+        checkAndShowUploadTutorialPopup();
+    }
+});
+
+document.getElementById('closeUploadHubBtn')?.addEventListener('click', () => {
+    if (history.state && history.state.popup === 'uploadModal') {
+        history.back();
+    } else {
+        document.getElementById('uploadModalOverlay')?.classList.remove('active');
+    }
+});
+
 const sidebar = document.getElementById('sidebar'); 
 const sidebarOverlay = document.getElementById('sidebar-overlay');
 document.getElementById('open-menu')?.addEventListener('click', () => { 
@@ -1919,14 +1718,12 @@ document.getElementById('open-menu')?.addEventListener('click', () => {
 });
 sidebarOverlay?.addEventListener('click', () => { history.back(); });
 
-document.getElementById('menu-dmca')?.addEventListener('click', (e) => { 
-    e.preventDefault(); 
-    history.pushState({ popup: 'dmca' }, ''); 
-    document.getElementById('dmca-panel').classList.add('active'); 
-    sidebar.classList.remove('active'); 
-    sidebarOverlay.classList.remove('active'); 
+document.getElementById('menu-home-side')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    sidebar.classList.remove('active');
+    sidebarOverlay.classList.remove('active');
+    document.getElementById('mainContentArea')?.scrollTo({ top: 0, behavior: 'smooth' });
 });
-document.getElementById('close-dmca-btn')?.addEventListener('click', () => { history.back(); });
 
 document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => { 
     e.preventDefault(); 
@@ -1938,100 +1735,10 @@ document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => {
 });
 document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => { history.back(); });
 
-function switchTab(tabId) { 
-    document.querySelectorAll('.app-tab').forEach(tab => { 
-        tab.style.display = 'none'; 
-        tab.classList.remove('active'); 
-    }); 
-    const target = document.getElementById(tabId); 
-    if(target) { 
-        target.style.display = 'flex'; 
-        setTimeout(() => target.classList.add('active'), 10); 
-    } 
-
-    if (tabId === 'tab-upload') {
-        const uploadContent = document.getElementById('admContentArea');
-        if (uploadContent) uploadContent.scrollTop = 0;
-        const uploadTab = document.getElementById('tab-upload');
-        if (uploadTab) uploadTab.scrollTop = 0;
-    }
-}
-
-function setNavActive(id) { 
-    document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active')); 
-    document.getElementById(id)?.classList.add('active'); 
-}
-
-function closeAllPanels() { 
-    document.getElementById('noti-panel')?.classList.remove('active'); 
-    document.getElementById('sidebar')?.classList.remove('active'); 
-    document.getElementById('sidebar-overlay')?.classList.remove('active'); 
-    document.getElementById('dmca-panel')?.classList.remove('active'); 
-    document.getElementById('bookmarks-panel')?.classList.remove('active'); 
-    document.getElementById('search-box')?.classList.remove('active'); 
-}
-
-window.updateHeaderForTab = function(tab) {
-    const headerEl = document.getElementById('main-header');
-    const titleEl = document.getElementById('dynamic-header-title');
-    const iconsEl = document.getElementById('dynamic-header-icons');
-    if (!headerEl) return;
-    
-    if(tab === 'home') {
-        headerEl.style.display = 'flex';
-        titleEl.innerText = 'SPIDY BOOK HUB';
-        if (iconsEl) iconsEl.style.display = 'flex';
-    } else if(tab === 'upload') {
-        headerEl.style.display = 'flex';
-        titleEl.innerText = 'UPLOAD BOOKS';
-        if (iconsEl) iconsEl.style.display = 'none';
-    } else if(tab === 'about') {
-        headerEl.style.display = 'none';
-    }
-};
-
-document.getElementById('nav-home')?.addEventListener('click', () => { 
-    setNavActive('nav-home'); 
-    closeAllPanels(); 
-    switchTab('tab-home'); 
-    window.updateHeaderForTab('home');
-    window.history.replaceState({}, '', window.location.pathname); 
-});
-
-document.getElementById('nav-upload')?.addEventListener('click', () => {
-    if(!isUserLoggedIn) { 
-        document.getElementById('loginOverlay').style.display = 'flex'; 
-        setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10); 
-        setNavActive('nav-home'); 
-        return; 
-    }
-    setNavActive('nav-upload'); 
-    closeAllPanels(); 
-    switchTab('tab-upload'); 
-    window.updateHeaderForTab('upload');
-    setTimeout(() => { checkAndShowUploadTutorialPopup(); }, 300);
-});
-
-document.getElementById('nav-dev')?.addEventListener('click', () => { 
-    if(!isUserLoggedIn) {
-        document.getElementById('loginOverlay').style.display = 'flex';
-        setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10);
-        return;
-    }
-    setNavActive('nav-dev'); 
-    closeAllPanels(); 
-    switchTab('tab-about'); 
-    window.updateHeaderForTab('about');
-    initParticles('particlesTabMe');
-    syncProfileAndRankUI();
-});
-
-// DIRECT INSTANT PDF VIEWER CLOSE
+// PDF Viewer Close
 window.closePdfViewerDirectly = function() {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
-    if (pdfViewer) {
-        pdfViewer.style.display = 'none';
-    }
+    if (pdfViewer) pdfViewer.style.display = 'none';
     document.getElementById('pdfScrollContainer').innerHTML = ''; 
     const oldLoader = document.getElementById('pdfCenteredLoader');
     if (oldLoader) oldLoader.remove();
@@ -2048,6 +1755,7 @@ document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
     window.closePdfViewerDirectly();
 });
 
+// POPSTATE LISTENER
 window.addEventListener('popstate', (e) => {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer && pdfViewer.style.display === 'flex') {
@@ -2056,6 +1764,12 @@ window.addEventListener('popstate', (e) => {
         const oldLoader = document.getElementById('pdfCenteredLoader');
         if (oldLoader) oldLoader.remove();
         cleanupPdfResources();
+        return;
+    }
+
+    const uploadModal = document.getElementById('uploadModalOverlay');
+    if (uploadModal && uploadModal.classList.contains('active')) {
+        uploadModal.classList.remove('active');
         return;
     }
 
@@ -2086,7 +1800,12 @@ window.addEventListener('popstate', (e) => {
         return;
     }
 
-    closeAllPanels(); 
+    document.getElementById('noti-panel')?.classList.remove('active'); 
+    document.getElementById('sidebar')?.classList.remove('active'); 
+    document.getElementById('sidebar-overlay')?.classList.remove('active'); 
+    document.getElementById('bookmarks-panel')?.classList.remove('active'); 
+    document.getElementById('search-box')?.classList.remove('active'); 
+
     applyMasterFilter();
     const sBook = new URLSearchParams(window.location.search).get('book');
     if(sBook) { 
@@ -2140,7 +1859,7 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
 }
 
 // ==========================================
-// 14. ULTRA HD PDF VIEWER (STABLE SCROLL & TARGET ZOOM)
+// 14. ULTRA HD PDF VIEWER (VIRTUALIZED)
 // ==========================================
 async function renderPdfInModal(pdfUrl) {
     const container = document.getElementById('pdfContainer');
@@ -2179,7 +1898,6 @@ async function renderPdfInModal(pdfUrl) {
         if (loaderToDel) loaderToDel.remove();
 
         scrollContainer.innerHTML = '';
-
         document.getElementById('pdfCurrentPageNum').innerText = `1`;
         document.getElementById('goToPageRange').innerText = `1 - ${pdfTotalPagesCount}`;
 
@@ -2226,7 +1944,6 @@ async function renderPdfInModal(pdfUrl) {
         }
 
     } catch (err) {
-        console.error("PDF Rendering Failed:", err);
         const loaderToDel = document.getElementById('pdfCenteredLoader');
         if (loaderToDel) loaderToDel.remove();
 
@@ -2262,7 +1979,6 @@ function initVirtualizationObserver(pdf) {
     });
 }
 
-// ULTRA-HD PIN-SHARP PAGE RENDERING
 async function renderSingleHdPage(pdf, pageNum) {
     if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return; 
     renderedPagesMap.set(pageNum, true);
@@ -2276,7 +1992,6 @@ async function renderSingleHdPage(pdf, pageNum) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
-        // Full Crystal-Clear HD Resolution: Minimum 2.5x Multiplier for sharp text
         const devicePR = Math.max(window.devicePixelRatio || 1, 2.5);
         const viewport = page.getViewport({ scale: currentScale });
 
@@ -2351,7 +2066,6 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// TARGET-LOCKED DOUBLE TAP ZOOM: Allows Full Horizontal Panning
 function applyTargetLockedZoom(scaleFactor, targetPageNum) {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
@@ -2410,13 +2124,11 @@ function initTargetLockedDoubleTapZoom() {
     if (!container) return;
 
     let lastTapTime = 0;
-
     container.addEventListener('touchend', (e) => {
         if (e.changedTouches.length === 1) {
             const now = Date.now();
             if ((now - lastTapTime) < 280) {
                 e.preventDefault();
-                
                 const touch = e.changedTouches[0];
                 const touchedEl = document.elementFromPoint(touch.clientX, touch.clientY);
                 const pageWrapper = touchedEl ? touchedEl.closest('.pdf-page-wrapper') : null;
@@ -2477,19 +2189,11 @@ pdfPageBadge?.addEventListener('click', () => {
     goToPageModal.style.display = 'flex';
     goToPageInput.focus();
 });
-
-cancelGoToPageBtn?.addEventListener('click', () => {
-    goToPageModal.style.display = 'none';
-});
-
+cancelGoToPageBtn?.addEventListener('click', () => { goToPageModal.style.display = 'none'; });
 goToPageModal?.addEventListener('click', (e) => {
     if (e.target === goToPageModal) goToPageModal.style.display = 'none';
 });
-
-confirmGoToPageBtn?.addEventListener('click', () => {
-    executeGoToPage();
-});
-
+confirmGoToPageBtn?.addEventListener('click', executeGoToPage);
 goToPageInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') executeGoToPage();
 });
@@ -2509,7 +2213,6 @@ async function jumpToPdfPage(pageNum) {
     if (targetWrapper) {
         targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
         document.getElementById('pdfCurrentPageNum').innerText = pageNum.toString();
-        
         if (pdfTotalPagesCount > 1 && pdfPageBadge) {
             const pageRatio = (pageNum - 1) / (pdfTotalPagesCount - 1);
             pdfPageBadge.style.top = `${14 + (pageRatio * 68)}%`;
@@ -2518,43 +2221,8 @@ async function jumpToPdfPage(pageNum) {
 }
 
 // ==========================================
-// 15. READ ONLINE & BOOK DETAIL CONTROLLER
+// 15. BOOK DETAIL & READ ONLINE
 // ==========================================
-const detectTokenFromUrl = new URLSearchParams(window.location.search).get('t');
-if (detectTokenFromUrl) {
-    const tokenClean = detectTokenFromUrl.trim();
-    window.history.replaceState({}, document.title, window.location.pathname);
-    
-    (async () => {
-        const fp = generateDeviceFingerprint();
-        try {
-            const res = await fetch('/api/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: tokenClean, fingerprint: fp })
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                localStorage.setItem('spidy_secure_session', JSON.stringify({
-                    token: tokenClean,
-                    fp: fp,
-                    expiry: Date.now() + (10 * 24 * 60 * 60 * 1000)
-                }));
-                showToast("Key Verified & Device Bound! ✨", "success");
-            } else {
-                document.getElementById('tokenInput').value = tokenClean;
-                document.getElementById('tokenModalOverlay').style.display = 'flex';
-                initParticles('particles');
-                showToast(data.error || "Please verify token", "error");
-            }
-        } catch (e) {
-            document.getElementById('tokenInput').value = tokenClean;
-            document.getElementById('tokenModalOverlay').style.display = 'flex';
-            initParticles('particles');
-        }
-    })();
-}
-
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
         document.getElementById('loginOverlay').style.display = 'flex'; 
@@ -2566,10 +2234,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     
     const downloadModal = document.getElementById("downloadModal");
     downloadModal.style.display = "flex";
-    
     downloadModal.scrollTop = 0;
-    const dlWrapper = downloadModal.querySelector('.dl-content-wrapper');
-    if (dlWrapper) dlWrapper.scrollTop = 0;
     
     const previewImg = document.getElementById("dlPreviewImage");
     previewImg.classList.add("image-loading-skeleton"); 
@@ -2594,9 +2259,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     
     const dlPdfBtn = document.getElementById("dlPdfLinkBtn");
     dlPdfBtn.style.pointerEvents = "auto"; 
-    dlPdfBtn.onclick = function(e) { 
-        e.preventDefault(); 
-    };
+    dlPdfBtn.onclick = function(e) { e.preventDefault(); };
 
     document.getElementById("dlReadOnlineBtn").onclick = async function() {
         if(!isUserLoggedIn || !auth.currentUser) { 
@@ -2610,7 +2273,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
         const savedData = localStorage.getItem('spidy_secure_session');
         let hasValidToken = false;
-
         if (savedData) {
             try {
                 const parsed = JSON.parse(savedData);
@@ -2632,7 +2294,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
         try {
             const userToken = await auth.currentUser.getIdToken(false);
-
             const response = await fetch('/api/get-book', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2644,23 +2305,14 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
             });
 
             const data = await response.json();
-
             if (response.ok && data.success) {
-                if (typeof data.remainingCredits !== 'undefined') {
-                    updateLiveCredits(data.remainingCredits);
-                }
-
-                syncProfileAndRankUI();
-
                 const pdfViewer = document.getElementById('pdfViewerOverlay');
                 const title = document.getElementById('pdfViewerTitle');
                 
                 title.innerText = sanitizeHTML(book.title);
                 history.pushState({ popup: 'pdfViewer' }, '');
                 pdfViewer.style.display = 'flex';
-                
                 renderPdfInModal(data.pdfLink);
-
             } else {
                 if (response.status === 401 || (data.error && data.error.includes('Unauthorized'))) {
                     localStorage.removeItem('spidy_secure_session');
@@ -2682,8 +2334,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         }
     };
 
-    document.getElementById("pdfContainer")?.addEventListener('contextmenu', event => event.preventDefault());
-
     let examsArray = (book.exams || "General").split(',').map(item => sanitizeHTML(item.trim()));
     document.getElementById("dlModalTags").innerHTML = examsArray.map(exam => `<div class="dl-modal-tag">${exam}</div>`).join('');
     
@@ -2704,20 +2354,6 @@ function closeDownloadPageLocal() {
         document.getElementById("downloadModal").style.display = "none"; 
         window.history.replaceState({}, '', window.location.pathname); 
     }
-    if(isDeepLinkLoad) {
-        isDeepLinkLoad = false; 
-        const loader = document.getElementById("loaderScreen"); 
-        loader.style.display = "flex"; 
-        loader.style.opacity = "1"; 
-        updateLoaderUI(100);
-        setTimeout(() => { 
-            loader.style.opacity = "0"; 
-            setTimeout(() => { 
-                loader.style.display = "none"; 
-                initCommunityDualPopup(); 
-            }, 300); 
-        }, 1500); 
-    }
 }
 
 document.getElementById('shareBookBtn')?.addEventListener('click', () => {
@@ -2731,16 +2367,14 @@ document.getElementById('shareBookBtn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 16. REPORT ISSUE
+// 16. REPORT BROKEN LINK
 // ==========================================
 document.getElementById('reportLinkBtn')?.addEventListener('click', () => {
     document.getElementById('reportModalOverlay').classList.add('active');
 });
-
 document.getElementById('closeReportBtn')?.addEventListener('click', () => {
     document.getElementById('reportModalOverlay').classList.remove('active');
 });
-
 document.getElementById('reportModalOverlay')?.addEventListener('click', (e) => {
     if (e.target === document.getElementById('reportModalOverlay')) {
         document.getElementById('reportModalOverlay').classList.remove('active');
@@ -2762,7 +2396,6 @@ submitReportBtn?.addEventListener('click', async () => {
     const selectedOption = document.querySelector('.rm-option.selected');
     if (selectedOption) {
         const issueType = selectedOption.querySelector('span').innerText;
-        
         try {
             await addDoc(collection(db, "reports"), {
                 bookTitle: activeBookTitle || "Unknown",
@@ -2790,7 +2423,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. TOKEN VERIFICATION & HANDSHAKE FLOW
+// 17. TOKEN VERIFICATION HANDSHAKE
 // ==========================================
 document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
     if (history.state && history.state.popup === 'tokenModal') {
@@ -2812,22 +2445,16 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
 
     try {
         const fp = generateDeviceFingerprint();
-        
         const sessionRes = await fetch('/api/create-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fingerprint: fp })
         });
-
         const sessionData = await sessionRes.json();
 
         if (sessionRes.ok && sessionData.success) {
             const { session, sig, ts } = sessionData;
-            const targetRedirect = `https://arolinks.com/6RTf5?session=${encodeURIComponent(session)}&sig=${encodeURIComponent(sig)}&ts=${encodeURIComponent(ts)}`;
-            
-            setTimeout(() => {
-                window.location.href = targetRedirect;
-            }, 200);
+            window.location.href = `https://arolinks.com/6RTf5?session=${encodeURIComponent(session)}&sig=${encodeURIComponent(sig)}&ts=${encodeURIComponent(ts)}`;
         } else {
             window.location.href = "https://arolinks.com/6RTf5";
         }
@@ -2848,10 +2475,8 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('verifyBtn');
 
     inputBox.classList.remove('error-state', 'success-state');
-
     if (tokenValue.length < 4) {
         inputBox.classList.add('error-state');
-        setTimeout(() => inputBox.classList.remove('error-state'), 2500); 
         showToast('Invalid Token Format!', 'error');
         return;
     }
@@ -2865,7 +2490,6 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token: tokenValue, fingerprint: currentFingerprint })
         });
-
         const data = await response.json();
 
         if (response.ok && data.success) {
@@ -2885,47 +2509,180 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
                     document.getElementById("dlReadOnlineBtn").click();
                 }
             }, 1000);
-
         } else {
             inputBox.classList.add('error-state');
-            showToast(data.error || 'Invalid Token! Please get a new key.', 'error');
+            showToast(data.error || 'Invalid Token!', 'error');
             btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
         }
     } catch (err) {
         inputBox.classList.add('error-state');
-        showToast('Server Error! Cannot verify token right now.', 'error');
+        showToast('Server Error! Cannot verify token.', 'error');
         btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
     }
 });
 
 // ==========================================
-// 18. STRICT MULTIPART UPLOAD PIPELINE
+// 18. NEW UPLOAD HUB ENGINE & SMART AUTO-SCROLL
 // ==========================================
+
+// Dynamic Field Icon Watcher
+function setupDynamicIconWatcher(inputId, wrapperId) {
+    const input = document.getElementById(inputId);
+    const wrapper = document.getElementById(wrapperId);
+    if (!input || !wrapper) return;
+
+    const check = () => {
+        if (input.value.trim().length > 0) {
+            wrapper.classList.add('has-value');
+        } else {
+            wrapper.classList.remove('has-value');
+        }
+    };
+    input.addEventListener('input', check);
+    input.addEventListener('change', check);
+    check();
+}
+
+setupDynamicIconWatcher('inTitle', 'wrapTitle');
+setupDynamicIconWatcher('inAuthor', 'wrapAuthor');
+setupDynamicIconWatcher('inExams', 'wrapExams');
+
+// Rolling Year Modal Setup (2021 to Current Year)
+function buildDynamicYearList() {
+    const currentYear = new Date().getFullYear();
+    const yearOptionsContainer = document.getElementById('yearOptionsList');
+    if (!yearOptionsContainer) return;
+
+    document.getElementById('inYear').value = currentYear.toString();
+    document.getElementById('selectedYearText').innerText = currentYear.toString();
+
+    let html = '';
+    for (let y = currentYear - 5; y <= currentYear; y++) {
+        const isActive = y === currentYear ? 'active' : '';
+        html += `<div class="popup-select-option ${isActive}" data-year="${y}">${y}</div>`;
+    }
+    yearOptionsContainer.innerHTML = html;
+
+    document.querySelectorAll('#yearOptionsList .popup-select-option').forEach(option => {
+        option.addEventListener('click', () => {
+            document.querySelectorAll('#yearOptionsList .popup-select-option').forEach(o => o.classList.remove('active'));
+            option.classList.add('active');
+            const val = option.getAttribute('data-year');
+            document.getElementById('inYear').value = val;
+            document.getElementById('selectedYearText').innerText = val;
+            document.getElementById('yearPopupOverlay').classList.remove('active');
+        });
+    });
+}
+buildDynamicYearList();
+
+// White Slider Switcher
+const admTabAdd = document.getElementById('admTabAdd');
+const admTabPrompt = document.getElementById('admTabPrompt');
+const switchTrack = document.getElementById('switchTrack');
+const sectionAddBook = document.getElementById('sectionAddBook');
+const sectionPrompt = document.getElementById('sectionPrompt');
+const uploadContentArea = document.getElementById('admContentArea');
+
+admTabAdd?.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchTrack.classList.remove('show-prompt');
+    admTabAdd.classList.add('active');
+    admTabPrompt.classList.remove('active');
+    sectionAddBook.classList.add('active');
+    sectionPrompt.classList.remove('active');
+    if (uploadContentArea) uploadContentArea.scrollTop = 0;
+});
+
+admTabPrompt?.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchTrack.classList.add('show-prompt');
+    admTabPrompt.classList.add('active');
+    admTabAdd.classList.remove('active');
+    sectionPrompt.classList.add('active');
+    sectionAddBook.classList.remove('active');
+    if (uploadContentArea) uploadContentArea.scrollTop = 0;
+});
+
+// Center Modal Selectors
+const yearOverlay = document.getElementById('yearPopupOverlay');
+const langOverlay = document.getElementById('langPopupOverlay');
+
+document.getElementById('openYearModalBtn')?.addEventListener('click', () => {
+    yearOverlay?.classList.add('active');
+});
+document.getElementById('closeYearModalBtn')?.addEventListener('click', () => {
+    yearOverlay?.classList.remove('active');
+});
+yearOverlay?.addEventListener('click', (e) => {
+    if (e.target === yearOverlay) yearOverlay.classList.remove('active');
+});
+
+document.getElementById('openLangModalBtn')?.addEventListener('click', () => {
+    langOverlay?.classList.add('active');
+});
+document.getElementById('closeLangModalBtn')?.addEventListener('click', () => {
+    langOverlay?.classList.remove('active');
+});
+langOverlay?.addEventListener('click', (e) => {
+    if (e.target === langOverlay) langOverlay.classList.remove('active');
+});
+
+document.querySelectorAll('#langOptionsList .popup-select-option').forEach(option => {
+    option.addEventListener('click', () => {
+        document.querySelectorAll('#langOptionsList .popup-select-option').forEach(o => o.classList.remove('active'));
+        option.classList.add('active');
+        const val = option.getAttribute('data-lang');
+        document.getElementById('inLang').value = val;
+        document.getElementById('selectedLangText').innerText = val;
+        langOverlay?.classList.remove('active');
+    });
+});
+
+// Smart Auto-Scroll Helper
+function autoScrollToElement(el) {
+    if (!el || !uploadContentArea) return;
+    setTimeout(() => {
+        const targetTop = el.offsetTop - 15;
+        uploadContentArea.scrollTo({
+            top: targetTop,
+            behavior: 'smooth'
+        });
+    }, 180);
+}
+
+// Cover Input Listener (Auto-scroll to PDF Card)
 ['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', function(e) {
+    document.getElementById(id)?.addEventListener('change', (e) => {
         if(e.target.files.length > 0) {
-            selectedCoverFile = e.target.files[0]; 
-            e.target.closest('.uc-actions').querySelector('p').innerText = "Selected: " + selectedCoverFile.name;
+            selectedCoverFile = e.target.files[0];
+            const coverStatus = document.getElementById('coverStatusText');
+            coverStatus.innerText = "Selected: " + selectedCoverFile.name;
+            coverStatus.title = "Selected: " + selectedCoverFile.name;
+            coverStatus.style.color = '#ffffff';
+
+            const pdfCard = document.getElementById('cardPdfContainer');
+            autoScrollToElement(pdfCard);
         }
     });
 });
 
+// PDF Input Listener (Auto-scroll to Publish Button)
 ['filePdfGallery', 'filePdfBrowse'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', async function(e) {
+    document.getElementById(id)?.addEventListener('change', async (e) => {
         if(e.target.files.length > 0) {
-            selectedPdfFile = e.target.files[0]; 
-            const statusP = e.target.closest('.uc-actions').querySelector('p');
-            statusP.innerText = `Analyzing: ${selectedPdfFile.name}...`;
+            selectedPdfFile = e.target.files[0];
+            const statusText = document.getElementById('pdfStatusText');
+            statusText.innerText = `Analyzing: ${selectedPdfFile.name}...`;
 
             const sizeInMB = (selectedPdfFile.size / (1024 * 1024)).toFixed(2);
             detectedFileSizeMB = `${sizeInMB} MB`;
 
             const maxAllowed = IS_SUPER_ADMIN ? (1024 * 1024 * 1024) : (250 * 1024 * 1024);
             if (selectedPdfFile.size > maxAllowed) {
-                const limitStr = IS_SUPER_ADMIN ? "1 GB" : "250 MB";
-                showToast(`File limit exceed! Max allowed: ${limitStr}`, "error");
+                showToast(`File size limit exceed! Max: ${IS_SUPER_ADMIN ? '1GB' : '250MB'}`, "error");
                 selectedPdfFile = null;
-                statusP.innerText = "Drag & Drop PDF File";
+                statusText.innerText = "Drag & Drop PDF File";
                 e.target.value = "";
                 return;
             }
@@ -2933,79 +2690,70 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
             try {
                 if (window.pdfjsLib && selectedPdfFile.size < 40 * 1024 * 1024) {
                     const arrayBuffer = await selectedPdfFile.arrayBuffer();
-                    const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
-                    const pdfDoc = await loadingTask.promise;
+                    const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                     detectedTotalPages = pdfDoc.numPages;
-                    statusP.innerText = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB} • ${detectedTotalPages} Pages)`;
+                    const fullLabel = `Selected: ${selectedPdfFile.name}`;
+                    statusText.innerText = fullLabel;
+                    statusText.title = fullLabel;
                 } else {
                     detectedTotalPages = "100+";
-                    statusP.innerText = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB})`;
+                    const fullLabel = `Selected: ${selectedPdfFile.name}`;
+                    statusText.innerText = fullLabel;
+                    statusText.title = fullLabel;
                 }
+                statusText.style.color = '#ffffff';
             } catch (err) {
-                statusP.innerText = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB})`;
+                detectedTotalPages = "100+";
+                const fullLabel = `Selected: ${selectedPdfFile.name}`;
+                statusText.innerText = fullLabel;
+                statusText.title = fullLabel;
+                statusText.style.color = '#ffffff';
             }
+
+            const publishBtn = document.getElementById('publishBtn');
+            autoScrollToElement(publishBtn);
         }
     });
 });
 
+// Upload Storage Pipeline
 async function uploadSingleFileTracked(file, type, onProgress) {
     const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
     const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
-    const rawSafeName = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 25);
-    const safeFileName = `${folderPrefix}/${Date.now()}_${rawSafeName || 'file'}.${fileExt}`;
+    const safeFileName = `${folderPrefix}/${Date.now()}_${file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 25)}.${fileExt}`;
     const contentType = type === 'image' ? (file.type || 'image/jpeg') : 'application/pdf';
 
-    const userToken = await auth.currentUser.getIdToken(true);
+    const userToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : "";
 
-    // Hard-locked: Chhoti file (< 50MB) direct PUT karegi
     if (file.size < 50 * 1024 * 1024) {
         const res = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                fileName: safeFileName,
-                fileType: contentType,
-                fileSize: file.size,
-                userToken: userToken
-            })
+            body: JSON.stringify({ fileName: safeFileName, fileType: contentType, fileSize: file.size, userToken })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Upload URL generation failed");
+        if (!res.ok) throw new Error(data.error || "Upload URL generation error");
 
         await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", data.uploadUrl, true);
-            
-            // Explicit header match for AWS Signature parity
-            if (file.type) {
-                xhr.setRequestHeader("Content-Type", file.type);
-            }
-
+            if (file.type) xhr.setRequestHeader("Content-Type", file.type);
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
             };
-            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("Storage upload error during direct PUT"));
-            xhr.onerror = () => reject(new Error("Storage network error during direct PUT"));
+            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("Direct upload failed"));
+            xhr.onerror = () => reject(new Error("Direct upload network failed"));
             xhr.send(file);
         });
-
         return data.fileKey;
     }
 
-    // 50MB+ (jaise 125MB ya 669MB) files ke liye 10MB chunks multipart upload
     const CHUNK_SIZE = 10 * 1024 * 1024;
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
     const initRes = await fetch('/api/generate-upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: "initiateMultipart",
-            fileName: safeFileName,
-            fileType: contentType,
-            fileSize: file.size,
-            userToken: userToken
-        })
+        body: JSON.stringify({ action: "initiateMultipart", fileName: safeFileName, fileType: contentType, fileSize: file.size, userToken })
     });
     const initData = await initRes.json();
     if (!initRes.ok) throw new Error(initData.error || "Multipart initiation failed");
@@ -3022,29 +2770,15 @@ async function uploadSingleFileTracked(file, type, onProgress) {
         const partUrlRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: "getPartUrl",
-                fileName: safeFileName,
-                uploadId: uploadId,
-                partNumber: partNumber,
-                userToken: userToken
-            })
+            body: JSON.stringify({ action: "getPartUrl", fileName: safeFileName, uploadId, partNumber, userToken })
         });
         const partUrlData = await partUrlRes.json();
-        if (!partUrlRes.ok) throw new Error(partUrlData.error || `Part ${partNumber} URL error`);
 
         const partETag = await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", partUrlData.signedUrl, true);
-            xhr.onload = () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    let etag = xhr.getResponseHeader("ETag") || `part_${partNumber}`;
-                    resolve(etag);
-                } else {
-                    reject(new Error(`Chunk ${partNumber} upload fail ho gaya`));
-                }
-            };
-            xhr.onerror = () => reject(new Error("Network disconnect ho gaya storage se"));
+            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve(xhr.getResponseHeader("ETag") || `part_${partNumber}`) : reject(new Error(`Chunk ${partNumber} failed`));
+            xhr.onerror = () => reject(new Error("Network disconnect"));
             xhr.send(chunkBlob);
         });
 
@@ -3056,152 +2790,95 @@ async function uploadSingleFileTracked(file, type, onProgress) {
     const completeRes = await fetch('/api/generate-upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: "completeMultipart",
-            fileName: safeFileName,
-            uploadId: uploadId,
-            parts: parts,
-            userToken: userToken
-        })
+        body: JSON.stringify({ action: "completeMultipart", fileName: safeFileName, uploadId, parts, userToken })
     });
     const completeData = await completeRes.json();
-    if (!completeRes.ok) throw new Error(completeData.error || "File assembly failed");
-
     return completeData.fileKey;
 }
 
+// Add Book Form Submit
 document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault(); 
-    
-    if (!selectedCoverFile) { showToast("Please select a Cover Image!", "error"); return; }
-    if (!selectedPdfFile) { showToast("Please select a PDF file!", "error"); return; }
+    e.preventDefault();
+    if (!selectedCoverFile) return showToast("Cover Image select karein!", "error");
+    if (!selectedPdfFile) return showToast("PDF File select karein!", "error");
 
-    const pipelineOverlay = document.getElementById('uploadPipelineOverlay');
-    const dynamicTitle = document.getElementById('syncDynamicTitle');
-    const dynamicPdfSize = document.getElementById('syncDynamicPdfSize');
+    const pipeline = document.getElementById('uploadPipelineOverlay');
     const percentDisplay = document.getElementById('syncPercentDisplay');
+    const progressFill = document.getElementById('syncProgressFill');
     const transferredBytes = document.getElementById('syncTransferredBytes');
     const speedVal = document.getElementById('syncSpeedVal');
-    const progressFill = document.getElementById('syncProgressFill');
     const stageTitle = document.getElementById('syncStageTitle');
-    const stageSub = document.getElementById('syncStageSub');
     const liveCoverImg = document.getElementById('syncLiveCoverImg');
     const defaultCoverIcon = document.getElementById('syncDefaultCoverIcon');
-    const spinner = document.getElementById('syncStageSpinner');
-
-    if (spinner) {
-        spinner.className = "stage-spinner";
-        spinner.innerHTML = "";
-        spinner.style.border = "2px solid rgba(255, 255, 255, 0.15)";
-        spinner.style.borderTopColor = "#ffffff";
-        spinner.style.background = "transparent";
-        spinner.style.width = "17px";
-        spinner.style.height = "17px";
-    }
 
     const inputTitle = document.getElementById('inTitle').value.trim() || selectedPdfFile.name;
-    dynamicTitle.innerText = inputTitle;
-    dynamicPdfSize.innerText = `PDF Size: ${(selectedPdfFile.size / (1024 * 1024)).toFixed(2)} MB`;
+    document.getElementById('syncDynamicTitle').innerText = inputTitle;
+    document.getElementById('syncDynamicPdfSize').innerText = `PDF Size: ${(selectedPdfFile.size / (1024 * 1024)).toFixed(2)} MB`;
 
-    const coverReader = new FileReader();
-    coverReader.onload = function(evt) {
+    const reader = new FileReader();
+    reader.onload = (evt) => {
         liveCoverImg.src = evt.target.result;
         liveCoverImg.style.display = 'block';
         defaultCoverIcon.style.display = 'none';
     };
-    coverReader.readAsDataURL(selectedCoverFile);
+    reader.readAsDataURL(selectedCoverFile);
 
-    const totalBytesToUpload = selectedCoverFile.size + selectedPdfFile.size;
-    const totalMB = (totalBytesToUpload / (1024 * 1024)).toFixed(2);
-    
-    let coverLoaded = 0;
-    let pdfLoaded = 0;
-    let lastLoaded = 0;
-    let lastTime = Date.now();
+    const totalBytes = selectedCoverFile.size + selectedPdfFile.size;
+    const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
+    let coverLoaded = 0, pdfLoaded = 0, lastLoaded = 0, lastTime = Date.now();
 
-    percentDisplay.innerHTML = `0<span class="percent-symbol">%</span>`;
-    progressFill.style.width = `0%`;
-    transferredBytes.innerText = `0.0 MB / ${totalMB} MB`;
-    speedVal.innerText = `Connecting...`;
-    stageTitle.innerText = "Connecting to Cloud Storage...";
-    stageSub.innerText = "Allocating secure distribution channels";
-    pipelineOverlay.style.display = 'flex';
+    pipeline.style.display = 'flex';
 
     function updateTelemetry() {
-        const totalUploadedNow = coverLoaded + pdfLoaded;
-        const currentMB = (totalUploadedNow / (1024 * 1024)).toFixed(2);
-        const percent = Math.min(98, Math.floor((totalUploadedNow / totalBytesToUpload) * 98));
-
+        const loaded = coverLoaded + pdfLoaded;
+        const percent = Math.min(98, Math.floor((loaded / totalBytes) * 98));
         percentDisplay.innerHTML = `${percent}<span class="percent-symbol">%</span>`;
         progressFill.style.width = `${percent}%`;
-        transferredBytes.innerText = `${currentMB} MB / ${totalMB} MB`;
+        transferredBytes.innerText = `${(loaded / (1024 * 1024)).toFixed(2)} MB / ${totalMB} MB`;
 
         const now = Date.now();
-        const timeDiff = (now - lastTime) / 1000;
-        if (timeDiff >= 0.5) {
-            const bytesDiff = totalUploadedNow - lastLoaded;
-            const speedMBps = ((bytesDiff / (1024 * 1024)) / timeDiff).toFixed(1);
-            speedVal.innerText = `${speedMBps} MB/s`;
-            lastLoaded = totalUploadedNow;
+        const diff = (now - lastTime) / 1000;
+        if (diff >= 0.5) {
+            speedVal.innerText = `${(((loaded - lastLoaded) / (1024 * 1024)) / diff).toFixed(1)} MB/s`;
+            lastLoaded = loaded;
             lastTime = now;
-        }
-
-        if (percent < 30) {
-            stageTitle.innerText = "Transferring Cover Artwork...";
-            stageSub.innerText = "Optimizing image resolution for mobile readers";
-        } else if (percent < 85) {
-            stageTitle.innerText = "Uploading Manuscript Pages...";
-            stageSub.innerText = "Writing high-speed chunk stream to Cloudflare R2";
-        } else {
-            stageTitle.innerText = "Finalizing Storage Nodes...";
-            stageSub.innerText = "Assembling multipart chunks & secure tokens";
         }
     }
 
     try {
-        stageTitle.innerText = "Transferring Cover Image...";
-        const coverKey = await uploadSingleFileTracked(selectedCoverFile, 'image', (loaded) => {
-            coverLoaded = loaded;
-            updateTelemetry();
-        });
+        stageTitle.innerText = "Cover Artwork Transfer...";
+        const coverKey = await uploadSingleFileTracked(selectedCoverFile, 'image', (l) => { coverLoaded = l; updateTelemetry(); });
 
-        stageTitle.innerText = "Transferring PDF Manuscript...";
-        const pdfKey = await uploadSingleFileTracked(selectedPdfFile, 'pdf', (loaded) => {
-            pdfLoaded = loaded;
-            updateTelemetry();
-        });
+        stageTitle.innerText = "Uploading PDF Manuscript...";
+        const pdfKey = await uploadSingleFileTracked(selectedPdfFile, 'pdf', (l) => { pdfLoaded = l; updateTelemetry(); });
 
-        stageTitle.innerText = "Registering Book in Database...";
-        stageSub.innerText = "Writing catalog details to Firebase Firestore";
-        speedVal.innerText = "Syncing...";
+        stageTitle.innerText = "Database me register ho raha hai...";
         percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
         progressFill.style.width = `99%`;
 
         let baseSlug = generateCleanSlug(inputTitle);
         let finalSlug = baseSlug;
-        
         const isDuplicate = booksData.some(b => b.slug === finalSlug);
         if (isDuplicate) {
-            const randomHash = Math.random().toString(36).substring(2, 6);
-            finalSlug = `${baseSlug}-${randomHash}`;
+            finalSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
         }
 
-        const newBook = { 
-            title: inputTitle, 
-            author: document.getElementById('inAuthor').value, 
-            year: document.getElementById('inYear').value, 
-            lang: document.getElementById('inLang').value, 
-            exams: document.getElementById('inExams').value, 
+        const newBook = {
+            title: inputTitle,
+            author: document.getElementById('inAuthor').value,
+            year: document.getElementById('inYear').value,
+            lang: document.getElementById('inLang').value,
+            exams: document.getElementById('inExams').value,
             slug: finalSlug,
-            image: coverKey, 
-            pdfLink: pdfKey, 
-            fileSize: detectedFileSizeMB || "10 MB",
+            image: coverKey,
+            pdfLink: pdfKey,
+            fileSize: detectedFileSizeMB,
             sizeBytes: selectedPdfFile.size,
             fileFormat: "PDF",
-            totalPages: detectedTotalPages ? detectedTotalPages.toString() : "100+",
-            dateAdded: new Date().toLocaleDateString('en-GB').toUpperCase(), 
-            createdAt: new Date().getTime(), 
-            uploaderUid: auth.currentUser.uid 
+            totalPages: detectedTotalPages.toString(),
+            dateAdded: new Date().toLocaleDateString('en-GB').toUpperCase(),
+            createdAt: Date.now(),
+            uploaderUid: auth.currentUser ? auth.currentUser.uid : "anonymous"
         };
 
         const docRef = await addDoc(collection(db, "books"), newBook);
@@ -3209,75 +2886,37 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         booksData.unshift(newBook);
         applyMasterFilter();
 
-        const userDocRef = doc(db, "users", auth.currentUser.uid);
-        await setDoc(userDocRef, { 
-            lastBookUploadTime: Date.now() 
-        }, { merge: true });
-
         percentDisplay.innerHTML = `100<span class="percent-symbol">%</span>`;
         progressFill.style.width = `100%`;
-        transferredBytes.innerText = `${totalMB} MB / ${totalMB} MB`;
-        speedVal.innerText = "Completed";
         stageTitle.innerText = "Book Published Successfully! ✨";
-        stageSub.innerText = "Live and ready for all readers";
-        
-        if (spinner) {
-            spinner.className = "";
-            spinner.style.border = "none";
-            spinner.style.background = "#10b981";
-            spinner.style.width = "22px";
-            spinner.style.height = "22px";
-            spinner.style.borderRadius = "50%";
-            spinner.style.display = "flex";
-            spinner.style.alignItems = "center";
-            spinner.style.justifyContent = "center";
-            spinner.style.boxShadow = "0 0 10px rgba(16, 185, 129, 0.6)";
-            spinner.innerHTML = `<i class="fas fa-check" style="color:#000000; font-size:12px; font-weight:900;"></i>`;
-        }
 
         setTimeout(() => {
-            pipelineOverlay.style.display = 'none';
-            e.target.reset(); 
-            selectedCoverFile = null; 
+            pipeline.style.display = 'none';
+            e.target.reset();
+            selectedCoverFile = null;
             selectedPdfFile = null;
-            detectedTotalPages = 0;
-            detectedFileSizeMB = "0 MB";
-            document.querySelectorAll('.uc-actions p').forEach(p => p.innerText = "Drag & Drop File");
             
+            document.getElementById('coverStatusText').innerText = "Drag & Drop Cover Image";
+            document.getElementById('coverStatusText').title = "Drag & Drop Cover Image";
+            document.getElementById('pdfStatusText').innerText = "Drag & Drop PDF File";
+            document.getElementById('pdfStatusText').title = "Drag & Drop PDF File";
+
+            ['wrapTitle', 'wrapAuthor', 'wrapExams'].forEach(id => {
+                document.getElementById(id)?.classList.remove('has-value');
+            });
+
             showToast("Book Published Successfully!", "success");
-            document.getElementById('nav-home').click();
+            
+            // Close upload modal overlay
+            if (history.state && history.state.popup === 'uploadModal') {
+                history.back();
+            } else {
+                document.getElementById('uploadModalOverlay')?.classList.remove('active');
+            }
         }, 1200);
 
     } catch (error) {
-        pipelineOverlay.style.display = 'none';
-        showToast(error.message || "Upload Failed! Server connection interrupted.", "error"); 
+        pipeline.style.display = 'none';
+        showToast(error.message || "Upload Failed!", "error");
     }
 });
-
-// ==========================================
-// 19. ADMIN SECTION TABS SWITCHER
-// ==========================================
-document.querySelectorAll('.adm-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => { 
-        let tab = btn.id === 'admTabPrompt' ? 'prompt' : 'add'; 
-        switchAdminTabLocal(tab); 
-    });
-});
-
-function switchAdminTabLocal(tabName) {
-    document.querySelectorAll('.adm-section').forEach(el => el.classList.remove('active')); 
-    document.querySelectorAll('.adm-tab-btn').forEach(el => el.classList.remove('active'));
-    
-    const contentArea = document.getElementById('admContentArea');
-    if (contentArea) {
-        contentArea.scrollTop = 0;
-    }
-
-    if(tabName === 'add') { 
-        document.getElementById('sectionAddBook').classList.add('active'); 
-        document.getElementById('admTabAdd').classList.add('active'); 
-    } else if(tabName === 'prompt') { 
-        document.getElementById('sectionPrompt').classList.add('active'); 
-        document.getElementById('admTabPrompt').classList.add('active'); 
-    }
-}
