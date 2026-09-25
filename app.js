@@ -116,7 +116,7 @@ let basePageWidth = 0;
 let basePageAspectRatio = 1.414;
 
 // ==========================================
-// 4. SANITIZATION & HELPERS
+// 4. SANITIZATION & MARKDOWN FORMATTER
 // ==========================================
 function sanitizeHTML(str) {
     if (typeof str !== 'string') return str;
@@ -162,6 +162,7 @@ function parseMarkdown(rawText) {
         return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" data-clipboard="${encodedCopy}"><i class="far fa-copy"></i> COPY CODE</button></div>`;
     });
 
+    // Multi-line and Single-line WhatsApp Style Blockquotes
     safe = safe.replace(/(^|\n)(&gt;|>)\s*(.+?)(?=(\n\n|\n(?!&gt;|>)|$))/gs, function(match, prefix, qTag, content) {
         let cleanContent = content.replace(/(^|\n)(&gt;|>)\s*/g, '$1');
         return prefix + `<div class="wa-markdown-quote">${cleanContent}</div>`;
@@ -1643,7 +1644,7 @@ document.getElementById('savedBooksContainer')?.addEventListener('click', (e) =>
 });
 
 // ==========================================
-// 13. PANELS, MODALS & UPLOAD TRIGGER
+// 13. PANELS & UPLOAD HUB MODAL
 // ==========================================
 document.getElementById('open-search')?.addEventListener('click', () => { 
     history.pushState({ popup: 'search' }, ''); 
@@ -2225,8 +2226,9 @@ async function jumpToPdfPage(pageNum) {
 // ==========================================
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
-        document.getElementById('loginOverlay').style.display = 'flex'; 
-        setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10); 
+        const loginOverlay = document.getElementById('loginOverlay');
+        loginOverlay.style.display = 'flex'; 
+        setTimeout(() => loginOverlay.style.opacity = '1', 10); 
         return;
     }
     const book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
@@ -2237,10 +2239,8 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     downloadModal.scrollTop = 0;
     
     const previewImg = document.getElementById("dlPreviewImage");
-    previewImg.classList.add("image-loading-skeleton"); 
     previewImg.src = getSecureAssetUrl(book.image); 
     previewImg.onerror = () => { previewImg.src = DEFAULT_AVATAR; };
-    previewImg.onload = () => { previewImg.classList.remove("image-loading-skeleton"); };
 
     document.getElementById("dlBookTitle").innerText = sanitizeHTML(book.title); 
     document.getElementById("dlBookAuthor").innerText = sanitizeHTML(book.author);
@@ -2263,8 +2263,9 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
     document.getElementById("dlReadOnlineBtn").onclick = async function() {
         if(!isUserLoggedIn || !auth.currentUser) { 
-            document.getElementById('loginOverlay').style.display = 'flex'; 
-            setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10); 
+            const loginOverlay = document.getElementById('loginOverlay');
+            loginOverlay.style.display = 'flex'; 
+            setTimeout(() => loginOverlay.style.opacity = '1', 10); 
             return; 
         }
         
@@ -2522,7 +2523,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 18. NEW UPLOAD HUB ENGINE & SMART AUTO-SCROLL
+// 18. NEW UPLOAD HUB & 1-BUTTON SELECTION LOGIC
 // ==========================================
 
 // Dynamic Field Icon Watcher
@@ -2651,69 +2652,61 @@ function autoScrollToElement(el) {
     }, 180);
 }
 
-// Cover Input Listener (Auto-scroll to PDF Card)
-['fileCoverGallery', 'fileCoverBrowse'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', (e) => {
-        if(e.target.files.length > 0) {
-            selectedCoverFile = e.target.files[0];
-            const coverStatus = document.getElementById('coverStatusText');
-            coverStatus.innerText = "Selected: " + selectedCoverFile.name;
-            coverStatus.title = "Selected: " + selectedCoverFile.name;
-            coverStatus.style.color = '#ffffff';
+// 1 SINGLE BUTTON: Cover File Picker with Auto-Scroll to PDF Box
+document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        selectedCoverFile = e.target.files[0];
+        const coverStatus = document.getElementById('coverStatusText');
+        coverStatus.innerText = "Selected: " + selectedCoverFile.name;
+        coverStatus.title = "Selected: " + selectedCoverFile.name;
+        coverStatus.style.color = '#ffffff';
 
-            const pdfCard = document.getElementById('cardPdfContainer');
-            autoScrollToElement(pdfCard);
-        }
-    });
+        // Auto-scroll smoothly to PDF Box
+        const pdfCard = document.getElementById('cardPdfContainer');
+        autoScrollToElement(pdfCard);
+    }
 });
 
-// PDF Input Listener (Auto-scroll to Publish Button)
-['filePdfGallery', 'filePdfBrowse'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', async (e) => {
-        if(e.target.files.length > 0) {
-            selectedPdfFile = e.target.files[0];
-            const statusText = document.getElementById('pdfStatusText');
-            statusText.innerText = `Analyzing: ${selectedPdfFile.name}...`;
+// 1 SINGLE BUTTON: PDF File Picker with Auto-Scroll to Publish Button
+document.getElementById('filePdfSelect')?.addEventListener('change', async (e) => {
+    if (e.target.files.length > 0) {
+        selectedPdfFile = e.target.files[0];
+        const statusText = document.getElementById('pdfStatusText');
+        statusText.innerText = `Analyzing: ${selectedPdfFile.name}...`;
 
-            const sizeInMB = (selectedPdfFile.size / (1024 * 1024)).toFixed(2);
-            detectedFileSizeMB = `${sizeInMB} MB`;
+        const sizeInMB = (selectedPdfFile.size / (1024 * 1024)).toFixed(2);
+        detectedFileSizeMB = `${sizeInMB} MB`;
 
-            const maxAllowed = IS_SUPER_ADMIN ? (1024 * 1024 * 1024) : (250 * 1024 * 1024);
-            if (selectedPdfFile.size > maxAllowed) {
-                showToast(`File size limit exceed! Max: ${IS_SUPER_ADMIN ? '1GB' : '250MB'}`, "error");
-                selectedPdfFile = null;
-                statusText.innerText = "Drag & Drop PDF File";
-                e.target.value = "";
-                return;
-            }
-
-            try {
-                if (window.pdfjsLib && selectedPdfFile.size < 40 * 1024 * 1024) {
-                    const arrayBuffer = await selectedPdfFile.arrayBuffer();
-                    const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    detectedTotalPages = pdfDoc.numPages;
-                    const fullLabel = `Selected: ${selectedPdfFile.name}`;
-                    statusText.innerText = fullLabel;
-                    statusText.title = fullLabel;
-                } else {
-                    detectedTotalPages = "100+";
-                    const fullLabel = `Selected: ${selectedPdfFile.name}`;
-                    statusText.innerText = fullLabel;
-                    statusText.title = fullLabel;
-                }
-                statusText.style.color = '#ffffff';
-            } catch (err) {
-                detectedTotalPages = "100+";
-                const fullLabel = `Selected: ${selectedPdfFile.name}`;
-                statusText.innerText = fullLabel;
-                statusText.title = fullLabel;
-                statusText.style.color = '#ffffff';
-            }
-
-            const publishBtn = document.getElementById('publishBtn');
-            autoScrollToElement(publishBtn);
+        const maxAllowed = IS_SUPER_ADMIN ? (1024 * 1024 * 1024) : (250 * 1024 * 1024);
+        if (selectedPdfFile.size > maxAllowed) {
+            showToast(`File size limit exceed! Max: ${IS_SUPER_ADMIN ? '1GB' : '250MB'}`, "error");
+            selectedPdfFile = null;
+            statusText.innerText = "Drag & Drop PDF File";
+            e.target.value = "";
+            return;
         }
-    });
+
+        try {
+            if (window.pdfjsLib && selectedPdfFile.size < 40 * 1024 * 1024) {
+                const arrayBuffer = await selectedPdfFile.arrayBuffer();
+                const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                detectedTotalPages = pdfDoc.numPages;
+            } else {
+                detectedTotalPages = "100+";
+            }
+        } catch (err) {
+            detectedTotalPages = "100+";
+        }
+
+        const fullLabel = `Selected: ${selectedPdfFile.name}`;
+        statusText.innerText = fullLabel;
+        statusText.title = fullLabel;
+        statusText.style.color = '#ffffff';
+
+        // Auto-scroll to Publish Button
+        const publishBtn = document.getElementById('publishBtn');
+        autoScrollToElement(publishBtn);
+    }
 });
 
 // Upload Storage Pipeline
@@ -2907,7 +2900,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
             showToast("Book Published Successfully!", "success");
             
-            // Close upload modal overlay
             if (history.state && history.state.popup === 'uploadModal') {
                 history.back();
             } else {
