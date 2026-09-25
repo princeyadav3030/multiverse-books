@@ -162,7 +162,6 @@ function parseMarkdown(rawText) {
         return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" data-clipboard="${encodedCopy}"><i class="far fa-copy"></i> COPY CODE</button></div>`;
     });
 
-    // Multi-line and Single-line WhatsApp Style Blockquotes
     safe = safe.replace(/(^|\n)(&gt;|>)\s*(.+?)(?=(\n\n|\n(?!&gt;|>)|$))/gs, function(match, prefix, qTag, content) {
         let cleanContent = content.replace(/(^|\n)(&gt;|>)\s*/g, '$1');
         return prefix + `<div class="wa-markdown-quote">${cleanContent}</div>`;
@@ -499,6 +498,7 @@ window.openSubjectModulesList = function(subjectKey) {
         container.innerHTML = html;
     }
 
+    history.pushState({ popup: 'moduleList' }, '');
     document.getElementById('bannerSubjectsView').classList.add('hidden-view');
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
@@ -533,14 +533,14 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 
     if (titleEl) titleEl.innerText = title || "Reading Module...";
     if (pdfViewer) {
-        history.pushState({ popup: 'pdfViewer' }, '');
+        history.pushState({ popup: 'pdfViewer', from: 'module' }, '');
         pdfViewer.style.display = 'flex';
     }
 
     showCenteredPdfLoader("Fetching module manuscript...");
 
     if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
-        renderPdfInModal(""); 
+        renderPdfInModal("", true); 
         return;
     }
 
@@ -559,21 +559,25 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 
         const data = await response.json();
         if (response.ok && data.success) {
-            renderPdfInModal(data.pdfLink);
+            renderPdfInModal(data.pdfLink, true);
         } else {
-            renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl));
+            renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true);
         }
     } catch (err) {
-        renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl));
+        renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true);
     }
 };
 
 document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
     const modulesView = document.getElementById('bannerModulesView');
     if (modulesView && !modulesView.classList.contains('hidden-view')) {
-        modulesView.classList.add('hidden-view');
-        document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
-        document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
+        if (history.state && history.state.popup === 'moduleList') {
+            history.back();
+        } else {
+            modulesView.classList.add('hidden-view');
+            document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
+            document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
+        }
     } else {
         if (history.state && history.state.popup === 'moduleBanner') {
             history.back();
@@ -590,6 +594,7 @@ document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
 // ==========================================
 let hasClickedWA = false;
 let hasClickedTG = false;
+let hasClickedIG = false;
 let communityPopupTimer = null;
 
 function initCommunityDualPopup() {
@@ -609,13 +614,17 @@ function initCommunityDualPopup() {
 
     const waCard = document.getElementById('btnJoinWhatsApp');
     const tgCard = document.getElementById('btnJoinTelegram');
+    const igCard = document.getElementById('btnJoinInstagram');
+
     const waStatus = document.getElementById('waStatusBtn');
     const tgStatus = document.getElementById('tgStatusBtn');
+    const igStatus = document.getElementById('igStatusBtn');
     const maybeLaterBtn = document.getElementById('communityMaybeLaterBtn');
 
     function checkAndComplete() {
-        if (hasClickedWA && hasClickedTG) {
+        if (hasClickedWA && hasClickedTG && hasClickedIG) {
             localStorage.setItem('spidy_community_popup_locked_until', (Date.now() + FIVE_DAYS_MS).toString());
+            showToast("Community joined successfully!", "success");
             setTimeout(() => { popup.classList.remove('active'); }, 800);
         }
     }
@@ -646,9 +655,25 @@ function initCommunityDualPopup() {
         };
     }
 
+    if (igCard) {
+        igCard.onclick = (e) => {
+            e.preventDefault();
+            hasClickedIG = true;
+            if (igStatus) {
+                igStatus.classList.add('completed');
+                igStatus.innerHTML = `<span>Done</span> <i class="fas fa-check" style="font-size:11px;"></i>`;
+            }
+            window.open('https://www.instagram.com/PRINCE_YADAV_3030', '_blank');
+            checkAndComplete();
+        };
+    }
+
     if (maybeLaterBtn) {
         maybeLaterBtn.onclick = () => {
-            if (!hasClickedWA || !hasClickedTG) return;
+            if (!hasClickedWA || !hasClickedTG || !hasClickedIG) {
+                showToast("Please follow all channels to continue", "error");
+                return;
+            }
             popup.classList.remove('active');
         };
     }
@@ -1685,7 +1710,6 @@ if (closeNotiBtn) {
     });
 }
 
-// HEADER UPLOAD BUTTON HANDLER
 document.getElementById('open-upload-btn')?.addEventListener('click', () => {
     if (!isUserLoggedIn) {
         const loginOverlay = document.getElementById('loginOverlay');
@@ -1862,11 +1886,14 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
 // ==========================================
 // 14. ULTRA HD PDF VIEWER (VIRTUALIZED)
 // ==========================================
-async function renderPdfInModal(pdfUrl) {
+async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     const container = document.getElementById('pdfContainer');
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
-    showCenteredPdfLoader("Loading book securely...");
+    if (!keepExistingLoader) {
+        showCenteredPdfLoader("Loading book securely...");
+    }
+    
     scrollContainer.innerHTML = '';
     cleanupPdfResources();
 
@@ -2311,7 +2338,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
                 const title = document.getElementById('pdfViewerTitle');
                 
                 title.innerText = sanitizeHTML(book.title);
-                history.pushState({ popup: 'pdfViewer' }, '');
+                history.pushState({ popup: 'pdfViewer', from: 'book' }, '');
                 pdfViewer.style.display = 'flex';
                 renderPdfInModal(data.pdfLink);
             } else {
@@ -2526,7 +2553,6 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 // 18. NEW UPLOAD HUB & 1-BUTTON SELECTION LOGIC
 // ==========================================
 
-// Dynamic Field Icon Watcher
 function setupDynamicIconWatcher(inputId, wrapperId) {
     const input = document.getElementById(inputId);
     const wrapper = document.getElementById(wrapperId);
@@ -2548,7 +2574,6 @@ setupDynamicIconWatcher('inTitle', 'wrapTitle');
 setupDynamicIconWatcher('inAuthor', 'wrapAuthor');
 setupDynamicIconWatcher('inExams', 'wrapExams');
 
-// Rolling Year Modal Setup (2021 to Current Year)
 function buildDynamicYearList() {
     const currentYear = new Date().getFullYear();
     const yearOptionsContainer = document.getElementById('yearOptionsList');
@@ -2640,7 +2665,6 @@ document.querySelectorAll('#langOptionsList .popup-select-option').forEach(optio
     });
 });
 
-// Smart Auto-Scroll Helper
 function autoScrollToElement(el) {
     if (!el || !uploadContentArea) return;
     setTimeout(() => {
@@ -2652,7 +2676,6 @@ function autoScrollToElement(el) {
     }, 180);
 }
 
-// 1 SINGLE BUTTON: Cover File Picker with Auto-Scroll to PDF Box
 document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
         selectedCoverFile = e.target.files[0];
@@ -2661,13 +2684,11 @@ document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
         coverStatus.title = "Selected: " + selectedCoverFile.name;
         coverStatus.style.color = '#ffffff';
 
-        // Auto-scroll smoothly to PDF Box
         const pdfCard = document.getElementById('cardPdfContainer');
         autoScrollToElement(pdfCard);
     }
 });
 
-// 1 SINGLE BUTTON: PDF File Picker with Auto-Scroll to Publish Button
 document.getElementById('filePdfSelect')?.addEventListener('change', async (e) => {
     if (e.target.files.length > 0) {
         selectedPdfFile = e.target.files[0];
@@ -2703,13 +2724,11 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
         statusText.title = fullLabel;
         statusText.style.color = '#ffffff';
 
-        // Auto-scroll to Publish Button
         const publishBtn = document.getElementById('publishBtn');
         autoScrollToElement(publishBtn);
     }
 });
 
-// Upload Storage Pipeline
 async function uploadSingleFileTracked(file, type, onProgress) {
     const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
     const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
@@ -2789,7 +2808,6 @@ async function uploadSingleFileTracked(file, type, onProgress) {
     return completeData.fileKey;
 }
 
-// Add Book Form Submit
 document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!selectedCoverFile) return showToast("Cover Image select karein!", "error");
