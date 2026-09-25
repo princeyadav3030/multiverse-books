@@ -870,7 +870,7 @@ window.scrollToChannelPost = function(postId) {
         target.classList.remove('highlight-post');
         void target.offsetWidth;
         target.classList.add('highlight-post');
-        setTimeout(() => target.classList.remove('highlight-post'), 2500);
+        setTimeout(() => target.classList.remove('highlight-post'), 2800);
     }
 };
 
@@ -1802,6 +1802,9 @@ window.addEventListener('popstate', (e) => {
     if (bannerModal && bannerModal.classList.contains('active')) {
         const modulesView = document.getElementById('bannerModulesView');
         if (modulesView && !modulesView.classList.contains('hidden-view')) {
+            if (history.state && history.state.popup === 'moduleList') {
+                return;
+            }
             modulesView.classList.add('hidden-view');
             document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
             document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
@@ -2215,7 +2218,11 @@ const goToPageInput = document.getElementById('goToPageInput');
 pdfPageBadge?.addEventListener('click', () => {
     goToPageInput.value = '';
     goToPageModal.style.display = 'flex';
-    goToPageInput.focus();
+    setTimeout(() => {
+        goToPageInput.focus();
+        // Keyboard visibility positioning
+        goToPageModal.scrollTop = 0;
+    }, 100);
 });
 cancelGoToPageBtn?.addEventListener('click', () => { goToPageModal.style.display = 'none'; });
 goToPageModal?.addEventListener('click', (e) => {
