@@ -106,7 +106,7 @@ header {
     font-family: 'Poppins', sans-serif;
 }
 
-/* HEADER ICON BOX (BORDER REMOVED) */
+/* HEADER ICON BOX (CLEAN WITHOUT FLAT BORDERS) */
 .icon-box { 
     width: 38px; 
     height: 38px; 
@@ -506,7 +506,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 }
 
 /* ======================================================== */
-/* UPLOAD HUB DESIGN INTEGRATION                           */
+/* UPLOAD HUB DESIGN INTEGRATION                            */
 /* ======================================================== */
 .upload-modal-fullscreen {
     position: fixed; 
@@ -1541,14 +1541,49 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 #pdfPageBadge:hover { border-color: #38bdf8; }
 #pdfPageBadge:active { transform: translateY(-50%) scale(0.92); }
 
-/* PDF JUMP DIALOG */
-.pdf-modal-dialog { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); z-index: 10000000; justify-content: center; align-items: center; }
-.pdf-modal-box { background: #15161c; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 20px; width: 86%; max-width: 320px; padding: 22px 20px; font-family: 'Poppins', sans-serif; }
-.pdf-modal-heading { margin: 0 0 4px 0; color: #ffffff; font-size: 16px; font-weight: 800; }
-.pdf-modal-subrange { font-size: 11.5px; color: #94a3b8; font-weight: 600; margin-bottom: 14px; }
-.pdf-modal-input { width: 100%; box-sizing: border-box; background: #090a0d; border: 1.5px solid #38bdf8; border-radius: 12px; padding: 12px 14px; color: #ffffff; font-size: 14px; outline: none; margin-bottom: 18px; }
+/* PDF JUMP DIALOG (FIXED VIEWPORT CENTERING FOR KEYBOARD) */
+.pdf-modal-dialog { 
+    display: none; 
+    position: fixed; 
+    inset: 0; 
+    background: rgba(0, 0, 0, 0.78); 
+    backdrop-filter: blur(8px); 
+    z-index: 10000000; 
+    justify-content: center; 
+    align-items: center; 
+    padding: 16px;
+    box-sizing: border-box;
+}
+.pdf-modal-box { 
+    background: #15161c; 
+    border: 1px solid rgba(255, 255, 255, 0.16); 
+    border-radius: 20px; 
+    width: 100%; 
+    max-width: 320px; 
+    padding: 20px 18px; 
+    font-family: 'Poppins', sans-serif;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.95);
+    margin-bottom: 22vh; /* Floating up so virtual keyboard does not block */
+    transform: translateY(0);
+    transition: transform 0.2s ease;
+}
+.pdf-modal-heading { margin: 0 0 4px 0; color: #ffffff; font-size: 15.5px; font-weight: 800; }
+.pdf-modal-subrange { font-size: 11.5px; color: #94a3b8; font-weight: 600; margin-bottom: 12px; }
+.pdf-modal-input { 
+    width: 100%; 
+    box-sizing: border-box; 
+    background: #090a0d; 
+    border: 1.5px solid #38bdf8; 
+    border-radius: 12px; 
+    padding: 12px 14px; 
+    color: #ffffff; 
+    font-size: 15px; 
+    outline: none; 
+    margin-bottom: 16px; 
+    font-weight: 700;
+}
 .pdf-modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
-.pdf-modal-btn { border: none; padding: 8px 18px; border-radius: 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Poppins', sans-serif; }
+.pdf-modal-btn { border: none; padding: 8px 18px; border-radius: 14px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Poppins', sans-serif; }
 .pdf-modal-btn.cancel { background: rgba(255, 255, 255, 0.08); color: #d4d4d8; }
 .pdf-modal-btn.confirm { background: #38bdf8; color: #000000; font-weight: 800; }
 
@@ -1645,20 +1680,33 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
     box-shadow: 0 8px 24px rgba(0,0,0,0.65);
     display: flex; flex-direction: column;
     border: 1px solid var(--card-border-channel);
-    transition: background-color 0.4s ease;
+    transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
     cursor: pointer;
     transform: none !important;
 }
 .message-bubble:active { transform: none !important; }
 
+/* 🌟 PROPER TARGET GLOW EFFECT (IMAGE 2 STYLE) */
 .message-bubble.highlight-post {
-    animation: whatsappTintHighlight 2.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    animation: luxuryGlowPulse 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
-@keyframes whatsappTintHighlight {
-    0% { background-color: var(--bg-card-channel); }
-    15%, 70% { background-color: #1e293b !important; }
-    100% { background-color: var(--bg-card-channel); }
+@keyframes luxuryGlowPulse {
+    0% { 
+        background-color: var(--bg-card-channel);
+        border-color: var(--card-border-channel);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.65);
+    }
+    18%, 68% { 
+        background-color: #172435 !important;
+        border-color: #38bdf8 !important;
+        box-shadow: 0 0 25px rgba(56, 189, 248, 0.45), 0 8px 30px rgba(0,0,0,0.85) !important;
+    }
+    100% { 
+        background-color: var(--bg-card-channel);
+        border-color: var(--card-border-channel);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.65);
+    }
 }
 
 .msg-image {
@@ -2024,7 +2072,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 }
 .community-channel-list { display: flex; flex-direction: column; gap: 9px; margin-bottom: 12px; }
 .community-channel-card {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; min-height: 58px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; min-height: 56px;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%);
     border: 1px solid rgba(255, 255, 255, 0.11); border-radius: 16px; text-decoration: none;
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08), 0 4px 12px rgba(0, 0, 0, 0.25); cursor: pointer;
@@ -2034,18 +2082,20 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
     border-color: rgba(255, 255, 255, 0.25); transform: translateY(-2px); box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
 .community-channel-left { display: flex; align-items: center; gap: 10px; text-align: left; flex: 1; min-width: 0; }
-.community-icon-box-3d { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+
+/* 🌟 BALANCED COMPACT ICON SIZES (IMAGE 9 MATCHING) */
+.community-icon-box-3d { width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .community-icon-box-3d img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.community-wa-shadow { filter: drop-shadow(0 5px 12px rgba(37, 211, 102, 0.5)); }
-.community-tg-shadow { filter: drop-shadow(0 5px 12px rgba(14, 165, 233, 0.55)); }
-.community-ig-shadow { filter: drop-shadow(0 5px 12px rgba(225, 48, 108, 0.6)); }
+.community-wa-shadow { filter: drop-shadow(0 4px 10px rgba(37, 211, 102, 0.45)); }
+.community-tg-shadow { filter: drop-shadow(0 4px 10px rgba(14, 165, 233, 0.5)); }
+.community-ig-shadow { filter: drop-shadow(0 4px 10px rgba(225, 48, 108, 0.55)); }
 
 .community-channel-meta { display: flex; flex-direction: column; justify-content: center; min-width: 0; flex: 1; }
 .community-channel-meta h4 {
-    color: #ffffff; font-size: 13px; font-weight: 800; margin: 0 0 2px 0; line-height: 1.25; font-family: 'Poppins', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: #ffffff; font-size: 12.8px; font-weight: 800; margin: 0 0 2px 0; line-height: 1.25; font-family: 'Poppins', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .community-new-msg-tag {
-    display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 800; color: #10b981; line-height: 1.2; font-family: 'Inter', sans-serif;
+    display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; color: #10b981; line-height: 1.2; font-family: 'Inter', sans-serif;
 }
 .community-ig-tag { color: #f472b6 !important; }
 .community-pulse-indicator { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 5px; height: 5px; flex-shrink: 0; }
@@ -2056,13 +2106,14 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 }
 @keyframes community-micro-circle-ripple { 0% { transform: scale(1); opacity: 0.9; } 100% { transform: scale(2.3); opacity: 0; } }
 
+/* 🌟 BALANCED BUTTONS FOR ALL 3 CHANNELS */
 .community-join-btn {
-    position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 9px 6px 12px; border-radius: 11px; font-size: 11px; font-weight: 800; border: none; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.6); flex-shrink: 0; align-self: center; font-family: 'Poppins', sans-serif;
+    position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 5.5px 8px 5.5px 11px; border-radius: 11px; font-size: 10.8px; font-weight: 800; border: none; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.6); flex-shrink: 0; align-self: center; font-family: 'Poppins', sans-serif; min-width: 68px;
 }
 .community-join-btn .community-icon-circle {
-    display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(4px); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35); transition: transform 0.2s ease, background 0.2s ease;
+    display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(4px); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35); transition: transform 0.2s ease, background 0.2s ease;
 }
-.community-join-btn svg { width: 9.5px; height: 9.5px; stroke-width: 2.8; stroke: currentColor; fill: none; transition: transform 0.2s ease; }
+.community-join-btn svg { width: 9px; height: 9px; stroke-width: 2.8; stroke: currentColor; fill: none; transition: transform 0.2s ease; }
 .community-join-btn:hover .community-icon-circle { background: rgba(255, 255, 255, 0.3); transform: translateX(2px); }
 .community-join-btn-wa { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.25); }
 .community-join-btn-tg { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.25); }
