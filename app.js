@@ -1780,6 +1780,131 @@ document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
     window.closePdfViewerDirectly();
 });
 
+
+// ==========================================
+// 13.5 SUPPORT MODAL LOGIC (NEW)
+// ==========================================
+document.getElementById('menu-contact')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('sidebar')?.classList.remove('active');
+    document.getElementById('sidebar-overlay')?.classList.remove('active');
+    
+    history.pushState({ popup: 'support' }, '');
+    document.getElementById('supportModalOverlay')?.classList.add('active');
+});
+
+document.getElementById('closeSupportBtn')?.addEventListener('click', () => {
+    if (history.state && history.state.popup === 'support') {
+        history.back();
+    } else {
+        document.getElementById('supportModalOverlay')?.classList.remove('active');
+    }
+});
+
+// Dropdown Modal Logic
+document.getElementById('openIssueModalBtn')?.addEventListener('click', () => {
+    document.getElementById('issueModal')?.classList.add('active');
+});
+
+document.getElementById('closeIssueModalBtn')?.addEventListener('click', () => {
+    document.getElementById('issueModal')?.classList.remove('active');
+});
+
+document.getElementById('issueModal')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('issueModal')) {
+        document.getElementById('issueModal').classList.remove('active');
+    }
+});
+
+// Issue Option Selection
+const issueOptions = document.querySelectorAll('#issueModal .modal-option-btn');
+issueOptions.forEach(option => {
+    option.addEventListener('click', () => {
+        issueOptions.forEach(btn => btn.classList.remove('selected'));
+        option.classList.add('selected');
+        
+        const selectedValue = option.getAttribute('data-value');
+        document.getElementById('selectedSubjectInput').value = selectedValue;
+        document.getElementById('selectedSubjectDisplay').innerText = selectedValue;
+        
+        setTimeout(() => {
+            document.getElementById('issueModal').classList.remove('active');
+        }, 150);
+    });
+});
+
+// Support Form API Submission
+document.getElementById('supportContactForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const btn = document.getElementById('supSubmitBtn');
+    const btnText = document.getElementById('supBtnText');
+    const btnIcon = document.getElementById('supBtnIcon');
+    
+    const originalText = btnText.innerText;
+    const originalIcon = btnIcon.innerHTML;
+
+    btnText.innerText = "Sending...";
+    btnIcon.innerHTML = `<circle cx="12" cy="12" r="10" stroke-width="3" stroke="currentColor" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="1s" values="0 12 12;360 12 12"/></circle>`;
+    btn.style.pointerEvents = "none";
+
+    const formData = {
+        firstName: document.getElementById('supFirstName').value.trim(),
+        lastName: document.getElementById('supLastName').value.trim(),
+        email: document.getElementById('supEmail').value.trim(),
+        subject: document.getElementById('selectedSubjectInput').value.trim(),
+        message: document.getElementById('supMessage').value.trim()
+    };
+
+    try {
+        const response = await fetch('/api/contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            btn.classList.add('btn-success-active');
+            btnText.innerText = "Successfully Sent";
+            btnIcon.innerHTML = `<polyline points="20 6 9 17 4 12"></polyline>`;
+            
+            e.target.reset();
+            document.getElementById('selectedSubjectInput').value = "⚠️ Report Broken Download Link";
+            document.getElementById('selectedSubjectDisplay').innerText = "⚠️ Report Broken Download Link";
+            issueOptions.forEach((btn, idx) => {
+                if (idx === 0) btn.classList.add('selected');
+                else btn.classList.remove('selected');
+            });
+
+            showToast("Message sent successfully!", "success");
+
+            setTimeout(() => {
+                btn.classList.remove('btn-success-active');
+                btnText.innerText = originalText;
+                btnIcon.innerHTML = originalIcon;
+                btn.style.pointerEvents = "auto";
+                
+                if (history.state && history.state.popup === 'support') {
+                    history.back();
+                } else {
+                    document.getElementById('supportModalOverlay')?.classList.remove('active');
+                }
+            }, 2500);
+
+        } else {
+            throw new Error(data.error || "Failed to send message.");
+        }
+    } catch (error) {
+        showToast(error.message || "Network error. Please try again.", "error");
+        btnText.innerText = originalText;
+        btnIcon.innerHTML = originalIcon;
+        btn.style.pointerEvents = "auto";
+    }
+});
+
+
 // POPSTATE LISTENER
 window.addEventListener('popstate', (e) => {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
@@ -1789,6 +1914,17 @@ window.addEventListener('popstate', (e) => {
         const oldLoader = document.getElementById('pdfCenteredLoader');
         if (oldLoader) oldLoader.remove();
         cleanupPdfResources();
+        return;
+    }
+
+    const supportModal = document.getElementById('supportModalOverlay');
+    if (supportModal && supportModal.classList.contains('active')) {
+        const issueModal = document.getElementById('issueModal');
+        if (issueModal && issueModal.classList.contains('active')) {
+            issueModal.classList.remove('active');
+            return;
+        }
+        supportModal.classList.remove('active');
         return;
     }
 
