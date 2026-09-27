@@ -590,12 +590,21 @@ document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 6. COMMUNITY POPUP & TUTORIAL POPUP
+// 6. COMMUNITY POPUP (WITH REAL DELAY & VERIFIED TICK)
 // ==========================================
 let hasClickedWA = false;
 let hasClickedTG = false;
 let hasClickedIG = false;
+let isJoiningWA = false;
+let isJoiningTG = false;
+let isJoiningIG = false;
 let communityPopupTimer = null;
+
+const VERIFIED_CHECK_SVG = `
+<svg class="premium-verified-tick" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" fill="#10b981" fill-opacity="0.2" stroke="#10b981" stroke-width="2"/>
+    <path d="M8 12.5L10.5 15L16 9.5" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
 
 function initCommunityDualPopup() {
     const popup = document.getElementById('communityPopup');
@@ -629,42 +638,81 @@ function initCommunityDualPopup() {
         }
     }
 
+    // Realistic Async Join Trigger for WhatsApp
     if (waCard) {
         waCard.onclick = (e) => {
             e.preventDefault();
-            hasClickedWA = true;
+            if (hasClickedWA || isJoiningWA) return;
+            isJoiningWA = true;
+
             if (waStatus) {
-                waStatus.classList.add('completed');
-                waStatus.innerHTML = `<span>Done</span> <i class="fas fa-check" style="font-size:11px;"></i>`;
+                waStatus.style.pointerEvents = "none";
+                waStatus.innerHTML = `<span>Joining...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
             }
+
             window.open('https://whatsapp.com/channel/0029Vb6NBZx1yT2GByTTVf2A', '_blank');
-            checkAndComplete();
+
+            setTimeout(() => {
+                hasClickedWA = true;
+                isJoiningWA = false;
+                if (waStatus) {
+                    waStatus.classList.add('completed');
+                    waStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
+                }
+                checkAndComplete();
+            }, 2200);
         };
     }
 
+    // Realistic Async Join Trigger for Telegram
     if (tgCard) {
         tgCard.onclick = (e) => {
             e.preventDefault();
-            hasClickedTG = true;
+            if (hasClickedTG || isJoiningTG) return;
+            isJoiningTG = true;
+
             if (tgStatus) {
-                tgStatus.classList.add('completed');
-                tgStatus.innerHTML = `<span>Done</span> <i class="fas fa-check" style="font-size:11px;"></i>`;
+                tgStatus.style.pointerEvents = "none";
+                tgStatus.innerHTML = `<span>Joining...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
             }
+
             window.open('https://t.me/MultiverseBooks', '_blank');
-            checkAndComplete();
+
+            setTimeout(() => {
+                hasClickedTG = true;
+                isJoiningTG = false;
+                if (tgStatus) {
+                    tgStatus.classList.add('completed');
+                    tgStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
+                }
+                checkAndComplete();
+            }, 2200);
         };
     }
 
+    // Realistic Async Follow Trigger for Instagram
     if (igCard) {
         igCard.onclick = (e) => {
             e.preventDefault();
-            hasClickedIG = true;
+            if (hasClickedIG || isJoiningIG) return;
+            isJoiningIG = true;
+
             if (igStatus) {
-                igStatus.classList.add('completed');
-                igStatus.innerHTML = `<span>Done</span> <i class="fas fa-check" style="font-size:11px;"></i>`;
+                igStatus.style.pointerEvents = "none";
+                igStatus.innerHTML = `<span>Following...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
             }
+
             window.open('https://www.instagram.com/PRINCE_YADAV_3030', '_blank');
-            checkAndComplete();
+
+            setTimeout(() => {
+                hasClickedIG = true;
+                isJoiningIG = false;
+                if (igStatus) {
+                    igStatus.classList.add('completed');
+                    igStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
+                }
+                checkAndComplete();
+            }, 2200);
         };
     }
 
@@ -1437,7 +1485,7 @@ const logoutOverlay = document.getElementById('customLogoutOverlay');
 const cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
 const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
 
-// FIX: Robust Logout Vault Trigger
+// FIX: Robust Logout Dialog Handler
 function openLogoutDialog() {
     const sidebar = document.getElementById('sidebar');
     const sidebarOverlay = document.getElementById('sidebar-overlay');
