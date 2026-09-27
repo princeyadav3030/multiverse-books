@@ -1437,13 +1437,29 @@ const logoutOverlay = document.getElementById('customLogoutOverlay');
 const cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
 const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
 
+// Sidebar "Logout Vault" Option Listener
+document.getElementById('menu-logout-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('sidebar')?.classList.remove('active');
+    document.getElementById('sidebar-overlay')?.classList.remove('active');
+
+    if (!isUserLoggedIn) {
+        showToast("You are already logged out!", "error");
+        return;
+    }
+
+    if (logoutOverlay) {
+        logoutOverlay.style.display = 'flex';
+        setTimeout(() => logoutOverlay.classList.add('show'), 10);
+    }
+});
+
 if (cancelLogoutBtn) cancelLogoutBtn.addEventListener('click', () => { 
     if (logoutOverlay) { 
         logoutOverlay.classList.remove('show'); 
         setTimeout(() => logoutOverlay.style.display = 'none', 300); 
     } 
 });
-
 if (confirmLogoutBtn) {
     confirmLogoutBtn.addEventListener('click', async () => {
         confirmLogoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
@@ -1761,8 +1777,28 @@ document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => {
 });
 document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => { history.back(); });
 
+// PDF Viewer Close
+window.closePdfViewerDirectly = function() {
+    const pdfViewer = document.getElementById('pdfViewerOverlay');
+    if (pdfViewer) pdfViewer.style.display = 'none';
+    document.getElementById('pdfScrollContainer').innerHTML = ''; 
+    const oldLoader = document.getElementById('pdfCenteredLoader');
+    if (oldLoader) oldLoader.remove();
+    cleanupPdfResources();
+    
+    if (history.state && history.state.popup === 'pdfViewer') {
+        history.back();
+    }
+};
+
+document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.closePdfViewerDirectly();
+});
+
 // ==========================================
-// 13.5 SUPPORT & CONTACT MODAL LOGIC
+// 13.5 SUPPORT MODAL LOGIC
 // ==========================================
 document.getElementById('menu-contact')?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -1781,7 +1817,7 @@ document.getElementById('closeSupportBtn')?.addEventListener('click', () => {
     }
 });
 
-// Dropdown Issues Modal Open/Close
+// Dropdown Modal Logic
 document.getElementById('openIssueModalBtn')?.addEventListener('click', () => {
     document.getElementById('issueModal')?.classList.add('active');
 });
@@ -1796,7 +1832,7 @@ document.getElementById('issueModal')?.addEventListener('click', (e) => {
     }
 });
 
-// Issue Item Selection
+// Issue Option Selection
 const issueOptions = document.querySelectorAll('#issueModal .modal-option-btn');
 issueOptions.forEach(option => {
     option.addEventListener('click', () => {
@@ -1853,9 +1889,9 @@ document.getElementById('supportContactForm')?.addEventListener('submit', async 
             e.target.reset();
             document.getElementById('selectedSubjectInput').value = "⚠️ Report Broken Download Link";
             document.getElementById('selectedSubjectDisplay').innerText = "⚠️ Report Broken Download Link";
-            issueOptions.forEach((btnOpt, idx) => {
-                if (idx === 0) btnOpt.classList.add('selected');
-                else btnOpt.classList.remove('selected');
+            issueOptions.forEach((btn, idx) => {
+                if (idx === 0) btn.classList.add('selected');
+                else btn.classList.remove('selected');
             });
 
             showToast("Message sent successfully!", "success");
@@ -1882,42 +1918,6 @@ document.getElementById('supportContactForm')?.addEventListener('submit', async 
         btnIcon.innerHTML = originalIcon;
         btn.style.pointerEvents = "auto";
     }
-});
-
-// ==========================================
-// 13.6 LOGOUT VAULT BUTTON LISTENER (IMAGE 5 FIX)
-// ==========================================
-document.getElementById('menu-logout-vault')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    sidebar.classList.remove('active');
-    sidebarOverlay.classList.remove('active');
-
-    const logoutModal = document.getElementById('customLogoutOverlay');
-    if (logoutModal) {
-        logoutModal.style.display = 'flex';
-        void logoutModal.offsetWidth;
-        logoutModal.classList.add('show');
-    }
-});
-
-// PDF Viewer Close
-window.closePdfViewerDirectly = function() {
-    const pdfViewer = document.getElementById('pdfViewerOverlay');
-    if (pdfViewer) pdfViewer.style.display = 'none';
-    document.getElementById('pdfScrollContainer').innerHTML = ''; 
-    const oldLoader = document.getElementById('pdfCenteredLoader');
-    if (oldLoader) oldLoader.remove();
-    cleanupPdfResources();
-    
-    if (history.state && history.state.popup === 'pdfViewer') {
-        history.back();
-    }
-};
-
-document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    window.closePdfViewerDirectly();
 });
 
 // POPSTATE LISTENER
@@ -2707,8 +2707,9 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 18. NEW UPLOAD HUB & 1-BUTTON SELECTION LOGIC
+// 18. NEW UPLOAD HUB & SELECTION LOGIC
 // ==========================================
+
 function setupDynamicIconWatcher(inputId, wrapperId) {
     const input = document.getElementById(inputId);
     const wrapper = document.getElementById(wrapperId);
@@ -2758,7 +2759,7 @@ function buildDynamicYearList() {
 }
 buildDynamicYearList();
 
-// White Slider Switcher
+// Switcher
 const admTabAdd = document.getElementById('admTabAdd');
 const admTabPrompt = document.getElementById('admTabPrompt');
 const switchTrack = document.getElementById('switchTrack');
