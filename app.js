@@ -1437,37 +1437,63 @@ const logoutOverlay = document.getElementById('customLogoutOverlay');
 const cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
 const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
 
-// Sidebar "Logout Vault" Option Listener
-document.getElementById('menu-logout-btn')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    document.getElementById('sidebar')?.classList.remove('active');
-    document.getElementById('sidebar-overlay')?.classList.remove('active');
-
-    if (!isUserLoggedIn) {
-        showToast("You are already logged out!", "error");
-        return;
-    }
+// FIX: Robust Logout Vault Trigger
+function openLogoutDialog() {
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('active');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
 
     if (logoutOverlay) {
         logoutOverlay.style.display = 'flex';
-        setTimeout(() => logoutOverlay.classList.add('show'), 10);
+        void logoutOverlay.offsetWidth;
+        logoutOverlay.classList.add('show');
+    }
+}
+
+function closeLogoutDialog() {
+    if (logoutOverlay) { 
+        logoutOverlay.classList.remove('show'); 
+        setTimeout(() => {
+            logoutOverlay.style.display = 'none';
+        }, 250); 
+    } 
+}
+
+document.getElementById('menu-logout-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openLogoutDialog();
+});
+
+if (cancelLogoutBtn) {
+    cancelLogoutBtn.addEventListener('click', (e) => { 
+        e.preventDefault();
+        e.stopPropagation();
+        closeLogoutDialog();
+    });
+}
+
+logoutOverlay?.addEventListener('click', (e) => {
+    if (e.target === logoutOverlay) {
+        closeLogoutDialog();
     }
 });
 
-if (cancelLogoutBtn) cancelLogoutBtn.addEventListener('click', () => { 
-    if (logoutOverlay) { 
-        logoutOverlay.classList.remove('show'); 
-        setTimeout(() => logoutOverlay.style.display = 'none', 300); 
-    } 
-});
 if (confirmLogoutBtn) {
-    confirmLogoutBtn.addEventListener('click', async () => {
+    confirmLogoutBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
         confirmLogoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        confirmLogoutBtn.style.pointerEvents = 'none';
         try {
             await signOut(auth);
             localStorage.removeItem('isUserLoggedIn');
             window.location.reload();
-        } catch (error) {}
+        } catch (error) {
+            confirmLogoutBtn.innerHTML = 'Yes, Log Out';
+            confirmLogoutBtn.style.pointerEvents = 'auto';
+            showToast("Logout failed, please retry", "error");
+        }
     });
 }
 
@@ -1876,7 +1902,10 @@ document.getElementById('supportContactForm')?.addEventListener('submit', async 
         const response = await fetch('/api/contact', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData)
+            body: JSON.stringify({
+                ...formData,
+                timestamp: Date.now()
+            })
         });
 
         const data = await response.json();
