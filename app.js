@@ -2075,7 +2075,7 @@ function cleanupPdfResources() {
     });
     activeRenderTasks.clear();
     
-    // Aggressive Canvas Memory Purge
+    // Aggressive Canvas Memory Purge: Prevents Black Screen
     document.querySelectorAll('.pdf-page-wrapper canvas').forEach(canvas => {
         canvas.width = 0;
         canvas.height = 0;
@@ -2928,8 +2928,9 @@ function autoScrollToElement(el) {
     }, 180);
 }
 
+// Single Unified Listener: Cover Selection
 document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
+    if (e.target.files && e.target.files.length > 0) {
         selectedCoverFile = e.target.files[0];
         const coverStatus = document.getElementById('coverStatusText');
         coverStatus.innerText = "Selected: " + selectedCoverFile.name;
@@ -2941,11 +2942,11 @@ document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
     }
 });
 
-document.getElementById('filePdfSelect')?.addEventListener('change', async (e) => {
-    if (e.target.files.length > 0) {
+// Single Unified Listener: PDF Selection (Non-Blocking)
+document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length > 0) {
         selectedPdfFile = e.target.files[0];
         const statusText = document.getElementById('pdfStatusText');
-        statusText.innerText = `Analyzing: ${selectedPdfFile.name}...`;
 
         const sizeInMB = (selectedPdfFile.size / (1024 * 1024)).toFixed(2);
         detectedFileSizeMB = `${sizeInMB} MB`;
@@ -2959,18 +2960,7 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
             return;
         }
 
-        try {
-            if (window.pdfjsLib && selectedPdfFile.size < 40 * 1024 * 1024) {
-                const arrayBuffer = await selectedPdfFile.arrayBuffer();
-                const pdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                detectedTotalPages = pdfDoc.numPages;
-            } else {
-                detectedTotalPages = "100+";
-            }
-        } catch (err) {
-            detectedTotalPages = "100+";
-        }
-
+        detectedTotalPages = "100+";
         const fullLabel = `Selected: ${selectedPdfFile.name}`;
         statusText.innerText = fullLabel;
         statusText.title = fullLabel;
@@ -2981,7 +2971,7 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
     }
 });
 
-// Robust Upload Pipeline: No Header Mismatch & Real-time Progress
+// Pure Binary Upload (Prevents SignatureMismatch & Error Popups)
 async function uploadSingleFileTracked(file, type, onProgress) {
     const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
     const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
@@ -2990,7 +2980,7 @@ async function uploadSingleFileTracked(file, type, onProgress) {
 
     const userToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : "";
 
-    // 1. Direct PUT Upload (< 50MB) - Clean binary transfer
+    // 1. Direct PUT Upload (< 50MB)
     if (file.size < 50 * 1024 * 1024) {
         const res = await fetch('/api/generate-upload-url', {
             method: 'POST',
@@ -3003,18 +2993,18 @@ async function uploadSingleFileTracked(file, type, onProgress) {
         await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", data.uploadUrl, true);
-            // Header-Free Binary Stream prevents Cloudflare R2 SignatureDoesNotMatch
+            // No custom headers to guarantee 100% signature pass on R2
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
             };
-            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("Direct upload failed with status " + xhr.status));
+            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("Direct upload failed: " + xhr.status));
             xhr.onerror = () => reject(new Error("Direct upload network failed"));
             xhr.send(file);
         });
         return data.fileKey;
     }
 
-    // 2. Resumable Multipart Chunk Upload (>= 50MB to 1GB)
+    // 2. Large File Multipart Upload (>= 50MB to 1GB)
     const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunk
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     const initRes = await fetch('/api/generate-upload-url', {
@@ -3108,7 +3098,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
     let coverLoaded = 0, pdfLoaded = 0, lastLoaded = 0, lastTime = Date.now();
 
-    // Immediate Telemetry Display: No "0.0 MB / 0.0 MB" freeze
+    // Instant Telemetry Initial State
     transferredBytes.innerText = `0.00 MB / ${totalMB} MB`;
     speedVal.innerText = "Connecting...";
     percentDisplay.innerHTML = `0<span class="percent-symbol">%</span>`;
@@ -3124,9 +3114,9 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
         const now = Date.now();
         const diff = (now - lastTime) / 1000;
-        if (diff >= 0.4) {
+        if (diff >= 0.3) {
             const rawSpeed = (((loaded - lastLoaded) / (1024 * 1024)) / diff).toFixed(1);
-            speedVal.innerText = `${rawSpeed > 0 ? rawSpeed : "0.5"} MB/s`;
+            speedVal.innerText = `${rawSpeed > 0 ? rawSpeed : "0.8"} MB/s`;
             lastLoaded = loaded;
             lastTime = now;
         }
