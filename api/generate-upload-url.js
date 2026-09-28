@@ -21,7 +21,7 @@ if (!admin.apps.length) {
       }),
     });
   } catch (err) {
-    console.error("Firebase Admin Error:", err);
+    console.error("Firebase Admin Init Error:", err);
   }
 }
 const db = admin.firestore();
@@ -37,7 +37,7 @@ const s3 = new S3Client({
 });
 
 module.exports = async function handler(req, res) {
-  // CORS & Preflight headers
+  // CORS & Preflight Response
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
@@ -58,7 +58,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // 3. User Authentication & Admin Verification
+    // 3. Verify User & Check Super Admin
     const decodedToken = await admin.auth().verifyIdToken(userToken);
     const userEmail = (decodedToken.email || "").toLowerCase().trim();
 
@@ -68,16 +68,16 @@ module.exports = async function handler(req, res) {
       isAdmin = adminDoc.exists;
     }
 
-    // 4. File Size Validation
+    // 4. File Size Limits Check
     const MAX_USER_SIZE = 250 * 1024 * 1024;   // 250 MB
-    const MAX_ADMIN_SIZE = 1024 * 1024 * 1024; // 1 GB
+    const MAX_ADMIN_SIZE = 1024 * 1024 * 1024; // 1 GB (1024 MB)
     const allowedLimit = isAdmin ? MAX_ADMIN_SIZE : MAX_USER_SIZE;
 
     const numericFileSize = Number(fileSize);
     if (numericFileSize && numericFileSize > allowedLimit) {
       const limitText = isAdmin ? "1 GB" : "250 MB";
       return res.status(403).json({ 
-        error: `File size limit se zyada hai! Aapka maximum limit: ${limitText} hai.` 
+        error: `File size limit se zyada hai! Maximum limit: ${limitText} hai.` 
       });
     }
 
@@ -88,22 +88,22 @@ module.exports = async function handler(req, res) {
       const command = new CreateMultipartUploadCommand({
         Bucket: bucketName,
         Key: fileName,
-        ContentType: fileType || 'application/octet-stream',
+        ContentType: fileType || 'application/pdf',
       });
       const multipart = await s3.send(command);
       return res.status(200).json({ uploadId: multipart.UploadId, fileKey: fileName });
     }
 
-    // 6. Multipart Upload: Step 2 (Get Signed Part URL)
+    // 6. Multipart Upload: Step 2 (Get Signed Part URL for chunks)
     if (action === "getPartUrl") {
       const { partNumber } = req.body;
       const parsedPartNumber = parseInt(partNumber, 10);
       
       if (!uploadId || isNaN(parsedPartNumber)) {
-        return res.status(400).json({ error: "Invalid uploadId ya partNumber" });
+        return res.status(400).json({ error: "uploadId ya partNumber invalid hai" });
       }
 
-      // Chunk level par ContentType sign nahi karte taaki browser PUT binary payload bina issue upload kare
+      // Chunk URL generate karte waqt headers unbind rakhe gaye hain taaki browser PUT fail na ho
       const command = new UploadPartCommand({
         Bucket: bucketName,
         Key: fileName,
@@ -111,19 +111,22 @@ module.exports = async function handler(req, res) {
         PartNumber: parsedPartNumber,
       });
 
-      const signedUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
+      const signedUrl = await getSignedUrl(s3, command, { 
+        expiresIn: 3600,
+        unhoistableHeaders: new Set(['x-amz-checksum-crc32'])
+      });
       return res.status(200).json({ signedUrl });
     }
 
-    // 7. Multipart Upload: Step 3 (Complete Upload)
+    // 7. Multipart Upload: Step 3 (Complete & Merge Parts)
     if (action === "completeMultipart") {
       if (!uploadId || !Array.isArray(parts) || parts.length === 0) {
-        return res.status(400).json({ error: "Parts payload missing ya invalid hai." });
+        return res.status(400).json({ error: "Multipart parts list invalid hai." });
       }
 
       const formattedParts = parts.map(p => ({
         PartNumber: parseInt(p.PartNumber, 10),
-        ETag: p.ETag ? p.ETag.replace(/^"|"$/g, '') : ''
+        ETag: String(p.ETag || '').replace(/^"|"$/g, '').trim()
       })).sort((a, b) => a.PartNumber - b.PartNumber);
 
       const command = new CompleteMultipartUploadCommand({
@@ -137,20 +140,22 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ success: true, fileKey: fileName });
     }
 
-    // 8. Single Direct Upload (< 50MB files jaise cover images)
-    // ContentType explicitly sign kiya gaya hai taaki browser ka Content-Type header R2 ke signature se 100% match kare
-    const cleanContentType = fileType || (fileName.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+    // 8. Single Direct Upload (< 50MB files jaise Cover Artworks)
+    // PutObjectCommand me ContentType sign nahi karenge taaki browser ka custom content-type R2 signature se collide na kare
     const command = new PutObjectCommand({
       Bucket: bucketName,
-      Key: fileName,
-      ContentType: cleanContentType
+      Key: fileName
     });
 
-    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
+    const uploadUrl = await getSignedUrl(s3, command, { 
+      expiresIn: 3600,
+      unhoistableHeaders: new Set(['x-amz-checksum-crc32'])
+    });
+
     return res.status(200).json({ uploadUrl, fileKey: fileName });
 
   } catch (error) {
-    console.error("Presigned URL Generation Error:", error);
-    return res.status(500).json({ error: error.message || 'Server storage presigned error.' });
+    console.error("Upload URL Handler Error:", error);
+    return res.status(500).json({ error: error.message || 'Presigned URL generation error.' });
   }
 };
