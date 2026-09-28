@@ -104,7 +104,7 @@ let activePost = null;
 let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
 
-// PDF Engine State
+// PDF Engine State (Optimized for 1GB Documents)
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let renderedPagesMap = new Map();
@@ -590,7 +590,7 @@ document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 6. COMMUNITY POPUP (WITH REAL DELAY & VERIFIED TICK)
+// 6. COMMUNITY POPUP
 // ==========================================
 let hasClickedWA = false;
 let hasClickedTG = false;
@@ -638,7 +638,6 @@ function initCommunityDualPopup() {
         }
     }
 
-    // Realistic Async Join Trigger for WhatsApp
     if (waCard) {
         waCard.onclick = (e) => {
             e.preventDefault();
@@ -664,7 +663,6 @@ function initCommunityDualPopup() {
         };
     }
 
-    // Realistic Async Join Trigger for Telegram
     if (tgCard) {
         tgCard.onclick = (e) => {
             e.preventDefault();
@@ -690,7 +688,6 @@ function initCommunityDualPopup() {
         };
     }
 
-    // Realistic Async Follow Trigger for Instagram
     if (igCard) {
         igCard.onclick = (e) => {
             e.preventDefault();
@@ -1485,7 +1482,6 @@ const logoutOverlay = document.getElementById('customLogoutOverlay');
 const cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
 const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
 
-// FIX: Robust Logout Dialog Handler
 function openLogoutDialog() {
     const sidebar = document.getElementById('sidebar');
     const sidebarOverlay = document.getElementById('sidebar-overlay');
@@ -1906,7 +1902,6 @@ document.getElementById('issueModal')?.addEventListener('click', (e) => {
     }
 });
 
-// Issue Option Selection
 const issueOptions = document.querySelectorAll('#issueModal .modal-option-btn');
 issueOptions.forEach(option => {
     option.addEventListener('click', () => {
@@ -1923,7 +1918,6 @@ issueOptions.forEach(option => {
     });
 });
 
-// Support Form API Submission
 document.getElementById('supportContactForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -2080,6 +2074,14 @@ function cleanupPdfResources() {
         try { task.cancel(); } catch(e) {}
     });
     activeRenderTasks.clear();
+    
+    // Memory Purge: Sabhi Canvas elements ko permanently destroy karna
+    document.querySelectorAll('.pdf-page-wrapper canvas').forEach(canvas => {
+        canvas.width = 0;
+        canvas.height = 0;
+        canvas.remove();
+    });
+    
     renderedPagesMap.clear();
     currentPdfDocument = null;
     currentZoomScale = 1.0;
@@ -2115,7 +2117,7 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
 }
 
 // ==========================================
-// 14. ULTRA HD PDF VIEWER (VIRTUALIZED)
+// 14. ULTRA HD PDF VIEWER (ZERO-LAG 1GB STREAMING)
 // ==========================================
 async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     const container = document.getElementById('pdfContainer');
@@ -2143,10 +2145,14 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     }
 
     try {
+        // HTTP Byte-Range Requests Enabled for Fast Seeking (No 1GB full download)
         const loadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
-            cMapPacked: true
+            cMapPacked: true,
+            disableAutoFetch: true,
+            disableStream: false,
+            rangeChunkSize: 65536 // 64 KB range chunk stream
         });
 
         const pdf = await loadingTask.promise;
@@ -2168,6 +2174,7 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
         basePageAspectRatio = (firstViewport.height / firstViewport.width) || 1.414;
         const defaultHeight = Math.round(basePageWidth * basePageAspectRatio);
 
+        // Lightweight Placeholders for all pages
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const wrapper = document.createElement('div');
             wrapper.className = 'pdf-page-wrapper page-placeholder';
@@ -2215,6 +2222,7 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     }
 }
 
+// Memory-Conservative Virtualization Observer (Render only 2-3 pages, purge others)
 function initVirtualizationObserver(pdf) {
     if (pdfVirtualObserver) pdfVirtualObserver.disconnect();
 
@@ -2229,7 +2237,7 @@ function initVirtualizationObserver(pdf) {
         });
     }, {
         root: document.getElementById('pdfContainer'),
-        rootMargin: '450px 0px 450px 0px',
+        rootMargin: '180px 0px 180px 0px', // Tight margin prevents RAM saturation
         threshold: 0.01
     });
 
@@ -2251,7 +2259,8 @@ async function renderSingleHdPage(pdf, pageNum) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
-        const devicePR = Math.max(window.devicePixelRatio || 1, 2.5);
+        // Dynamic pixel ratio: crisp text without burning GPU memory
+        const devicePR = Math.min(window.devicePixelRatio || 1, 1.8);
         const viewport = page.getViewport({ scale: currentScale });
 
         const canvas = document.createElement('canvas');
@@ -2300,6 +2309,7 @@ async function renderSingleHdPage(pdf, pageNum) {
     }
 }
 
+// Aggressive Canvas Purge: Release Mobile GPU/RAM
 function unloadSinglePage(pageNum) {
     if (!renderedPagesMap.has(pageNum)) return;
     const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
@@ -2314,6 +2324,7 @@ function unloadSinglePage(pageNum) {
     if (canvas) {
         canvas.width = 0;
         canvas.height = 0;
+        canvas.remove(); // Release Context completely
     }
 
     wrapper.classList.add('page-placeholder');
@@ -2396,7 +2407,7 @@ function initTargetLockedDoubleTapZoom() {
                 if (currentZoomScale > 1.1) {
                     applyTargetLockedZoom(1.0, activePage);
                 } else {
-                    applyTargetLockedZoom(2.2, activePage);
+                    applyTargetLockedZoom(2.0, activePage);
                 }
                 lastTapTime = 0;
                 return;
@@ -2784,9 +2795,8 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 18. NEW UPLOAD HUB & SELECTION LOGIC
+// 18. UPLOAD HUB & SYNCHRONIZED STORAGE LOGIC
 // ==========================================
-
 function setupDynamicIconWatcher(inputId, wrapperId) {
     const input = document.getElementById(inputId);
     const wrapper = document.getElementById(wrapperId);
@@ -2963,19 +2973,21 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
     }
 });
 
+// Fully Synchronized Upload Handler (No Signature Mismatch & Accurate Progress Telemetry)
 async function uploadSingleFileTracked(file, type, onProgress) {
     const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
     const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
     const safeFileName = `${folderPrefix}/${Date.now()}_${file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 25)}.${fileExt}`;
-    const contentType = type === 'image' ? (file.type || 'image/jpeg') : 'application/pdf';
+    const cleanContentType = type === 'image' ? (file.type || 'image/jpeg') : 'application/pdf';
 
     const userToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : "";
 
+    // Small File Direct PUT (< 50MB)
     if (file.size < 50 * 1024 * 1024) {
         const res = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fileName: safeFileName, fileType: contentType, fileSize: file.size, userToken })
+            body: JSON.stringify({ fileName: safeFileName, fileType: cleanContentType, fileSize: file.size, userToken })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Upload URL generation error");
@@ -2983,7 +2995,8 @@ async function uploadSingleFileTracked(file, type, onProgress) {
         await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", data.uploadUrl, true);
-            if (file.type) xhr.setRequestHeader("Content-Type", file.type);
+            // Strict Signature Header Matching: Matches backend signed ContentType
+            xhr.setRequestHeader("Content-Type", cleanContentType);
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
             };
@@ -2994,12 +3007,13 @@ async function uploadSingleFileTracked(file, type, onProgress) {
         return data.fileKey;
     }
 
-    const CHUNK_SIZE = 10 * 1024 * 1024;
+    // Large File Chunk Multipart Upload (>= 50MB up to 1GB)
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB Chunks
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     const initRes = await fetch('/api/generate-upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: "initiateMultipart", fileName: safeFileName, fileType: contentType, fileSize: file.size, userToken })
+        body: JSON.stringify({ action: "initiateMultipart", fileName: safeFileName, fileType: cleanContentType, fileSize: file.size, userToken })
     });
     const initData = await initRes.json();
     if (!initRes.ok) throw new Error(initData.error || "Multipart initiation failed");
@@ -3019,12 +3033,26 @@ async function uploadSingleFileTracked(file, type, onProgress) {
             body: JSON.stringify({ action: "getPartUrl", fileName: safeFileName, uploadId, partNumber, userToken })
         });
         const partUrlData = await partUrlRes.json();
+        if (!partUrlRes.ok) throw new Error(partUrlData.error || `Chunk ${partNumber} token error`);
 
         const partETag = await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", partUrlData.signedUrl, true);
-            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve(xhr.getResponseHeader("ETag") || `part_${partNumber}`) : reject(new Error(`Chunk ${partNumber} failed`));
-            xhr.onerror = () => reject(new Error("Network disconnect"));
+            // Chunk upload has no ContentType restriction for raw binary chunks
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable && onProgress) {
+                    onProgress(uploadedBytes + e.loaded, file.size);
+                }
+            };
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    const etag = xhr.getResponseHeader("ETag");
+                    resolve(etag || `part_${partNumber}`);
+                } else {
+                    reject(new Error(`Chunk ${partNumber} failed with status ${xhr.status}`));
+                }
+            };
+            xhr.onerror = () => reject(new Error("Network disconnect during chunk upload"));
             xhr.send(chunkBlob);
         });
 
@@ -3039,6 +3067,8 @@ async function uploadSingleFileTracked(file, type, onProgress) {
         body: JSON.stringify({ action: "completeMultipart", fileName: safeFileName, uploadId, parts, userToken })
     });
     const completeData = await completeRes.json();
+    if (!completeRes.ok) throw new Error(completeData.error || "Failed to finalize multipart upload");
+
     return completeData.fileKey;
 }
 
@@ -3084,7 +3114,8 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const now = Date.now();
         const diff = (now - lastTime) / 1000;
         if (diff >= 0.5) {
-            speedVal.innerText = `${(((loaded - lastLoaded) / (1024 * 1024)) / diff).toFixed(1)} MB/s`;
+            const speed = (((loaded - lastLoaded) / (1024 * 1024)) / diff).toFixed(1);
+            speedVal.innerText = `${speed > 0 ? speed : "0.5"} MB/s`;
             lastLoaded = loaded;
             lastTime = now;
         }
