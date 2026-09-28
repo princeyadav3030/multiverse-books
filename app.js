@@ -2075,7 +2075,6 @@ function cleanupPdfResources() {
     });
     activeRenderTasks.clear();
     
-    // Aggressive Canvas Memory Purge: Prevents Black Screen
     document.querySelectorAll('.pdf-page-wrapper canvas').forEach(canvas => {
         canvas.width = 0;
         canvas.height = 0;
@@ -2145,7 +2144,6 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     }
 
     try {
-        // True Byte-Range Streaming Enabled: 1GB file fast chunk-by-chunk loader
         const loadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
@@ -2174,7 +2172,6 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
         basePageAspectRatio = (firstViewport.height / firstViewport.width) || 1.414;
         const defaultHeight = Math.round(basePageWidth * basePageAspectRatio);
 
-        // Lightweight Placeholders for all pages
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const wrapper = document.createElement('div');
             wrapper.className = 'pdf-page-wrapper page-placeholder';
@@ -2236,7 +2233,7 @@ function initVirtualizationObserver(pdf) {
         });
     }, {
         root: document.getElementById('pdfContainer'),
-        rootMargin: '120px 0px 120px 0px', // Tight view window: 2-3 pages only
+        rootMargin: '120px 0px 120px 0px',
         threshold: 0.01
     });
 
@@ -2258,7 +2255,6 @@ async function renderSingleHdPage(pdf, pageNum) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
-        // Capped Pixel Ratio prevents mobile GPU memory saturation & freeze
         const devicePR = Math.min(window.devicePixelRatio || 1, 1.8);
         const viewport = page.getViewport({ scale: currentScale });
 
@@ -2308,7 +2304,6 @@ async function renderSingleHdPage(pdf, pageNum) {
     }
 }
 
-// Complete Canvas & Context Deletion (Avoids Black Screen)
 function unloadSinglePage(pageNum) {
     if (!renderedPagesMap.has(pageNum)) return;
     const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
@@ -2416,7 +2411,6 @@ function initTargetLockedDoubleTapZoom() {
     });
 }
 
-// 100% Synchronized Scroll Tracker (Badge matches viewport page accurately)
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
@@ -2928,7 +2922,7 @@ function autoScrollToElement(el) {
     }, 180);
 }
 
-// Single Unified Listener: Cover Selection
+// Unified Listener: Cover Selection
 document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
         selectedCoverFile = e.target.files[0];
@@ -2942,7 +2936,7 @@ document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// Single Unified Listener: PDF Selection (Non-Blocking)
+// Unified Listener: PDF Selection
 document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
         selectedPdfFile = e.target.files[0];
@@ -2971,103 +2965,52 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// Pure Binary Upload (Prevents SignatureMismatch & Error Popups)
+// Direct Binary Upload Function (Zero Signature Clash)
 async function uploadSingleFileTracked(file, type, onProgress) {
     const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
     const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
     const safeFileName = `${folderPrefix}/${Date.now()}_${file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 25)}.${fileExt}`;
-    const contentType = type === 'image' ? (file.type || 'image/jpeg') : 'application/pdf';
 
     const userToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : "";
 
-    // 1. Direct PUT Upload (< 50MB)
-    if (file.size < 50 * 1024 * 1024) {
-        const res = await fetch('/api/generate-upload-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fileName: safeFileName, fileType: contentType, fileSize: file.size, userToken })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Upload URL generation error");
-
-        await new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open("PUT", data.uploadUrl, true);
-            // No custom headers to guarantee 100% signature pass on R2
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
-            };
-            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("Direct upload failed: " + xhr.status));
-            xhr.onerror = () => reject(new Error("Direct upload network failed"));
-            xhr.send(file);
-        });
-        return data.fileKey;
-    }
-
-    // 2. Large File Multipart Upload (>= 50MB to 1GB)
-    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunk
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-    const initRes = await fetch('/api/generate-upload-url', {
+    const res = await fetch('/api/generate-upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: "initiateMultipart", fileName: safeFileName, fileType: contentType, fileSize: file.size, userToken })
+        body: JSON.stringify({ 
+            fileName: safeFileName, 
+            fileSize: file.size, 
+            userToken: userToken 
+        })
     });
-    const initData = await initRes.json();
-    if (!initRes.ok) throw new Error(initData.error || "Multipart initiation failed");
+    
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Upload URL generation error");
 
-    const uploadId = initData.uploadId;
-    const parts = [];
-    let uploadedBytes = 0;
-
-    for (let partNumber = 1; partNumber <= totalChunks; partNumber++) {
-        const start = (partNumber - 1) * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, file.size);
-        const chunkBlob = file.slice(start, end);
-
-        const partUrlRes = await fetch('/api/generate-upload-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: "getPartUrl", fileName: safeFileName, uploadId, partNumber, userToken })
-        });
-        const partUrlData = await partUrlRes.json();
-        if (!partUrlRes.ok) throw new Error(partUrlData.error || `Chunk ${partNumber} token error`);
-
-        const partETag = await new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open("PUT", partUrlData.signedUrl, true);
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable && onProgress) {
-                    onProgress(uploadedBytes + e.loaded, file.size);
-                }
-            };
-            xhr.onload = () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    const etag = xhr.getResponseHeader("ETag");
-                    resolve(etag || `part_${partNumber}`);
-                } else {
-                    reject(new Error(`Chunk ${partNumber} failed with status ${xhr.status}`));
-                }
-            };
-            xhr.onerror = () => reject(new Error("Network disconnect during chunk upload"));
-            xhr.send(chunkBlob);
-        });
-
-        parts.push({ PartNumber: partNumber, ETag: partETag });
-        uploadedBytes += chunkBlob.size;
-        if (onProgress) onProgress(uploadedBytes, file.size);
-    }
-
-    const completeRes = await fetch('/api/generate-upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: "completeMultipart", fileName: safeFileName, uploadId, parts, userToken })
+    await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", data.uploadUrl, true);
+        
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable && onProgress) {
+                onProgress(e.loaded, e.total);
+            }
+        };
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+            } else {
+                reject(new Error("R2 Upload Failed With Status: " + xhr.status));
+            }
+        };
+        xhr.onerror = () => reject(new Error("Direct upload network failed"));
+        
+        xhr.send(file);
     });
-    const completeData = await completeRes.json();
-    if (!completeRes.ok) throw new Error(completeData.error || "Failed to finalize multipart upload");
 
-    return completeData.fileKey;
+    return data.fileKey;
 }
 
+// Add Book Form Handler
 document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!selectedCoverFile) return showToast("Cover Image select karein!", "error");
@@ -3098,7 +3041,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
     let coverLoaded = 0, pdfLoaded = 0, lastLoaded = 0, lastTime = Date.now();
 
-    // Instant Telemetry Initial State
     transferredBytes.innerText = `0.00 MB / ${totalMB} MB`;
     speedVal.innerText = "Connecting...";
     percentDisplay.innerHTML = `0<span class="percent-symbol">%</span>`;
@@ -3124,10 +3066,16 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
     try {
         stageTitle.innerText = "Cover Artwork Transfer...";
-        const coverKey = await uploadSingleFileTracked(selectedCoverFile, 'image', (l) => { coverLoaded = l; updateTelemetry(); });
+        const coverKey = await uploadSingleFileTracked(selectedCoverFile, 'image', (l) => { 
+            coverLoaded = l; 
+            updateTelemetry(); 
+        });
 
         stageTitle.innerText = "Uploading PDF Manuscript...";
-        const pdfKey = await uploadSingleFileTracked(selectedPdfFile, 'pdf', (l) => { pdfLoaded = l; updateTelemetry(); });
+        const pdfKey = await uploadSingleFileTracked(selectedPdfFile, 'pdf', (l) => { 
+            pdfLoaded = l; 
+            updateTelemetry(); 
+        });
 
         stageTitle.innerText = "Database me register ho raha hai...";
         percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
@@ -3150,7 +3098,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             image: coverKey,
             pdfLink: pdfKey,
             fileSize: detectedFileSizeMB,
-            sizeBytes: selectedPdfFile.size,
+            sizeBytes: Number(selectedPdfFile.size),
             fileFormat: "PDF",
             totalPages: detectedTotalPages.toString(),
             dateAdded: new Date().toLocaleDateString('en-GB').toUpperCase(),
@@ -3160,6 +3108,14 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
         const docRef = await addDoc(collection(db, "books"), newBook);
         newBook.id = docRef.id;
+
+        // User profile me upload time lock set karein
+        if (auth.currentUser && !IS_SUPER_ADMIN) {
+            await setDoc(doc(db, "users", auth.currentUser.uid), {
+                lastBookUploadTime: Date.now()
+            }, { merge: true });
+        }
+
         booksData.unshift(newBook);
         applyMasterFilter();
 
