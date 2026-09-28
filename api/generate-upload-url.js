@@ -1,11 +1,5 @@
 const admin = require('firebase-admin');
-const { 
-  S3Client, 
-  PutObjectCommand, 
-  CreateMultipartUploadCommand, 
-  UploadPartCommand, 
-  CompleteMultipartUploadCommand 
-} = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 // 1. Firebase Admin Initialization
@@ -37,28 +31,27 @@ const s3 = new S3Client({
 });
 
 module.exports = async function handler(req, res) {
-  // CORS & Preflight Response
+  // CORS & Preflight Handling
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-  res.setHeader('Access-Control-Expose-Headers', 'ETag,Content-Length,Content-Range,Accept-Ranges');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { fileName, fileType, fileSize, userToken, action, uploadId, parts } = req.body;
+  const { fileName, fileSize, userToken } = req.body;
 
   if (!userToken) {
     return res.status(401).json({ error: 'Unauthorized: User login zaroori hai.' });
   }
 
   try {
-    // 3. Verify User & Check Super Admin
+    // 3. User Authentication & Role Verification
     const decodedToken = await admin.auth().verifyIdToken(userToken);
     const userEmail = (decodedToken.email || "").toLowerCase().trim();
 
@@ -68,7 +61,7 @@ module.exports = async function handler(req, res) {
       isAdmin = adminDoc.exists;
     }
 
-    // 4. File Size Limits Check
+    // 4. File Size Constraints (Admin: 1GB, Normal User: 250MB)
     const MAX_USER_SIZE = 250 * 1024 * 1024;   // 250 MB
     const MAX_ADMIN_SIZE = 1024 * 1024 * 1024; // 1 GB (1024 MB)
     const allowedLimit = isAdmin ? MAX_ADMIN_SIZE : MAX_USER_SIZE;
@@ -83,79 +76,28 @@ module.exports = async function handler(req, res) {
 
     const bucketName = process.env.R2_BUCKET_NAME || 'spidy-books';
 
-    // 5. Multipart Upload: Step 1 (Initiate)
-    if (action === "initiateMultipart") {
-      const command = new CreateMultipartUploadCommand({
-        Bucket: bucketName,
-        Key: fileName,
-        ContentType: fileType || 'application/pdf',
-      });
-      const multipart = await s3.send(command);
-      return res.status(200).json({ uploadId: multipart.UploadId, fileKey: fileName });
-    }
-
-    // 6. Multipart Upload: Step 2 (Get Signed Part URL for chunks)
-    if (action === "getPartUrl") {
-      const { partNumber } = req.body;
-      const parsedPartNumber = parseInt(partNumber, 10);
-      
-      if (!uploadId || isNaN(parsedPartNumber)) {
-        return res.status(400).json({ error: "uploadId ya partNumber invalid hai" });
-      }
-
-      // Chunk URL generate karte waqt headers unbind rakhe gaye hain taaki browser PUT fail na ho
-      const command = new UploadPartCommand({
-        Bucket: bucketName,
-        Key: fileName,
-        UploadId: uploadId,
-        PartNumber: parsedPartNumber,
-      });
-
-      const signedUrl = await getSignedUrl(s3, command, { 
-        expiresIn: 3600,
-        unhoistableHeaders: new Set(['x-amz-checksum-crc32'])
-      });
-      return res.status(200).json({ signedUrl });
-    }
-
-    // 7. Multipart Upload: Step 3 (Complete & Merge Parts)
-    if (action === "completeMultipart") {
-      if (!uploadId || !Array.isArray(parts) || parts.length === 0) {
-        return res.status(400).json({ error: "Multipart parts list invalid hai." });
-      }
-
-      const formattedParts = parts.map(p => ({
-        PartNumber: parseInt(p.PartNumber, 10),
-        ETag: String(p.ETag || '').replace(/^"|"$/g, '').trim()
-      })).sort((a, b) => a.PartNumber - b.PartNumber);
-
-      const command = new CompleteMultipartUploadCommand({
-        Bucket: bucketName,
-        Key: fileName,
-        UploadId: uploadId,
-        MultipartUpload: { Parts: formattedParts },
-      });
-
-      await s3.send(command);
-      return res.status(200).json({ success: true, fileKey: fileName });
-    }
-
-    // 8. Single Direct Upload (< 50MB files jaise Cover Artworks)
-    // PutObjectCommand me ContentType sign nahi karenge taaki browser ka custom content-type R2 signature se collide na kare
+    // 5. Zero-Header Direct Presigned URL Generation
+    // ContentType ko sign nahi kiya taaki browser binary push me signature clash na ho
     const command = new PutObjectCommand({
       Bucket: bucketName,
       Key: fileName
     });
 
     const uploadUrl = await getSignedUrl(s3, command, { 
-      expiresIn: 3600,
+      expiresIn: 7200,
       unhoistableHeaders: new Set(['x-amz-checksum-crc32'])
     });
 
-    return res.status(200).json({ uploadUrl, fileKey: fileName });
+    return res.status(200).json({ 
+      success: true,
+      uploadUrl: uploadUrl, 
+      fileKey: fileName 
+    });
 
   } catch (error) {
     console.error("Upload URL Handler Error:", error);
-    return res.status(500).json({ error: error.message || 'Presigned URL generation error.' });
+    return res.status(500).json({ 
+      error: error.message || 'Presigned URL generate karne me error aaya.' 
+    });
   }
 };
