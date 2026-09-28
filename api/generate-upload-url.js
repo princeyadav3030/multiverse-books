@@ -68,7 +68,7 @@ module.exports = async function handler(req, res) {
       isAdmin = adminDoc.exists;
     }
 
-    // 4. Strict File Size Validation
+    // 4. File Size Validation
     const MAX_USER_SIZE = 250 * 1024 * 1024;   // 250 MB
     const MAX_ADMIN_SIZE = 1024 * 1024 * 1024; // 1 GB
     const allowedLimit = isAdmin ? MAX_ADMIN_SIZE : MAX_USER_SIZE;
@@ -83,7 +83,7 @@ module.exports = async function handler(req, res) {
 
     const bucketName = process.env.R2_BUCKET_NAME || 'spidy-books';
 
-    // 5. Multipart: Initiate Upload
+    // 5. Multipart Upload: Step 1 (Initiate)
     if (action === "initiateMultipart") {
       const command = new CreateMultipartUploadCommand({
         Bucket: bucketName,
@@ -94,7 +94,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ uploadId: multipart.UploadId, fileKey: fileName });
     }
 
-    // 6. Multipart: Get Signed Part URL
+    // 6. Multipart Upload: Step 2 (Get Signed Part URL)
     if (action === "getPartUrl") {
       const { partNumber } = req.body;
       const parsedPartNumber = parseInt(partNumber, 10);
@@ -103,7 +103,7 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: "Invalid uploadId ya partNumber" });
       }
 
-      // ContentType yahan specify nahi karna hai taaki binary chunk PUT reject na ho
+      // Chunk level par ContentType sign nahi karte taaki browser PUT binary payload bina issue upload kare
       const command = new UploadPartCommand({
         Bucket: bucketName,
         Key: fileName,
@@ -115,7 +115,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ signedUrl });
     }
 
-    // 7. Multipart: Complete Upload
+    // 7. Multipart Upload: Step 3 (Complete Upload)
     if (action === "completeMultipart") {
       if (!uploadId || !Array.isArray(parts) || parts.length === 0) {
         return res.status(400).json({ error: "Parts payload missing ya invalid hai." });
@@ -137,14 +137,16 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ success: true, fileKey: fileName });
     }
 
-    // 8. Single Direct PUT (For Small Covers/Files < 50MB)
-    // PutObjectCommand me ContentType sign nahi karenge taaki browser XHR direct PUT me signature drop na kare
+    // 8. Single Direct Upload (< 50MB files jaise cover images)
+    // ContentType explicitly sign kiya gaya hai taaki browser ka Content-Type header R2 ke signature se 100% match kare
+    const cleanContentType = fileType || (fileName.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
     const command = new PutObjectCommand({
       Bucket: bucketName,
-      Key: fileName
+      Key: fileName,
+      ContentType: cleanContentType
     });
-    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
 
+    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
     return res.status(200).json({ uploadUrl, fileKey: fileName });
 
   } catch (error) {
