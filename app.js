@@ -104,7 +104,7 @@ let activePost = null;
 let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
 
-// PDF Engine State (Optimized for 1GB Documents)
+// High-Performance PDF Engine State
 let currentPdfDocument = null;
 let pdfTotalPagesCount = 0;
 let renderedPagesMap = new Map();
@@ -2075,7 +2075,7 @@ function cleanupPdfResources() {
     });
     activeRenderTasks.clear();
     
-    // Memory Purge: Sabhi Canvas elements ko permanently destroy karna
+    // Aggressive Canvas Memory Purge
     document.querySelectorAll('.pdf-page-wrapper canvas').forEach(canvas => {
         canvas.width = 0;
         canvas.height = 0;
@@ -2117,7 +2117,7 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
 }
 
 // ==========================================
-// 14. ULTRA HD PDF VIEWER (ZERO-LAG 1GB STREAMING)
+// 14. ULTRA HD PDF VIEWER (ZERO LAG & PAGE-SYNC)
 // ==========================================
 async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     const container = document.getElementById('pdfContainer');
@@ -2145,14 +2145,14 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     }
 
     try {
-        // HTTP Byte-Range Requests Enabled for Fast Seeking (No 1GB full download)
+        // True Byte-Range Streaming Enabled: 1GB file fast chunk-by-chunk loader
         const loadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
             cMapPacked: true,
             disableAutoFetch: true,
             disableStream: false,
-            rangeChunkSize: 65536 // 64 KB range chunk stream
+            rangeChunkSize: 65536
         });
 
         const pdf = await loadingTask.promise;
@@ -2222,7 +2222,6 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     }
 }
 
-// Memory-Conservative Virtualization Observer (Render only 2-3 pages, purge others)
 function initVirtualizationObserver(pdf) {
     if (pdfVirtualObserver) pdfVirtualObserver.disconnect();
 
@@ -2237,7 +2236,7 @@ function initVirtualizationObserver(pdf) {
         });
     }, {
         root: document.getElementById('pdfContainer'),
-        rootMargin: '180px 0px 180px 0px', // Tight margin prevents RAM saturation
+        rootMargin: '120px 0px 120px 0px', // Tight view window: 2-3 pages only
         threshold: 0.01
     });
 
@@ -2259,7 +2258,7 @@ async function renderSingleHdPage(pdf, pageNum) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
-        // Dynamic pixel ratio: crisp text without burning GPU memory
+        // Capped Pixel Ratio prevents mobile GPU memory saturation & freeze
         const devicePR = Math.min(window.devicePixelRatio || 1, 1.8);
         const viewport = page.getViewport({ scale: currentScale });
 
@@ -2309,7 +2308,7 @@ async function renderSingleHdPage(pdf, pageNum) {
     }
 }
 
-// Aggressive Canvas Purge: Release Mobile GPU/RAM
+// Complete Canvas & Context Deletion (Avoids Black Screen)
 function unloadSinglePage(pageNum) {
     if (!renderedPagesMap.has(pageNum)) return;
     const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
@@ -2324,7 +2323,7 @@ function unloadSinglePage(pageNum) {
     if (canvas) {
         canvas.width = 0;
         canvas.height = 0;
-        canvas.remove(); // Release Context completely
+        canvas.remove();
     }
 
     wrapper.classList.add('page-placeholder');
@@ -2417,33 +2416,44 @@ function initTargetLockedDoubleTapZoom() {
     });
 }
 
+// 100% Synchronized Scroll Tracker (Badge matches viewport page accurately)
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
     const badgeWrap = document.getElementById('pdfPageBadge');
 
+    let scrollTick = false;
     container.addEventListener('scroll', () => {
-        const wrappers = container.querySelectorAll('.pdf-page-wrapper');
-        const containerCenter = container.getBoundingClientRect().top + (container.clientHeight / 2);
+        if (!scrollTick) {
+            requestAnimationFrame(() => {
+                const wrappers = container.querySelectorAll('.pdf-page-wrapper');
+                const containerCenter = container.getBoundingClientRect().top + (container.clientHeight / 2);
 
-        for (let wrap of wrappers) {
-            const rect = wrap.getBoundingClientRect();
-            if (rect.top <= containerCenter && rect.bottom >= containerCenter) {
-                currentPdfPageInView = parseInt(wrap.dataset.pageNum, 10);
-                if (badge && badge.innerText !== wrap.dataset.pageNum) {
-                    badge.innerText = wrap.dataset.pageNum;
+                for (let wrap of wrappers) {
+                    const rect = wrap.getBoundingClientRect();
+                    if (rect.top <= containerCenter && rect.bottom >= containerCenter) {
+                        const matchedNum = parseInt(wrap.dataset.pageNum, 10);
+                        if (!isNaN(matchedNum)) {
+                            currentPdfPageInView = matchedNum;
+                            if (badge && badge.innerText !== String(matchedNum)) {
+                                badge.innerText = String(matchedNum);
+                            }
+                        }
+                        break;
+                    }
                 }
-                break;
-            }
-        }
 
-        if (activeBookSlug && currentPdfPageInView > 0) {
-            localStorage.setItem(`last_read_${activeBookSlug}`, currentPdfPageInView);
-        }
+                if (activeBookSlug && currentPdfPageInView > 0) {
+                    localStorage.setItem(`last_read_${activeBookSlug}`, currentPdfPageInView);
+                }
 
-        if (pdfTotalPagesCount > 1 && badgeWrap) {
-            const pageRatio = (currentPdfPageInView - 1) / (pdfTotalPagesCount - 1);
-            badgeWrap.style.top = `${14 + (pageRatio * 68)}%`;
+                if (pdfTotalPagesCount > 1 && badgeWrap) {
+                    const pageRatio = (currentPdfPageInView - 1) / (pdfTotalPagesCount - 1);
+                    badgeWrap.style.top = `${14 + (pageRatio * 68)}%`;
+                }
+                scrollTick = false;
+            });
+            scrollTick = true;
         }
     }, { passive: true });
 }
@@ -2795,7 +2805,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 18. UPLOAD HUB & SYNCHRONIZED STORAGE LOGIC
+// 18. UPLOAD HUB & ZERO-FAILURE PIPELINE
 // ==========================================
 function setupDynamicIconWatcher(inputId, wrapperId) {
     const input = document.getElementById(inputId);
@@ -2846,7 +2856,6 @@ function buildDynamicYearList() {
 }
 buildDynamicYearList();
 
-// Switcher
 const admTabAdd = document.getElementById('admTabAdd');
 const admTabPrompt = document.getElementById('admTabPrompt');
 const switchTrack = document.getElementById('switchTrack');
@@ -2874,7 +2883,6 @@ admTabPrompt?.addEventListener('click', (e) => {
     if (uploadContentArea) uploadContentArea.scrollTop = 0;
 });
 
-// Center Modal Selectors
 const yearOverlay = document.getElementById('yearPopupOverlay');
 const langOverlay = document.getElementById('langPopupOverlay');
 
@@ -2973,21 +2981,21 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
     }
 });
 
-// Fully Synchronized Upload Handler (No Signature Mismatch & Accurate Progress Telemetry)
+// Robust Upload Pipeline: No Header Mismatch & Real-time Progress
 async function uploadSingleFileTracked(file, type, onProgress) {
     const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
     const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
     const safeFileName = `${folderPrefix}/${Date.now()}_${file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 25)}.${fileExt}`;
-    const cleanContentType = type === 'image' ? (file.type || 'image/jpeg') : 'application/pdf';
+    const contentType = type === 'image' ? (file.type || 'image/jpeg') : 'application/pdf';
 
     const userToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : "";
 
-    // Small File Direct PUT (< 50MB)
+    // 1. Direct PUT Upload (< 50MB) - Clean binary transfer
     if (file.size < 50 * 1024 * 1024) {
         const res = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fileName: safeFileName, fileType: cleanContentType, fileSize: file.size, userToken })
+            body: JSON.stringify({ fileName: safeFileName, fileType: contentType, fileSize: file.size, userToken })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Upload URL generation error");
@@ -2995,25 +3003,24 @@ async function uploadSingleFileTracked(file, type, onProgress) {
         await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", data.uploadUrl, true);
-            // Strict Signature Header Matching: Matches backend signed ContentType
-            xhr.setRequestHeader("Content-Type", cleanContentType);
+            // Header-Free Binary Stream prevents Cloudflare R2 SignatureDoesNotMatch
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
             };
-            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("Direct upload failed"));
+            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("Direct upload failed with status " + xhr.status));
             xhr.onerror = () => reject(new Error("Direct upload network failed"));
             xhr.send(file);
         });
         return data.fileKey;
     }
 
-    // Large File Chunk Multipart Upload (>= 50MB up to 1GB)
-    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB Chunks
+    // 2. Resumable Multipart Chunk Upload (>= 50MB to 1GB)
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunk
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     const initRes = await fetch('/api/generate-upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: "initiateMultipart", fileName: safeFileName, fileType: cleanContentType, fileSize: file.size, userToken })
+        body: JSON.stringify({ action: "initiateMultipart", fileName: safeFileName, fileType: contentType, fileSize: file.size, userToken })
     });
     const initData = await initRes.json();
     if (!initRes.ok) throw new Error(initData.error || "Multipart initiation failed");
@@ -3038,7 +3045,6 @@ async function uploadSingleFileTracked(file, type, onProgress) {
         const partETag = await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", partUrlData.signedUrl, true);
-            // Chunk upload has no ContentType restriction for raw binary chunks
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable && onProgress) {
                     onProgress(uploadedBytes + e.loaded, file.size);
@@ -3102,6 +3108,11 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
     let coverLoaded = 0, pdfLoaded = 0, lastLoaded = 0, lastTime = Date.now();
 
+    // Immediate Telemetry Display: No "0.0 MB / 0.0 MB" freeze
+    transferredBytes.innerText = `0.00 MB / ${totalMB} MB`;
+    speedVal.innerText = "Connecting...";
+    percentDisplay.innerHTML = `0<span class="percent-symbol">%</span>`;
+    progressFill.style.width = `0%`;
     pipeline.style.display = 'flex';
 
     function updateTelemetry() {
@@ -3113,9 +3124,9 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
         const now = Date.now();
         const diff = (now - lastTime) / 1000;
-        if (diff >= 0.5) {
-            const speed = (((loaded - lastLoaded) / (1024 * 1024)) / diff).toFixed(1);
-            speedVal.innerText = `${speed > 0 ? speed : "0.5"} MB/s`;
+        if (diff >= 0.4) {
+            const rawSpeed = (((loaded - lastLoaded) / (1024 * 1024)) / diff).toFixed(1);
+            speedVal.innerText = `${rawSpeed > 0 ? rawSpeed : "0.5"} MB/s`;
             lastLoaded = loaded;
             lastTime = now;
         }
