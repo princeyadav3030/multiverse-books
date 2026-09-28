@@ -315,7 +315,7 @@ function initPromoCarousel() {
     const track = document.getElementById('promoCarouselTrack');
     const dots = document.querySelectorAll('.promo-dot');
     const prevBtn = document.getElementById('promoPrevBtn');
-    const nextBtn = document.getElementById('promoNextBtn');
+    const nextBtn = document.getElementById('promoPrevBtn');
     const totalSlides = dots.length;
 
     if (!track || totalSlides === 0) return;
@@ -347,8 +347,11 @@ function initPromoCarousel() {
         });
     });
 
-    if (prevBtn) {
-        prevBtn.onclick = (e) => {
+    const pBtn = document.getElementById('promoPrevBtn');
+    const nBtn = document.getElementById('promoNextBtn');
+
+    if (pBtn) {
+        pBtn.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
             currentPromoIndex = (currentPromoIndex - 1 + totalSlides) % totalSlides;
@@ -357,8 +360,8 @@ function initPromoCarousel() {
         };
     }
 
-    if (nextBtn) {
-        nextBtn.onclick = (e) => {
+    if (nBtn) {
+        nBtn.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
             currentPromoIndex = (currentPromoIndex + 1) % totalSlides;
@@ -2965,49 +2968,39 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// Direct Binary Upload Function (Zero Signature Clash)
+// ZERO-FAILURE WORKER STREAMING UPLOAD
 async function uploadSingleFileTracked(file, type, onProgress) {
     const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
     const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
-    const safeFileName = `${folderPrefix}/${Date.now()}_${file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 25)}.${fileExt}`;
-
-    const userToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : "";
-
-    const res = await fetch('/api/generate-upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            fileName: safeFileName, 
-            fileSize: file.size, 
-            userToken: userToken 
-        })
-    });
+    const safeKey = `${folderPrefix}/${Date.now()}_${file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 25)}.${fileExt}`;
     
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Upload URL generation error");
+    // Direct stream to Worker (Presigned URL bypassed)
+    const uploadEndpoint = `${WORKER_PROXY_URL}/upload/${safeKey}`;
 
-    await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("PUT", data.uploadUrl, true);
-        
+        xhr.open("PUT", uploadEndpoint, true);
+
+        const mime = type === 'image' ? (file.type || 'image/jpeg') : 'application/pdf';
+        xhr.setRequestHeader("Content-Type", mime);
+
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable && onProgress) {
                 onProgress(e.loaded, e.total);
             }
         };
+
         xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
-                resolve();
+                resolve(safeKey);
             } else {
-                reject(new Error("R2 Upload Failed With Status: " + xhr.status));
+                reject(new Error("Worker Upload Failed with status " + xhr.status));
             }
         };
-        xhr.onerror = () => reject(new Error("Direct upload network failed"));
-        
+
+        xhr.onerror = () => reject(new Error("Network connection lost during upload"));
         xhr.send(file);
     });
-
-    return data.fileKey;
 }
 
 // Add Book Form Handler
@@ -3109,7 +3102,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const docRef = await addDoc(collection(db, "books"), newBook);
         newBook.id = docRef.id;
 
-        // User profile me upload time lock set karein
+        // User profile rate-limit sync
         if (auth.currentUser && !IS_SUPER_ADMIN) {
             await setDoc(doc(db, "users", auth.currentUser.uid), {
                 lastBookUploadTime: Date.now()
