@@ -2922,7 +2922,7 @@ function autoScrollToElement(el) {
     }, 180);
 }
 
-// Reset Upload Form State Completely
+// Memory & Form Reset Clean-up
 function resetUploadFormState() {
     const form = document.getElementById('addBookForm');
     if (form) form.reset();
@@ -3005,13 +3005,15 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// Direct Secure S3 Presigned Upload Stream (Raw Binary - Zero Signature Clash)
-async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
+// Direct Cloudflare Worker Proxy Streaming (Zero-CORS-Clash & No Presigned Drops)
+async function streamFileToWorker(fileKey, file, mimeType, onProgress) {
+    const uploadEndpoint = `${WORKER_PROXY_URL}/upload/${encodeURIComponent(fileKey)}`;
+
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("PUT", presignedUrl, true);
+        xhr.open("PUT", uploadEndpoint, true);
+        xhr.setRequestHeader("Content-Type", mimeType || "application/octet-stream");
 
-        // Raw stream - header clash bypass
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable && onProgress) {
                 onProgress(e.loaded, e.total);
@@ -3020,19 +3022,19 @@ async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
 
         xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
-                resolve(true);
+                resolve(fileKey);
             } else {
-                reject(new Error(`Storage rejected upload with status ${xhr.status}`));
+                reject(new Error(`Worker transfer failed with status ${xhr.status}`));
             }
         };
 
         xhr.onerror = () => reject(new Error("Network connection lost during file transfer."));
-        xhr.ontimeout = () => reject(new Error("Upload connection timed out."));
+        xhr.ontimeout = () => reject(new Error("Transfer timeout."));
         xhr.send(file);
     });
 }
 
-// Add Book Form Handler (With Pre-Upload Quota Verification & Memory Reset)
+// Add Book Form Handler
 document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -3094,7 +3096,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     try {
         const userToken = await auth.currentUser.getIdToken(false);
 
-        // Step 1: Pre-flight Verification & Presigned URL for Cover
+        // Step 1: Quota Authorization & Cover Key Generation
         const coverAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3111,7 +3113,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(coverAuthData.error || "Permission denied for cover upload.");
         }
 
-        // Step 2: Pre-flight Verification & Presigned URL for PDF
+        // Step 2: Quota Authorization & PDF Key Generation
         const pdfAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3128,21 +3130,23 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(pdfAuthData.error || "Permission denied for PDF upload.");
         }
 
-        // Step 3: Stream Cover Image
+        // Step 3: Direct Stream Cover via Worker to covers/
         stageTitle.innerText = "Uploading Cover Artwork...";
-        await uploadToPresignedUrl(coverAuthData.uploadUrl, selectedCoverFile, (loaded) => {
+        const coverMime = selectedCoverFile.type || "image/jpeg";
+        await streamFileToWorker(coverAuthData.fileKey, selectedCoverFile, coverMime, (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 4: Stream PDF Manuscript
+        // Step 4: Direct Stream PDF via Worker to pdfs/
         stageTitle.innerText = "Uploading PDF Manuscript...";
-        await uploadToPresignedUrl(pdfAuthData.uploadUrl, selectedPdfFile, (loaded) => {
+        const pdfMime = selectedPdfFile.type || "application/pdf";
+        await streamFileToWorker(pdfAuthData.fileKey, selectedPdfFile, pdfMime, (loaded) => {
             pdfLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 5: Register to Firestore
+        // Step 5: Save to Firestore
         stageTitle.innerText = "Finalizing book registration...";
         percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
         progressFill.style.width = `99%`;
@@ -3175,7 +3179,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const docRef = await addDoc(collection(db, "books"), newBook);
         newBook.id = docRef.id;
 
-        // Step 6: Anti-Bypass Cooldown Timestamp for Normal Users
+        // Step 6: Cooldown timestamp update (Normal users only)
         if (!IS_SUPER_ADMIN) {
             await setDoc(doc(db, "users", auth.currentUser.uid), {
                 lastBookUploadTime: Date.now()
