@@ -3005,13 +3005,12 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// Direct R2 S3 Presigned Upload Stream (Raw Binary - Zero Header Clash)
+// Direct R2 S3 Presigned Upload Stream (Clean Binary - No Signature Mismatch)
 async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", presignedUrl, true);
 
-        // Zero Custom Headers: Browser raw binary stream bhejega bina kisi S3 signature mismatch ke
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable && onProgress) {
                 onProgress(e.loaded, e.total);
@@ -3026,8 +3025,10 @@ async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
             }
         };
 
-        xhr.onerror = () => reject(new Error("Network connection lost during file transfer."));
+        xhr.onerror = () => reject(new Error("Network connection lost during file transfer. Check R2 CORS or network."));
         xhr.ontimeout = () => reject(new Error("Upload connection timed out."));
+        
+        // Zero custom headers sent so that S3 presigned URL signature matches exactly
         xhr.send(file);
     });
 }
@@ -3094,7 +3095,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     try {
         const userToken = await auth.currentUser.getIdToken(false);
 
-        // Step 1: Pre-flight Verification & Presigned URL for Cover
+        // Step 1: Request Presigned URL for Cover
         const coverAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3111,7 +3112,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(coverAuthData.error || "Permission denied for cover upload.");
         }
 
-        // Step 2: Pre-flight Verification & Presigned URL for PDF
+        // Step 2: Request Presigned URL for PDF
         const pdfAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3156,10 +3157,10 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
         const newBook = {
             title: inputTitle,
-            author: document.getElementById('inAuthor').value,
-            year: document.getElementById('inYear').value,
-            lang: document.getElementById('inLang').value,
-            exams: document.getElementById('inExams').value,
+            author: document.getElementById('inAuthor').value.trim(),
+            year: document.getElementById('inYear').value.trim(),
+            lang: document.getElementById('inLang').value.trim(),
+            exams: document.getElementById('inExams').value.trim(),
             slug: finalSlug,
             image: coverAuthData.fileKey,
             pdfLink: pdfAuthData.fileKey,
@@ -3175,7 +3176,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const docRef = await addDoc(collection(db, "books"), newBook);
         newBook.id = docRef.id;
 
-        // Step 6: Update User Cooldown Timestamp for Normal Users
+        // Step 6: Update Cooldown Timestamp in User Document
         if (!IS_SUPER_ADMIN) {
             await setDoc(doc(db, "users", auth.currentUser.uid), {
                 lastBookUploadTime: Date.now()
@@ -3203,7 +3204,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
     } catch (error) {
         pipeline.style.display = 'none';
-        resetUploadFormState();
         showToast(error.message || "Upload failed. Please try again.", "error");
     }
 });
