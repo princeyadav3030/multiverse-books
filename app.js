@@ -3005,12 +3005,13 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// Direct R2 S3 Presigned Upload Stream (Clean Binary - No Signature Mismatch)
+// Bulletproof Direct Cloudflare R2 Upload Streamer
 async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", presignedUrl, true);
 
+        // Upload progress tracker
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable && onProgress) {
                 onProgress(e.loaded, e.total);
@@ -3021,15 +3022,22 @@ async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
             if (xhr.status >= 200 && xhr.status < 300) {
                 resolve(true);
             } else {
-                reject(new Error(`Storage rejected upload with status ${xhr.status}`));
+                reject(new Error(`Storage error (${xhr.status}): R2 storage rejected upload.`));
             }
         };
 
-        xhr.onerror = () => reject(new Error("Network connection lost during file transfer. Check R2 CORS or network."));
+        xhr.onerror = () => {
+            reject(new Error("Network connection lost during file transfer. R2 CORS or connection dropped."));
+        };
+
         xhr.ontimeout = () => reject(new Error("Upload connection timed out."));
-        
-        // Zero custom headers sent so that S3 presigned URL signature matches exactly
-        xhr.send(file);
+
+        // Blob slice raw binary stream send karein taaki browser extra headers na jode
+        try {
+            xhr.send(file.slice(0, file.size));
+        } catch(e) {
+            xhr.send(file);
+        }
     });
 }
 
@@ -3176,7 +3184,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const docRef = await addDoc(collection(db, "books"), newBook);
         newBook.id = docRef.id;
 
-        // Step 6: Update Cooldown Timestamp in User Document
+        // Step 6: Update User Cooldown
         if (!IS_SUPER_ADMIN) {
             await setDoc(doc(db, "users", auth.currentUser.uid), {
                 lastBookUploadTime: Date.now()
