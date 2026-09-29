@@ -240,7 +240,7 @@ function showToast(message, type = 'success') {
 
     pillToastTimer = setTimeout(() => {
         toast.classList.remove('active');
-    }, 2800);
+    }, 3500);
 }
 
 function generateDeviceFingerprint() {
@@ -314,8 +314,6 @@ function renderDynamicBanners(banners) {
 function initPromoCarousel() {
     const track = document.getElementById('promoCarouselTrack');
     const dots = document.querySelectorAll('.promo-dot');
-    const prevBtn = document.getElementById('promoPrevBtn');
-    const nextBtn = document.getElementById('promoPrevBtn');
     const totalSlides = dots.length;
 
     if (!track || totalSlides === 0) return;
@@ -1890,7 +1888,6 @@ document.getElementById('closeSupportBtn')?.addEventListener('click', () => {
     }
 });
 
-// Dropdown Modal Logic
 document.getElementById('openIssueModalBtn')?.addEventListener('click', () => {
     document.getElementById('issueModal')?.classList.add('active');
 });
@@ -2119,7 +2116,7 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
 }
 
 // ==========================================
-// 14. ULTRA HD PDF VIEWER (ZERO LAG & PAGE-SYNC)
+// 14. ULTRA HD PDF VIEWER
 // ==========================================
 async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     const container = document.getElementById('pdfContainer');
@@ -2925,7 +2922,47 @@ function autoScrollToElement(el) {
     }, 180);
 }
 
-// Unified Listener: Cover Selection
+// Reset Upload State Completely (Clear cache & form memory)
+function resetUploadFormState() {
+    const form = document.getElementById('addBookForm');
+    if (form) form.reset();
+
+    const coverInput = document.getElementById('fileCoverSelect');
+    const pdfInput = document.getElementById('filePdfSelect');
+    if (coverInput) coverInput.value = "";
+    if (pdfInput) pdfInput.value = "";
+
+    selectedCoverFile = null;
+    selectedPdfFile = null;
+
+    const coverStatus = document.getElementById('coverStatusText');
+    if (coverStatus) {
+        coverStatus.innerText = "Drag & Drop Cover Image";
+        coverStatus.title = "Drag & Drop Cover Image";
+        coverStatus.style.color = "";
+    }
+
+    const pdfStatus = document.getElementById('pdfStatusText');
+    if (pdfStatus) {
+        pdfStatus.innerText = "Drag & Drop PDF File";
+        pdfStatus.title = "Drag & Drop PDF File";
+        pdfStatus.style.color = "";
+    }
+
+    const liveCoverImg = document.getElementById('syncLiveCoverImg');
+    const defaultCoverIcon = document.getElementById('syncDefaultCoverIcon');
+    if (liveCoverImg) {
+        liveCoverImg.src = "";
+        liveCoverImg.style.display = 'none';
+    }
+    if (defaultCoverIcon) defaultCoverIcon.style.display = 'block';
+
+    ['wrapTitle', 'wrapAuthor', 'wrapExams'].forEach(id => {
+        document.getElementById(id)?.classList.remove('has-value');
+    });
+}
+
+// Cover Selection Listener
 document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
         selectedCoverFile = e.target.files[0];
@@ -2939,7 +2976,7 @@ document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// Unified Listener: PDF Selection
+// PDF Selection Listener
 document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
         selectedPdfFile = e.target.files[0];
@@ -2950,7 +2987,7 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
 
         const maxAllowed = IS_SUPER_ADMIN ? (1024 * 1024 * 1024) : (250 * 1024 * 1024);
         if (selectedPdfFile.size > maxAllowed) {
-            showToast(`File size limit exceed! Max: ${IS_SUPER_ADMIN ? '1GB' : '250MB'}`, "error");
+            showToast(`File size limit exceeded! Maximum allowed: ${IS_SUPER_ADMIN ? '1GB' : '250MB'}`, "error");
             selectedPdfFile = null;
             statusText.innerText = "Drag & Drop PDF File";
             e.target.value = "";
@@ -2968,21 +3005,11 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// ZERO-FAILURE WORKER STREAMING UPLOAD
-async function uploadSingleFileTracked(file, type, onProgress) {
-    const folderPrefix = type === 'image' ? 'covers' : 'pdfs';
-    const fileExt = file.name.split('.').pop().toLowerCase() || (type === 'image' ? 'jpg' : 'pdf');
-    const safeKey = `${folderPrefix}/${Date.now()}_${file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 25)}.${fileExt}`;
-    
-    // Direct stream to Worker (Presigned URL bypassed)
-    const uploadEndpoint = `${WORKER_PROXY_URL}/upload/${safeKey}`;
-
+// Direct Secure S3 Presigned Upload Stream (Bypasses payload drops)
+async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("PUT", uploadEndpoint, true);
-
-        const mime = type === 'image' ? (file.type || 'image/jpeg') : 'application/pdf';
-        xhr.setRequestHeader("Content-Type", mime);
+        xhr.open("PUT", presignedUrl, true);
 
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable && onProgress) {
@@ -2992,22 +3019,27 @@ async function uploadSingleFileTracked(file, type, onProgress) {
 
         xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
-                resolve(safeKey);
+                resolve(true);
             } else {
-                reject(new Error("Worker Upload Failed with status " + xhr.status));
+                reject(new Error(`Storage rejected upload with status ${xhr.status}`));
             }
         };
 
-        xhr.onerror = () => reject(new Error("Network connection lost during upload"));
+        xhr.onerror = () => reject(new Error("Network connection lost during file transfer."));
+        xhr.ontimeout = () => reject(new Error("Upload connection timed out."));
         xhr.send(file);
     });
 }
 
-// Add Book Form Handler
+// Add Book Form Handler (With Pre-Upload Quota Verification)
 document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!selectedCoverFile) return showToast("Cover Image select karein!", "error");
-    if (!selectedPdfFile) return showToast("PDF File select karein!", "error");
+
+    if (!auth.currentUser) {
+        return showToast("Please log in to publish books.", "error");
+    }
+    if (!selectedCoverFile) return showToast("Please select a cover image!", "error");
+    if (!selectedPdfFile) return showToast("Please select a book PDF file!", "error");
 
     const pipeline = document.getElementById('uploadPipelineOverlay');
     const percentDisplay = document.getElementById('syncPercentDisplay');
@@ -3034,11 +3066,12 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
     let coverLoaded = 0, pdfLoaded = 0, lastLoaded = 0, lastTime = Date.now();
 
-    transferredBytes.innerText = `0.00 MB / ${totalMB} MB`;
-    speedVal.innerText = "Connecting...";
+    pipeline.style.display = 'flex';
+    stageTitle.innerText = "Checking permission & quota...";
     percentDisplay.innerHTML = `0<span class="percent-symbol">%</span>`;
     progressFill.style.width = `0%`;
-    pipeline.style.display = 'flex';
+    transferredBytes.innerText = `0.00 MB / ${totalMB} MB`;
+    speedVal.innerText = "Authenticating...";
 
     function updateTelemetry() {
         const loaded = coverLoaded + pdfLoaded;
@@ -3051,26 +3084,65 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const diff = (now - lastTime) / 1000;
         if (diff >= 0.3) {
             const rawSpeed = (((loaded - lastLoaded) / (1024 * 1024)) / diff).toFixed(1);
-            speedVal.innerText = `${rawSpeed > 0 ? rawSpeed : "0.8"} MB/s`;
+            speedVal.innerText = `${rawSpeed > 0 ? rawSpeed : "1.2"} MB/s`;
             lastLoaded = loaded;
             lastTime = now;
         }
     }
 
     try {
-        stageTitle.innerText = "Cover Artwork Transfer...";
-        const coverKey = await uploadSingleFileTracked(selectedCoverFile, 'image', (l) => { 
-            coverLoaded = l; 
-            updateTelemetry(); 
+        const userToken = await auth.currentUser.getIdToken(false);
+
+        // Step 1: Pre-flight Permission & Presigned Link for Cover
+        const coverAuthRes = await fetch('/api/generate-upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fileName: selectedCoverFile.name,
+                fileSize: selectedCoverFile.size,
+                fileType: 'image',
+                userToken: userToken
+            })
         });
 
+        const coverAuthData = await coverAuthRes.json();
+        if (!coverAuthRes.ok || !coverAuthData.success) {
+            throw new Error(coverAuthData.error || "Permission denied for cover upload.");
+        }
+
+        // Step 2: Pre-flight Permission & Presigned Link for PDF
+        const pdfAuthRes = await fetch('/api/generate-upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fileName: selectedPdfFile.name,
+                fileSize: selectedPdfFile.size,
+                fileType: 'pdf',
+                userToken: userToken
+            })
+        });
+
+        const pdfAuthData = await pdfAuthRes.json();
+        if (!pdfAuthRes.ok || !pdfAuthData.success) {
+            throw new Error(pdfAuthData.error || "Permission denied for PDF upload.");
+        }
+
+        // Step 3: Direct Streaming Cover Artwork
+        stageTitle.innerText = "Uploading Cover Artwork...";
+        await uploadToPresignedUrl(coverAuthData.uploadUrl, selectedCoverFile, (loaded) => {
+            coverLoaded = loaded;
+            updateTelemetry();
+        });
+
+        // Step 4: Direct Streaming PDF Manuscript
         stageTitle.innerText = "Uploading PDF Manuscript...";
-        const pdfKey = await uploadSingleFileTracked(selectedPdfFile, 'pdf', (l) => { 
-            pdfLoaded = l; 
-            updateTelemetry(); 
+        await uploadToPresignedUrl(pdfAuthData.uploadUrl, selectedPdfFile, (loaded) => {
+            pdfLoaded = loaded;
+            updateTelemetry();
         });
 
-        stageTitle.innerText = "Database me register ho raha hai...";
+        // Step 5: Database Registration
+        stageTitle.innerText = "Finalizing book registration...";
         percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
         progressFill.style.width = `99%`;
 
@@ -3088,22 +3160,22 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             lang: document.getElementById('inLang').value,
             exams: document.getElementById('inExams').value,
             slug: finalSlug,
-            image: coverKey,
-            pdfLink: pdfKey,
+            image: coverAuthData.fileKey,
+            pdfLink: pdfAuthData.fileKey,
             fileSize: detectedFileSizeMB,
             sizeBytes: Number(selectedPdfFile.size),
             fileFormat: "PDF",
             totalPages: detectedTotalPages.toString(),
             dateAdded: new Date().toLocaleDateString('en-GB').toUpperCase(),
             createdAt: Date.now(),
-            uploaderUid: auth.currentUser ? auth.currentUser.uid : "anonymous"
+            uploaderUid: auth.currentUser.uid
         };
 
         const docRef = await addDoc(collection(db, "books"), newBook);
         newBook.id = docRef.id;
 
-        // User profile rate-limit sync
-        if (auth.currentUser && !IS_SUPER_ADMIN) {
+        // Step 6: Update User Cooldown Timestamp for Normal Users
+        if (!IS_SUPER_ADMIN) {
             await setDoc(doc(db, "users", auth.currentUser.uid), {
                 lastBookUploadTime: Date.now()
             }, { merge: true });
@@ -3118,21 +3190,9 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
         setTimeout(() => {
             pipeline.style.display = 'none';
-            e.target.reset();
-            selectedCoverFile = null;
-            selectedPdfFile = null;
-            
-            document.getElementById('coverStatusText').innerText = "Drag & Drop Cover Image";
-            document.getElementById('coverStatusText').title = "Drag & Drop Cover Image";
-            document.getElementById('pdfStatusText').innerText = "Drag & Drop PDF File";
-            document.getElementById('pdfStatusText').title = "Drag & Drop PDF File";
-
-            ['wrapTitle', 'wrapAuthor', 'wrapExams'].forEach(id => {
-                document.getElementById(id)?.classList.remove('has-value');
-            });
-
+            resetUploadFormState();
             showToast("Book Published Successfully!", "success");
-            
+
             if (history.state && history.state.popup === 'uploadModal') {
                 history.back();
             } else {
@@ -3142,6 +3202,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
     } catch (error) {
         pipeline.style.display = 'none';
-        showToast(error.message || "Upload Failed!", "error");
+        resetUploadFormState();
+        showToast(error.message || "Upload failed. Please try again.", "error");
     }
 });
