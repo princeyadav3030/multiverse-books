@@ -68,7 +68,7 @@ module.exports = async function handler(req, res) {
       isAdmin = adminDoc.exists;
     }
 
-    // 5. Daily Upload Limit Check (Only for Normal Users)
+    // 5. Anti-Bypass Daily Limit Check (Strict 24 Hours for Normal Users)
     if (!isAdmin) {
       const userRef = db.collection('users').doc(uid);
       const userDoc = await userRef.get();
@@ -82,7 +82,7 @@ module.exports = async function handler(req, res) {
         if (timeElapsed < ONE_DAY_MS) {
           const remainingHours = Math.ceil((ONE_DAY_MS - timeElapsed) / (1000 * 60 * 60));
           return res.status(403).json({
-            error: `Daily upload limit reached! Normal accounts can only publish 1 book per 24 hours. Please wait ${remainingHours} hour(s) before trying again.`
+            error: `Daily upload limit reached. Normal accounts can only publish 1 book per 24 hours. Try again in ${remainingHours} hour(s).`
           });
         }
       }
@@ -101,27 +101,27 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 7. Multi-User Safe Collision-Proof Key Generation
+    // 7. Multi-User Collision-Safe Key Generation
     const folderPrefix = fileType === 'image' ? 'covers' : 'pdfs';
     const cleanExt = (fileName || "").split('.').pop().toLowerCase() || (fileType === 'image' ? 'jpg' : 'pdf');
     const randomHex = crypto.randomBytes(6).toString('hex');
     const cleanBaseName = (fileName || "file")
       .replace(/\.[^/.]+$/, "")
       .replace(/[^a-zA-Z0-9_-]/g, "")
-      .slice(0, 20);
+      .slice(0, 15);
 
     const safeKey = `${folderPrefix}/${Date.now()}_${uid.slice(0, 6)}_${randomHex}_${cleanBaseName}.${cleanExt}`;
-
     const bucketName = process.env.R2_BUCKET_NAME || 'spidy-books';
 
-    // 8. Generate Direct S3 Presigned URL (No Header Signature Clash)
+    // 8. Zero-Header Presigned URL Generation
+    // Content-Type ko sign nahi kiya taaki browser preflight aur S3 signature clash na ho
     const command = new PutObjectCommand({
       Bucket: bucketName,
       Key: safeKey
     });
 
     const uploadUrl = await getSignedUrl(s3, command, { 
-      expiresIn: 7200,
+      expiresIn: 3600,
       unhoistableHeaders: new Set(['x-amz-checksum-crc32'])
     });
 
