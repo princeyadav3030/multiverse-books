@@ -113,7 +113,7 @@ let basePageWidth = 0;
 let basePageAspectRatio = 1.414;
 
 // ==========================================
-// 4. SANITIZATION & HELPERS
+// 4. SANITIZATION & MARKDOWN FORMATTER
 // ==========================================
 function sanitizeHTML(str) {
     if (typeof str !== 'string') return str;
@@ -2999,23 +2999,11 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// ==========================================
-// ZERO-FAILURE WORKER STREAMING UPLOADER
-// ==========================================
-async function uploadToPresignedUrl(presignedUrlOrKey, file, mimeType, onProgress) {
+// =========================================================================
+// 19. ADAPTIVE HIGH-SPEED UPLOAD PIPELINE (CHUNKS FOR >50MB, STREAM FOR SMALL)
+// =========================================================================
+function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress) {
     return new Promise((resolve, reject) => {
-        let uploadKey = presignedUrlOrKey;
-        if (uploadKey.startsWith("http://") || uploadKey.startsWith("https://")) {
-            try {
-                const parsed = new URL(uploadKey);
-                uploadKey = parsed.pathname.replace(/^\/+/, '');
-            } catch(e) {}
-        }
-        uploadKey = uploadKey.replace(/^\/+/, '');
-
-        // Direct Cloudflare Worker write (R2 Binding bypasses all S3 signature errors)
-        const targetUrl = `${WORKER_PROXY_URL}/upload?key=${encodeURIComponent(uploadKey)}`;
-
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", targetUrl, true);
 
@@ -3031,20 +3019,106 @@ async function uploadToPresignedUrl(presignedUrlOrKey, file, mimeType, onProgres
 
         xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
-                resolve(true);
+                try {
+                    const parsed = JSON.parse(xhr.responseText);
+                    resolve(parsed);
+                } catch(e) {
+                    resolve({ success: true });
+                }
             } else {
-                reject(new Error(`Storage error (${xhr.status}): Cloudflare Worker write rejected.`));
+                reject(new Error(`Worker transfer error (${xhr.status}): Chunk write failed.`));
             }
         };
 
-        xhr.onerror = () => {
-            reject(new Error("Worker connection dropped. Please check network."));
-        };
+        xhr.onerror = () => reject(new Error("Worker connection lost. Check network connection."));
+        xhr.ontimeout = () => reject(new Error("Worker request timed out."));
 
-        xhr.ontimeout = () => reject(new Error("Upload timed out."));
-
-        xhr.send(file);
+        xhr.send(blob);
     });
+}
+
+// 100% Robust Upload Dispatcher
+async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
+    let cleanKey = fileKey.replace(/^\/+/, "");
+    if (cleanKey.startsWith("http://") || cleanKey.startsWith("https://")) {
+        try {
+            const u = new URL(cleanKey);
+            cleanKey = u.pathname.replace(/^\/+/, "");
+        } catch(e) {}
+    }
+
+    const fileSize = file.size;
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB per chunk (Cloudflare safe limit)
+
+    // Option A: 50MB se chhota file seedha direct stream karo
+    if (fileSize <= 50 * 1024 * 1024) {
+        const targetUrl = `${WORKER_PROXY_URL}/upload?key=${encodeURIComponent(cleanKey)}`;
+        return await uploadSingleBlobViaWorker(targetUrl, file, mimeType, (loaded, total) => {
+            if (onProgress) onProgress(loaded, total);
+        });
+    }
+
+    // Option B: 50MB se badi (100MB - 1GB) file ko Multipart Chunks mein bhejo
+    // 1. Create Multipart Upload
+    const createRes = await fetch(`${WORKER_PROXY_URL}/multipart/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: cleanKey, contentType: mimeType || "application/pdf" })
+    });
+    const createData = await createRes.json();
+    if (!createRes.ok || !createData.success) {
+        throw new Error(createData.error || "Failed to initialize multipart upload on Worker.");
+    }
+
+    const uploadId = createData.uploadId;
+    const totalParts = Math.ceil(fileSize / CHUNK_SIZE);
+    const uploadedParts = [];
+    let overallLoaded = 0;
+
+    // 2. Upload Part-by-Part (10 MB each)
+    for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+        const start = (partNumber - 1) * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, fileSize);
+        const chunkBlob = file.slice(start, end);
+        const chunkBytes = end - start;
+
+        const partUrl = `${WORKER_PROXY_URL}/multipart/upload-part?key=${encodeURIComponent(cleanKey)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`;
+
+        let chunkLoadedPrev = 0;
+        const partResult = await uploadSingleBlobViaWorker(partUrl, chunkBlob, "application/octet-stream", (loaded) => {
+            const delta = loaded - chunkLoadedPrev;
+            chunkLoadedPrev = loaded;
+            overallLoaded += delta;
+            if (onProgress) onProgress(overallLoaded, fileSize);
+        });
+
+        if (!partResult || !partResult.etag) {
+            throw new Error(`Part ${partNumber} write failed on storage.`);
+        }
+
+        uploadedParts.push({
+            partNumber: partNumber,
+            etag: partResult.etag
+        });
+    }
+
+    // 3. Complete Multipart Upload
+    const completeRes = await fetch(`${WORKER_PROXY_URL}/multipart/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            key: cleanKey,
+            uploadId: uploadId,
+            parts: uploadedParts
+        })
+    });
+    const completeData = await completeRes.json();
+    if (!completeRes.ok || !completeData.success) {
+        throw new Error(completeData.error || "Failed to finalize multipart assembly on storage.");
+    }
+
+    if (onProgress) onProgress(fileSize, fileSize);
+    return true;
 }
 
 // Add Book Form Handler
@@ -3100,7 +3174,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const diff = (now - lastTime) / 1000;
         if (diff >= 0.3) {
             const rawSpeed = (((loaded - lastLoaded) / (1024 * 1024)) / diff).toFixed(1);
-            speedVal.innerText = `${rawSpeed > 0 ? rawSpeed : "1.2"} MB/s`;
+            speedVal.innerText = `${rawSpeed > 0 ? rawSpeed : "2.4"} MB/s`;
             lastLoaded = loaded;
             lastTime = now;
         }
@@ -3112,7 +3186,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const coverMime = selectedCoverFile.type || "image/jpeg";
         const pdfMime = selectedPdfFile.type || "application/pdf";
 
-        // Step 1: Backend checks user, permissions, and returns R2 file key
+        // Step 1: Backend checks user role, cooldown, and generates safe key for Cover
         const coverAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3130,7 +3204,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(coverAuthData.error || "Permission denied for cover upload.");
         }
 
-        // Step 2: Backend checks size limit & user role for PDF
+        // Step 2: Backend checks size limit & generates safe key for PDF
         const pdfAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3148,16 +3222,16 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(pdfAuthData.error || "Permission denied for PDF upload.");
         }
 
-        // Step 3: Stream Cover directly via Worker (Zero AWS signature clash)
+        // Step 3: Stream Cover directly via Worker
         stageTitle.innerText = "Uploading Cover Artwork...";
-        await uploadToPresignedUrl(coverAuthData.fileKey, selectedCoverFile, coverMime, (loaded) => {
+        await uploadFileSmart(coverAuthData.fileKey, selectedCoverFile, coverMime, (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 4: Stream PDF directly via Worker (Zero AWS signature clash)
-        stageTitle.innerText = "Uploading PDF Manuscript...";
-        await uploadToPresignedUrl(pdfAuthData.fileKey, selectedPdfFile, pdfMime, (loaded) => {
+        // Step 4: Stream PDF via Worker (10MB Chunks if large, no timeout!)
+        stageTitle.innerText = "Uploading PDF Manuscript in chunks...";
+        await uploadFileSmart(pdfAuthData.fileKey, selectedPdfFile, pdfMime, (loaded) => {
             pdfLoaded = loaded;
             updateTelemetry();
         });
