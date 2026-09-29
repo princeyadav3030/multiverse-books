@@ -1,6 +1,4 @@
 const admin = require('firebase-admin');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const crypto = require('crypto');
 
 // ==========================================
@@ -23,18 +21,6 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
-// ==========================================
-// 2. CLOUDFLARE R2 CLIENT SETUP
-// ==========================================
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  },
-});
-
 module.exports = async function handler(req, res) {
   // CORS & Preflight Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -56,19 +42,19 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // 3. User Authentication
+    // 2. User Authentication Check
     const decodedToken = await admin.auth().verifyIdToken(userToken);
     const uid = decodedToken.uid;
     const userEmail = (decodedToken.email || "").toLowerCase().trim();
 
-    // 4. Role Verification (Admin Check)
+    // 3. Admin Status Check
     let isAdmin = false;
     if (userEmail) {
       const adminDoc = await db.collection('admins').doc(userEmail).get();
       isAdmin = adminDoc.exists;
     }
 
-    // 5. Anti-Bypass Daily Limit Check (Strict 24 Hours for Normal Users)
+    // 4. Strict Anti-Bypass Check (Normal Users: 1 Book Per 24 Hours)
     if (!isAdmin) {
       const userRef = db.collection('users').doc(uid);
       const userDoc = await userRef.get();
@@ -82,15 +68,15 @@ module.exports = async function handler(req, res) {
         if (timeElapsed < ONE_DAY_MS) {
           const remainingHours = Math.ceil((ONE_DAY_MS - timeElapsed) / (1000 * 60 * 60));
           return res.status(403).json({
-            error: `Daily upload limit reached. Normal accounts can only publish 1 book per 24 hours. Try again in ${remainingHours} hour(s).`
+            error: `Daily upload limit reached. Normal accounts can only publish 1 book per 24 hours. Please wait ${remainingHours} hour(s) before trying again.`
           });
         }
       }
     }
 
-    // 6. File Size Constraints (Admin: 1GB, Normal User: 250MB)
+    // 5. File Size Limit Validation
     const MAX_USER_SIZE = 250 * 1024 * 1024;   // 250 MB
-    const MAX_ADMIN_SIZE = 1024 * 1024 * 1024; // 1 GB (1024 MB)
+    const MAX_ADMIN_SIZE = 1024 * 1024 * 1024; // 1 GB
     const allowedLimit = isAdmin ? MAX_ADMIN_SIZE : MAX_USER_SIZE;
 
     const numericFileSize = Number(fileSize);
@@ -101,7 +87,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 7. Multi-User Collision-Safe Key Generation
+    // 6. Safe Key Format (Bucket ke covers/ aur pdfs/ folder me jayega)
     const folderPrefix = fileType === 'image' ? 'covers' : 'pdfs';
     const cleanExt = (fileName || "").split('.').pop().toLowerCase() || (fileType === 'image' ? 'jpg' : 'pdf');
     const randomHex = crypto.randomBytes(6).toString('hex');
@@ -110,24 +96,12 @@ module.exports = async function handler(req, res) {
       .replace(/[^a-zA-Z0-9_-]/g, "")
       .slice(0, 15);
 
-    const safeKey = `${folderPrefix}/${Date.now()}_${uid.slice(0, 6)}_${randomHex}_${cleanBaseName}.${cleanExt}`;
-    const bucketName = process.env.R2_BUCKET_NAME || 'spidy-books';
+    // Collision-Proof Unique Key
+    const safeKey = `${folderPrefix}/${Date.now()}_${uid.slice(0, 5)}_${randomHex}_${cleanBaseName}.${cleanExt}`;
 
-    // 8. Zero-Header Presigned URL Generation
-    // Content-Type ko sign nahi kiya taaki browser preflight aur S3 signature clash na ho
-    const command = new PutObjectCommand({
-      Bucket: bucketName,
-      Key: safeKey
-    });
-
-    const uploadUrl = await getSignedUrl(s3, command, { 
-      expiresIn: 3600,
-      unhoistableHeaders: new Set(['x-amz-checksum-crc32'])
-    });
-
+    // Authorized Ticket Return
     return res.status(200).json({ 
       success: true,
-      uploadUrl: uploadUrl, 
       fileKey: safeKey,
       isAdmin: isAdmin
     });
