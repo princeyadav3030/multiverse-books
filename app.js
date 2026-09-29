@@ -2922,7 +2922,7 @@ function autoScrollToElement(el) {
     }, 180);
 }
 
-// Reset Upload State Completely (Clear cache & form memory)
+// Reset Upload Form State Completely
 function resetUploadFormState() {
     const form = document.getElementById('addBookForm');
     if (form) form.reset();
@@ -3005,12 +3005,13 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// Direct Secure S3 Presigned Upload Stream (Bypasses payload drops)
+// Direct Secure S3 Presigned Upload Stream (Raw Binary - Zero Signature Clash)
 async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", presignedUrl, true);
 
+        // Raw stream - header clash bypass
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable && onProgress) {
                 onProgress(e.loaded, e.total);
@@ -3031,7 +3032,7 @@ async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
     });
 }
 
-// Add Book Form Handler (With Pre-Upload Quota Verification)
+// Add Book Form Handler (With Pre-Upload Quota Verification & Memory Reset)
 document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -3093,7 +3094,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     try {
         const userToken = await auth.currentUser.getIdToken(false);
 
-        // Step 1: Pre-flight Permission & Presigned Link for Cover
+        // Step 1: Pre-flight Verification & Presigned URL for Cover
         const coverAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3110,7 +3111,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(coverAuthData.error || "Permission denied for cover upload.");
         }
 
-        // Step 2: Pre-flight Permission & Presigned Link for PDF
+        // Step 2: Pre-flight Verification & Presigned URL for PDF
         const pdfAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3127,21 +3128,21 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(pdfAuthData.error || "Permission denied for PDF upload.");
         }
 
-        // Step 3: Direct Streaming Cover Artwork
+        // Step 3: Stream Cover Image
         stageTitle.innerText = "Uploading Cover Artwork...";
         await uploadToPresignedUrl(coverAuthData.uploadUrl, selectedCoverFile, (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 4: Direct Streaming PDF Manuscript
+        // Step 4: Stream PDF Manuscript
         stageTitle.innerText = "Uploading PDF Manuscript...";
         await uploadToPresignedUrl(pdfAuthData.uploadUrl, selectedPdfFile, (loaded) => {
             pdfLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 5: Database Registration
+        // Step 5: Register to Firestore
         stageTitle.innerText = "Finalizing book registration...";
         percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
         progressFill.style.width = `99%`;
@@ -3174,7 +3175,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const docRef = await addDoc(collection(db, "books"), newBook);
         newBook.id = docRef.id;
 
-        // Step 6: Update User Cooldown Timestamp for Normal Users
+        // Step 6: Anti-Bypass Cooldown Timestamp for Normal Users
         if (!IS_SUPER_ADMIN) {
             await setDoc(doc(db, "users", auth.currentUser.uid), {
                 lastBookUploadTime: Date.now()
