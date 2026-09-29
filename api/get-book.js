@@ -1,69 +1,106 @@
 const admin = require('firebase-admin');
 
-// Firebase Admin Initialize
+// ==========================================
+// 1. BULLETPROOF FIREBASE PRIVATE KEY PARSER
+// ==========================================
+function getCleanPrivateKey() {
+  let key = process.env.FIREBASE_PRIVATE_KEY || "";
+  if (!key) return undefined;
+  
+  // Shuru aur aakhiri ke double/single quotes hatayein
+  key = key.trim().replace(/^["']|["']$/g, '');
+  
+  // Literal '\n' characters ko real line breaks mein badlein
+  if (key.includes('\\n')) {
+    key = key.replace(/\\n/g, '\n');
+  }
+  return key;
+}
+
+// ==========================================
+// 2. FIREBASE ADMIN INITIALIZE
+// ==========================================
 if (!admin.apps.length) {
   try {
+    const formattedPrivateKey = getCleanPrivateKey();
+
     admin.initializeApp({
       credential: admin.credential.cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY 
-          ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') 
-          : undefined,
+        privateKey: formattedPrivateKey,
       }),
     });
   } catch (initErr) {
-    console.error("Firebase Admin Init Error:", initErr);
+    console.error("Firebase Admin Init Error:", initErr.message);
   }
 }
+
 const db = admin.firestore();
 
+// ==========================================
+// 3. MAIN API HANDLER
+// ==========================================
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   );
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
-
-  let { bookId, userToken, bookSlug, pdfKey } = req.body;
-
-  // 1. Validation Checks
-  if (!userToken) {
-    return res.status(400).json({ error: 'Missing parameter: userToken is required' });
-  }
-
-  if (!bookId && !pdfKey) {
-    return res.status(400).json({ error: 'Missing parameters: Either bookId or pdfKey must be provided' });
-  }
-
-  // Slug Fallback Handling
-  if (!bookSlug || String(bookSlug).trim() === "") {
-    bookSlug = bookId || (pdfKey ? String(pdfKey).replace(/[^a-zA-Z0-9_-]/g, '_').slice(-25) : "module-doc");
-  }
-
-  let uid = null;
-  let userEmail = "";
-
-  // 2. Verify User Token
-  try {
-    const decodedToken = await admin.auth().verifyIdToken(userToken);
-    uid = decodedToken.uid;
-    userEmail = (decodedToken.email || "").toLowerCase().trim();
-  } catch (authErr) {
-    return res.status(401).json({ error: 'Session Expired! Please re-login.' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
 
   try {
+    // Body parsing safe check
+    let bodyData = req.body;
+    if (typeof bodyData === 'string') {
+      try {
+        bodyData = JSON.parse(bodyData);
+      } catch (e) {
+        return res.status(400).json({ success: false, error: 'Invalid JSON request payload' });
+      }
+    }
+
+    let { bookId, userToken, bookSlug, pdfKey } = bodyData || {};
+
+    // 1. Validation Checks
+    if (!userToken) {
+      return res.status(400).json({ success: false, error: 'Missing parameter: userToken is required' });
+    }
+
+    if (!bookId && !pdfKey) {
+      return res.status(400).json({ success: false, error: 'Missing parameters: Either bookId or pdfKey must be provided' });
+    }
+
+    // Slug Fallback Handling
+    if (!bookSlug || String(bookSlug).trim() === "") {
+      bookSlug = bookId || (pdfKey ? String(pdfKey).replace(/[^a-zA-Z0-9_-]/g, '_').slice(-25) : "module-doc");
+    }
+
+    let uid = null;
+    let userEmail = "";
+
+    // 2. Verify User Token
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(userToken);
+      uid = decodedToken.uid;
+      userEmail = (decodedToken.email || "").toLowerCase().trim();
+    } catch (authErr) {
+      return res.status(401).json({ success: false, error: 'Session Expired! Please re-login.' });
+    }
+
     // 3. Super Admin Check
     let isSuperAdmin = false;
     if (userEmail) {
-      const adminDoc = await db.collection('admins').doc(userEmail).get();
-      isSuperAdmin = adminDoc.exists;
+      try {
+        const adminDoc = await db.collection('admins').doc(userEmail).get();
+        isSuperAdmin = adminDoc.exists;
+      } catch (e) {
+        console.warn("Admin check skipped:", e.message);
+      }
     }
 
     // 4. User History & 24 Hours Retention Calculation
@@ -122,33 +159,28 @@ module.exports = async function handler(req, res) {
     // 5. File Key Resolve (Normal Book vs Module PDF)
     let fileKey = pdfKey;
 
-    // Agar normal book request hai aur direct pdfKey nahi mili, toh database se fetch karo
     if (!fileKey && bookId) {
       const bookDoc = await db.collection('books').doc(bookId).get();
       if (!bookDoc.exists) {
-        return res.status(404).json({ error: 'Book not found in database!' });
+        return res.status(404).json({ success: false, error: 'Book not found in database!' });
       }
       fileKey = bookDoc.data().pdfLink;
     }
 
     if (!fileKey || String(fileKey).trim() === "") {
-      return res.status(404).json({ error: 'PDF file link missing!' });
+      return res.status(404).json({ success: false, error: 'PDF file link missing!' });
     }
 
     // Clean File Path Resolution
     let cleanKey = String(fileKey).trim().replace(/^\/+/, '');
 
-    // Agar full URL pass hua ho to sirf path extract karein
     if (cleanKey.startsWith('http://') || cleanKey.startsWith('https://')) {
       try {
         const parsedUrl = new URL(cleanKey);
         cleanKey = parsedUrl.pathname.replace(/^\/+/, '');
-      } catch (e) {
-        // Fallback unchanged
-      }
+      } catch (e) {}
     }
 
-    // Agar path me folder nahi hai aur yeh module request hai, to module_pdfs prefix auto-add karein
     if (!cleanKey.includes('/')) {
       if (pdfKey) {
         cleanKey = `module_pdfs/${cleanKey}`;
@@ -173,6 +205,6 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error("Backend Error:", error);
-    return res.status(500).json({ error: 'Server Error: ' + (error.message || 'Failed') });
+    return res.status(500).json({ success: false, error: 'Server Error: ' + (error.message || 'Failed') });
   }
 };
