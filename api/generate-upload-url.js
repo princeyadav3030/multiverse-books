@@ -1,4 +1,6 @@
 const admin = require('firebase-admin');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const crypto = require('crypto');
 
 // ==========================================
@@ -21,8 +23,20 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
+// ==========================================
+// 2. CLOUDFLARE R2 S3 CLIENT
+// ==========================================
+const s3 = new S3Client({
+  region: "auto",
+  endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
+});
+
 module.exports = async function handler(req, res) {
-  // CORS & Preflight Headers
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
@@ -42,19 +56,19 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // 2. User Authentication Check
+    // 3. User Authentication
     const decodedToken = await admin.auth().verifyIdToken(userToken);
     const uid = decodedToken.uid;
     const userEmail = (decodedToken.email || "").toLowerCase().trim();
 
-    // 3. Admin Status Check
+    // 4. Admin Role Check
     let isAdmin = false;
     if (userEmail) {
       const adminDoc = await db.collection('admins').doc(userEmail).get();
       isAdmin = adminDoc.exists;
     }
 
-    // 4. Strict Anti-Bypass Check (Normal Users: 1 Book Per 24 Hours)
+    // 5. Normal User 24-Hour Cooldown Validation
     if (!isAdmin) {
       const userRef = db.collection('users').doc(uid);
       const userDoc = await userRef.get();
@@ -74,9 +88,9 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 5. File Size Limit Validation
-    const MAX_USER_SIZE = 250 * 1024 * 1024;   // 250 MB
-    const MAX_ADMIN_SIZE = 1024 * 1024 * 1024; // 1 GB
+    // 6. File Size Constraints (Admin: 1GB, Normal User: 250MB)
+    const MAX_USER_SIZE = 250 * 1024 * 1024;
+    const MAX_ADMIN_SIZE = 1024 * 1024 * 1024;
     const allowedLimit = isAdmin ? MAX_ADMIN_SIZE : MAX_USER_SIZE;
 
     const numericFileSize = Number(fileSize);
@@ -87,7 +101,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 6. Safe Key Format (Bucket ke covers/ aur pdfs/ folder me jayega)
+    // 7. Collision-Safe Path Format (covers/ and pdfs/)
     const folderPrefix = fileType === 'image' ? 'covers' : 'pdfs';
     const cleanExt = (fileName || "").split('.').pop().toLowerCase() || (fileType === 'image' ? 'jpg' : 'pdf');
     const randomHex = crypto.randomBytes(6).toString('hex');
@@ -96,12 +110,23 @@ module.exports = async function handler(req, res) {
       .replace(/[^a-zA-Z0-9_-]/g, "")
       .slice(0, 15);
 
-    // Collision-Proof Unique Key
     const safeKey = `${folderPrefix}/${Date.now()}_${uid.slice(0, 5)}_${randomHex}_${cleanBaseName}.${cleanExt}`;
+    const bucketName = process.env.R2_BUCKET_NAME || 'spidy-books';
 
-    // Authorized Ticket Return
+    // 8. Zero-Clash Presigned URL Creation (No Content-Type signed to prevent signature mismatch)
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: safeKey,
+    });
+
+    const uploadUrl = await getSignedUrl(s3, command, { 
+      expiresIn: 7200,
+      unhoistableHeaders: new Set(['x-amz-checksum-crc32'])
+    });
+
     return res.status(200).json({ 
       success: true,
+      uploadUrl: uploadUrl, 
       fileKey: safeKey,
       isAdmin: isAdmin
     });
