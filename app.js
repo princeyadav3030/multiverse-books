@@ -3005,13 +3005,19 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// Bulletproof Direct Cloudflare R2 Upload Streamer
-async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
+// ==========================================
+// BULLETPROOF EXACT-SIGNATURE S3 UPLOADER
+// ==========================================
+async function uploadToPresignedUrl(presignedUrl, file, mimeType, onProgress) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", presignedUrl, true);
 
-        // Upload progress tracker
+        // Upload signature match: Exact signed Content-Type header set
+        if (mimeType) {
+            xhr.setRequestHeader("Content-Type", mimeType);
+        }
+
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable && onProgress) {
                 onProgress(e.loaded, e.total);
@@ -3022,22 +3028,18 @@ async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
             if (xhr.status >= 200 && xhr.status < 300) {
                 resolve(true);
             } else {
-                reject(new Error(`Storage error (${xhr.status}): R2 storage rejected upload.`));
+                reject(new Error(`Storage rejected upload with status: ${xhr.status}`));
             }
         };
 
         xhr.onerror = () => {
-            reject(new Error("Network connection lost during file transfer. R2 CORS or connection dropped."));
+            reject(new Error("Connection error during storage transfer. Check R2 network."));
         };
 
         xhr.ontimeout = () => reject(new Error("Upload connection timed out."));
 
-        // Blob slice raw binary stream send karein taaki browser extra headers na jode
-        try {
-            xhr.send(file.slice(0, file.size));
-        } catch(e) {
-            xhr.send(file);
-        }
+        // Direct raw stream transfer
+        xhr.send(file);
     });
 }
 
@@ -3103,6 +3105,9 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     try {
         const userToken = await auth.currentUser.getIdToken(false);
 
+        const coverMime = selectedCoverFile.type || "image/jpeg";
+        const pdfMime = selectedPdfFile.type || "application/pdf";
+
         // Step 1: Request Presigned URL for Cover
         const coverAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
@@ -3111,6 +3116,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
                 fileName: selectedCoverFile.name,
                 fileSize: selectedCoverFile.size,
                 fileType: 'image',
+                mimeType: coverMime,
                 userToken: userToken
             })
         });
@@ -3128,6 +3134,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
                 fileName: selectedPdfFile.name,
                 fileSize: selectedPdfFile.size,
                 fileType: 'pdf',
+                mimeType: pdfMime,
                 userToken: userToken
             })
         });
@@ -3137,16 +3144,16 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(pdfAuthData.error || "Permission denied for PDF upload.");
         }
 
-        // Step 3: Direct Stream Cover to R2
+        // Step 3: Direct Stream Cover to R2 with Signature Lock
         stageTitle.innerText = "Uploading Cover Artwork...";
-        await uploadToPresignedUrl(coverAuthData.uploadUrl, selectedCoverFile, (loaded) => {
+        await uploadToPresignedUrl(coverAuthData.uploadUrl, selectedCoverFile, coverAuthData.mimeType || coverMime, (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 4: Direct Stream PDF to R2
+        // Step 4: Direct Stream PDF to R2 with Signature Lock
         stageTitle.innerText = "Uploading PDF Manuscript...";
-        await uploadToPresignedUrl(pdfAuthData.uploadUrl, selectedPdfFile, (loaded) => {
+        await uploadToPresignedUrl(pdfAuthData.uploadUrl, selectedPdfFile, pdfAuthData.mimeType || pdfMime, (loaded) => {
             pdfLoaded = loaded;
             updateTelemetry();
         });
