@@ -3005,15 +3005,13 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// Direct Cloudflare Worker Proxy Streaming (Zero-CORS-Clash & No Presigned Drops)
-async function streamFileToWorker(fileKey, file, mimeType, onProgress) {
-    const uploadEndpoint = `${WORKER_PROXY_URL}/upload/${encodeURIComponent(fileKey)}`;
-
+// Direct R2 S3 Presigned Upload Stream (Raw Binary - Zero Header Clash)
+async function uploadToPresignedUrl(presignedUrl, file, onProgress) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("PUT", uploadEndpoint, true);
-        xhr.setRequestHeader("Content-Type", mimeType || "application/octet-stream");
+        xhr.open("PUT", presignedUrl, true);
 
+        // Zero Custom Headers: Browser raw binary stream bhejega bina kisi S3 signature mismatch ke
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable && onProgress) {
                 onProgress(e.loaded, e.total);
@@ -3022,14 +3020,14 @@ async function streamFileToWorker(fileKey, file, mimeType, onProgress) {
 
         xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
-                resolve(fileKey);
+                resolve(true);
             } else {
-                reject(new Error(`Worker transfer failed with status ${xhr.status}`));
+                reject(new Error(`Storage rejected upload with status ${xhr.status}`));
             }
         };
 
         xhr.onerror = () => reject(new Error("Network connection lost during file transfer."));
-        xhr.ontimeout = () => reject(new Error("Transfer timeout."));
+        xhr.ontimeout = () => reject(new Error("Upload connection timed out."));
         xhr.send(file);
     });
 }
@@ -3096,7 +3094,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     try {
         const userToken = await auth.currentUser.getIdToken(false);
 
-        // Step 1: Quota Authorization & Cover Key Generation
+        // Step 1: Pre-flight Verification & Presigned URL for Cover
         const coverAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3113,7 +3111,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(coverAuthData.error || "Permission denied for cover upload.");
         }
 
-        // Step 2: Quota Authorization & PDF Key Generation
+        // Step 2: Pre-flight Verification & Presigned URL for PDF
         const pdfAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3130,23 +3128,21 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(pdfAuthData.error || "Permission denied for PDF upload.");
         }
 
-        // Step 3: Direct Stream Cover via Worker to covers/
+        // Step 3: Direct Stream Cover to R2
         stageTitle.innerText = "Uploading Cover Artwork...";
-        const coverMime = selectedCoverFile.type || "image/jpeg";
-        await streamFileToWorker(coverAuthData.fileKey, selectedCoverFile, coverMime, (loaded) => {
+        await uploadToPresignedUrl(coverAuthData.uploadUrl, selectedCoverFile, (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 4: Direct Stream PDF via Worker to pdfs/
+        // Step 4: Direct Stream PDF to R2
         stageTitle.innerText = "Uploading PDF Manuscript...";
-        const pdfMime = selectedPdfFile.type || "application/pdf";
-        await streamFileToWorker(pdfAuthData.fileKey, selectedPdfFile, pdfMime, (loaded) => {
+        await uploadToPresignedUrl(pdfAuthData.uploadUrl, selectedPdfFile, (loaded) => {
             pdfLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 5: Save to Firestore
+        // Step 5: Save Record to Firestore
         stageTitle.innerText = "Finalizing book registration...";
         percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
         progressFill.style.width = `99%`;
@@ -3179,7 +3175,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const docRef = await addDoc(collection(db, "books"), newBook);
         newBook.id = docRef.id;
 
-        // Step 6: Cooldown timestamp update (Normal users only)
+        // Step 6: Update User Cooldown Timestamp for Normal Users
         if (!IS_SUPER_ADMIN) {
             await setDoc(doc(db, "users", auth.currentUser.uid), {
                 lastBookUploadTime: Date.now()
