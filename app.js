@@ -113,7 +113,7 @@ let basePageWidth = 0;
 let basePageAspectRatio = 1.414;
 
 // ==========================================
-// 4. SANITIZATION & MARKDOWN FORMATTER
+// 4. SANITIZATION & HELPERS
 // ==========================================
 function sanitizeHTML(str) {
     if (typeof str !== 'string') return str;
@@ -230,14 +230,16 @@ function showToast(message, type = 'success') {
         ? '<i class="fas fa-check-circle"></i>' 
         : '<i class="fas fa-circle-exclamation"></i>';
 
-    toast.innerHTML = `${icon}<span>${sanitizeHTML(message)}</span>`;
+    // Toast Text Wrapped Safely
+    toast.innerHTML = `${icon}<span style="white-space:normal; word-break:break-word; max-width:82vw;">${sanitizeHTML(message)}</span>`;
     toast.style.display = "flex";
+    toast.style.maxWidth = "90vw";
     void toast.offsetWidth;
     toast.classList.add('active');
 
     pillToastTimer = setTimeout(() => {
         toast.classList.remove('active');
-    }, 3500);
+    }, 4000);
 }
 
 function generateDeviceFingerprint() {
@@ -2112,9 +2114,9 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
     container.appendChild(loaderDiv);
 }
 
-// ==========================================
-// 14. ULTRA HD PDF VIEWER
-// ==========================================
+// =========================================================================
+// 14. ULTRA HD PDF VIEWER (High DPI Sharp Text Rendering)
+// =========================================================================
 async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     const container = document.getElementById('pdfContainer');
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -2239,6 +2241,7 @@ function initVirtualizationObserver(pdf) {
     });
 }
 
+// ULTRA-HD RENDERING ENGINE (Multiplied Pixel Density for Crisp Text)
 async function renderSingleHdPage(pdf, pageNum) {
     if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return; 
     renderedPagesMap.set(pageNum, true);
@@ -2252,7 +2255,8 @@ async function renderSingleHdPage(pdf, pageNum) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
-        const devicePR = Math.min(window.devicePixelRatio || 1, 1.8);
+        // High-DPI Scale: 2.2x to 2.5x sharpness
+        const devicePR = Math.max(window.devicePixelRatio || 1, 2.2);
         const viewport = page.getViewport({ scale: currentScale });
 
         const canvas = document.createElement('canvas');
@@ -2380,12 +2384,40 @@ function applyTargetLockedZoom(scaleFactor, targetPageNum) {
     }
 }
 
+// Distance-Aware Double Tap (Fast Scroll Par Zoom Trigger Nahi Hoga)
 function initTargetLockedDoubleTapZoom() {
     const container = document.getElementById('pdfContainer');
     if (!container) return;
 
     let lastTapTime = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let hasMovedDuringTouch = false;
+
+    container.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            hasMovedDuringTouch = false;
+        }
+    }, { passive: true });
+
+    container.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1) {
+            const diffX = Math.abs(e.touches[0].clientX - touchStartX);
+            const diffY = Math.abs(e.touches[0].clientY - touchStartY);
+            if (diffX > 8 || diffY > 8) {
+                hasMovedDuringTouch = true;
+            }
+        }
+    }, { passive: true });
+
     container.addEventListener('touchend', (e) => {
+        if (hasMovedDuringTouch) {
+            lastTapTime = 0;
+            return; 
+        }
+
         if (e.changedTouches.length === 1) {
             const now = Date.now();
             if ((now - lastTapTime) < 280) {
@@ -2971,7 +3003,8 @@ document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
     }
 });
 
-document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
+// REALTIME ACCURATE PAGE COUNT DETECTION
+document.getElementById('filePdfSelect')?.addEventListener('change', async (e) => {
     if (e.target.files && e.target.files.length > 0) {
         selectedPdfFile = e.target.files[0];
         const statusText = document.getElementById('pdfStatusText');
@@ -2988,11 +3021,31 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
             return;
         }
 
-        detectedTotalPages = "100+";
-        const fullLabel = `Selected: ${selectedPdfFile.name}`;
-        statusText.innerText = fullLabel;
-        statusText.title = fullLabel;
-        statusText.style.color = '#ffffff';
+        statusText.innerText = `Analyzing pages of ${selectedPdfFile.name}...`;
+
+        // Accurate Page Extraction via PDF.js without dumping heavy memory
+        try {
+            const fileSlice = selectedPdfFile.slice(0, Math.min(selectedPdfFile.size, 4000000));
+            const reader = new FileReader();
+            reader.onload = async function() {
+                try {
+                    const typedarray = new Uint8Array(this.result);
+                    const pdfDoc = await window.pdfjsLib.getDocument({ data: typedarray }).promise;
+                    detectedTotalPages = pdfDoc.numPages || "100+";
+                } catch(err) {
+                    detectedTotalPages = "100+";
+                }
+                const fullLabel = `Selected: ${selectedPdfFile.name} (${detectedTotalPages} Pages)`;
+                statusText.innerText = fullLabel;
+                statusText.title = fullLabel;
+                statusText.style.color = '#ffffff';
+            };
+            reader.readAsArrayBuffer(fileSlice);
+        } catch(e) {
+            detectedTotalPages = "100+";
+            statusText.innerText = `Selected: ${selectedPdfFile.name}`;
+            statusText.style.color = '#ffffff';
+        }
 
         const publishBtn = document.getElementById('publishBtn');
         autoScrollToElement(publishBtn);
@@ -3000,40 +3053,62 @@ document.getElementById('filePdfSelect')?.addEventListener('change', (e) => {
 });
 
 // =========================================================================
-// 19. ADAPTIVE HIGH-SPEED UPLOAD PIPELINE (CHUNKS FOR >50MB, STREAM FOR SMALL)
+// 19. BULLETPROOF MULTI-RETRY WORKER TRANSFER ENGINE
 // =========================================================================
-function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress) {
+function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRetries = 3) {
     return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", targetUrl, true);
+        let attempts = 0;
 
-        if (mimeType) {
-            xhr.setRequestHeader("Content-Type", mimeType);
+        function attemptUpload() {
+            attempts++;
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", targetUrl, true);
+
+            if (mimeType) {
+                xhr.setRequestHeader("Content-Type", mimeType);
+            }
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable && onProgress) {
+                    onProgress(e.loaded, e.total);
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const parsed = JSON.parse(xhr.responseText);
+                        resolve(parsed);
+                    } catch(e) {
+                        resolve({ success: true });
+                    }
+                } else if (attempts < maxRetries) {
+                    setTimeout(attemptUpload, 1000);
+                } else {
+                    reject(new Error(`Storage error (${xhr.status}): Transfer failed after ${maxRetries} attempts.`));
+                }
+            };
+
+            xhr.onerror = () => {
+                if (attempts < maxRetries) {
+                    setTimeout(attemptUpload, 1200);
+                } else {
+                    reject(new Error("Worker connection lost. Please check internet connection."));
+                }
+            };
+
+            xhr.ontimeout = () => {
+                if (attempts < maxRetries) {
+                    setTimeout(attemptUpload, 1200);
+                } else {
+                    reject(new Error("Upload connection timed out."));
+                }
+            };
+
+            xhr.send(blob);
         }
 
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable && onProgress) {
-                onProgress(e.loaded, e.total);
-            }
-        };
-
-        xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                    const parsed = JSON.parse(xhr.responseText);
-                    resolve(parsed);
-                } catch(e) {
-                    resolve({ success: true });
-                }
-            } else {
-                reject(new Error(`Worker transfer error (${xhr.status}): Chunk write failed.`));
-            }
-        };
-
-        xhr.onerror = () => reject(new Error("Worker connection lost. Check network connection."));
-        xhr.ontimeout = () => reject(new Error("Worker request timed out."));
-
-        xhr.send(blob);
+        attemptUpload();
     });
 }
 
@@ -3048,9 +3123,9 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     }
 
     const fileSize = file.size;
-    const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB per chunk (Cloudflare safe limit)
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB per chunk
 
-    // Option A: 50MB se chhota file seedha direct stream karo
+    // Option A: 50MB se chhota file direct stream
     if (fileSize <= 50 * 1024 * 1024) {
         const targetUrl = `${WORKER_PROXY_URL}/upload?key=${encodeURIComponent(cleanKey)}`;
         return await uploadSingleBlobViaWorker(targetUrl, file, mimeType, (loaded, total) => {
@@ -3058,8 +3133,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
         });
     }
 
-    // Option B: 50MB se badi (100MB - 1GB) file ko Multipart Chunks mein bhejo
-    // 1. Create Multipart Upload
+    // Option B: 50MB se badi (100MB - 1GB) file -> Multipart Chunks with Auto-Retry
     const createRes = await fetch(`${WORKER_PROXY_URL}/multipart/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3067,7 +3141,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     });
     const createData = await createRes.json();
     if (!createRes.ok || !createData.success) {
-        throw new Error(createData.error || "Failed to initialize multipart upload on Worker.");
+        throw new Error(createData.error || "Failed to initialize multipart session on Worker.");
     }
 
     const uploadId = createData.uploadId;
@@ -3075,12 +3149,10 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     const uploadedParts = [];
     let overallLoaded = 0;
 
-    // 2. Upload Part-by-Part (10 MB each)
     for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
         const start = (partNumber - 1) * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, fileSize);
         const chunkBlob = file.slice(start, end);
-        const chunkBytes = end - start;
 
         const partUrl = `${WORKER_PROXY_URL}/multipart/upload-part?key=${encodeURIComponent(cleanKey)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`;
 
@@ -3102,7 +3174,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
         });
     }
 
-    // 3. Complete Multipart Upload
+    // Complete Multipart Upload
     const completeRes = await fetch(`${WORKER_PROXY_URL}/multipart/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3186,7 +3258,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const coverMime = selectedCoverFile.type || "image/jpeg";
         const pdfMime = selectedPdfFile.type || "application/pdf";
 
-        // Step 1: Backend checks user role, cooldown, and generates safe key for Cover
+        // Step 1: Cover Auth Check
         const coverAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3204,7 +3276,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(coverAuthData.error || "Permission denied for cover upload.");
         }
 
-        // Step 2: Backend checks size limit & generates safe key for PDF
+        // Step 2: PDF Auth & Quota Check
         const pdfAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3222,14 +3294,14 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(pdfAuthData.error || "Permission denied for PDF upload.");
         }
 
-        // Step 3: Stream Cover directly via Worker
+        // Step 3: Stream Cover via Worker
         stageTitle.innerText = "Uploading Cover Artwork...";
         await uploadFileSmart(coverAuthData.fileKey, selectedCoverFile, coverMime, (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 4: Stream PDF via Worker (10MB Chunks if large, no timeout!)
+        // Step 4: Stream PDF with Chunked Multi-Retry Pipeline
         stageTitle.innerText = "Uploading PDF Manuscript in chunks...";
         await uploadFileSmart(pdfAuthData.fileKey, selectedPdfFile, pdfMime, (loaded) => {
             pdfLoaded = loaded;
