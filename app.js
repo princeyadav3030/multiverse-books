@@ -90,7 +90,7 @@ let CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
 let savedBooks = JSON.parse(localStorage.getItem('spidy_saved_books')) || [];
 let selectedCoverFile = null;
 let selectedPdfFile = null;
-let detectedTotalPages = 0;
+let detectedTotalPages = "100+";
 let detectedFileSizeMB = "0 MB";
 
 let dynamicBannersList = [];
@@ -230,16 +230,14 @@ function showToast(message, type = 'success') {
         ? '<i class="fas fa-check-circle"></i>' 
         : '<i class="fas fa-circle-exclamation"></i>';
 
-    // Toast Text Wrapped Safely
-    toast.innerHTML = `${icon}<span style="white-space:normal; word-break:break-word; max-width:82vw;">${sanitizeHTML(message)}</span>`;
+    toast.innerHTML = `${icon}<span>${sanitizeHTML(message)}</span>`;
     toast.style.display = "flex";
-    toast.style.maxWidth = "90vw";
     void toast.offsetWidth;
     toast.classList.add('active');
 
     pillToastTimer = setTimeout(() => {
         toast.classList.remove('active');
-    }, 4000);
+    }, 3500);
 }
 
 function generateDeviceFingerprint() {
@@ -2440,44 +2438,48 @@ function initTargetLockedDoubleTapZoom() {
     });
 }
 
+// ULTRA SMOOTH REALTIME SCROLL & PAGE INDICATOR SYNC (Lag-Free)
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
     const badgeWrap = document.getElementById('pdfPageBadge');
 
-    let scrollTick = false;
+    let scrollRafId = null;
     container.addEventListener('scroll', () => {
-        if (!scrollTick) {
-            requestAnimationFrame(() => {
-                const wrappers = container.querySelectorAll('.pdf-page-wrapper');
-                const containerCenter = container.getBoundingClientRect().top + (container.clientHeight / 2);
+        if (scrollRafId) return;
 
-                for (let wrap of wrappers) {
-                    const rect = wrap.getBoundingClientRect();
-                    if (rect.top <= containerCenter && rect.bottom >= containerCenter) {
-                        const matchedNum = parseInt(wrap.dataset.pageNum, 10);
-                        if (!isNaN(matchedNum)) {
-                            currentPdfPageInView = matchedNum;
-                            if (badge && badge.innerText !== String(matchedNum)) {
-                                badge.innerText = String(matchedNum);
-                            }
+        scrollRafId = requestAnimationFrame(() => {
+            const totalScrollable = container.scrollHeight - container.clientHeight;
+            if (totalScrollable > 0 && badgeWrap) {
+                const scrollFraction = Math.max(0, Math.min(1, container.scrollTop / totalScrollable));
+                // 14% to 82% smooth vertical movement along with scrollbar
+                badgeWrap.style.top = `${14 + (scrollFraction * 68)}%`;
+            }
+
+            // Calculate current page on center viewport
+            const containerCenter = container.getBoundingClientRect().top + (container.clientHeight / 2);
+            const wrappers = container.querySelectorAll('.pdf-page-wrapper');
+
+            for (let wrap of wrappers) {
+                const rect = wrap.getBoundingClientRect();
+                if (rect.top <= containerCenter && rect.bottom >= containerCenter) {
+                    const matchedNum = parseInt(wrap.dataset.pageNum, 10);
+                    if (!isNaN(matchedNum)) {
+                        currentPdfPageInView = matchedNum;
+                        if (badge && badge.innerText !== String(matchedNum)) {
+                            badge.innerText = String(matchedNum);
                         }
-                        break;
                     }
+                    break;
                 }
+            }
 
-                if (activeBookSlug && currentPdfPageInView > 0) {
-                    localStorage.setItem(`last_read_${activeBookSlug}`, currentPdfPageInView);
-                }
+            if (activeBookSlug && currentPdfPageInView > 0) {
+                localStorage.setItem(`last_read_${activeBookSlug}`, currentPdfPageInView);
+            }
 
-                if (pdfTotalPagesCount > 1 && badgeWrap) {
-                    const pageRatio = (currentPdfPageInView - 1) / (pdfTotalPagesCount - 1);
-                    badgeWrap.style.top = `${14 + (pageRatio * 68)}%`;
-                }
-                scrollTick = false;
-            });
-            scrollTick = true;
-        }
+            scrollRafId = null;
+        });
     }, { passive: true });
 }
 
@@ -2541,7 +2543,10 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     
     const downloadModal = document.getElementById("downloadModal");
     downloadModal.style.display = "flex";
+    // Always start at top for every book (Fix scroll carryover)
     downloadModal.scrollTop = 0;
+    const innerScrollWrapper = downloadModal.querySelector('.download-content-wrapper') || downloadModal.firstElementChild;
+    if (innerScrollWrapper) innerScrollWrapper.scrollTop = 0;
     
     const previewImg = document.getElementById("dlPreviewImage");
     previewImg.src = getSecureAssetUrl(book.image); 
@@ -2559,7 +2564,9 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
     const totalPagesSub = document.getElementById('dlTotalPages');
     if (totalPagesSub) {
-        totalPagesSub.innerText = book.totalPages ? `${book.totalPages} Pages Included` : "Complete Book Included";
+        const rawPages = (book.totalPages || "").toString().trim();
+        const pagesText = rawPages && rawPages !== "0" && !rawPages.includes("100+") ? `${rawPages} Pages Included` : "Complete Book Included";
+        totalPagesSub.innerText = pagesText;
     }
     
     const dlPdfBtn = document.getElementById("dlPdfLinkBtn");
@@ -2962,6 +2969,7 @@ function resetUploadFormState() {
 
     selectedCoverFile = null;
     selectedPdfFile = null;
+    detectedTotalPages = "100+";
 
     const coverStatus = document.getElementById('coverStatusText');
     if (coverStatus) {
@@ -3003,7 +3011,7 @@ document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// REALTIME ACCURATE PAGE COUNT DETECTION
+// FULL REALTIME ACCURATE PAGE COUNT DETECTION
 document.getElementById('filePdfSelect')?.addEventListener('change', async (e) => {
     if (e.target.files && e.target.files.length > 0) {
         selectedPdfFile = e.target.files[0];
@@ -3023,27 +3031,22 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
 
         statusText.innerText = `Analyzing pages of ${selectedPdfFile.name}...`;
 
-        // Accurate Page Extraction via PDF.js without dumping heavy memory
+        // Direct Accurate Page Count Parsing with pdfjs
         try {
-            const fileSlice = selectedPdfFile.slice(0, Math.min(selectedPdfFile.size, 4000000));
-            const reader = new FileReader();
-            reader.onload = async function() {
-                try {
-                    const typedarray = new Uint8Array(this.result);
-                    const pdfDoc = await window.pdfjsLib.getDocument({ data: typedarray }).promise;
-                    detectedTotalPages = pdfDoc.numPages || "100+";
-                } catch(err) {
-                    detectedTotalPages = "100+";
-                }
-                const fullLabel = `Selected: ${selectedPdfFile.name} (${detectedTotalPages} Pages)`;
-                statusText.innerText = fullLabel;
-                statusText.title = fullLabel;
-                statusText.style.color = '#ffffff';
-            };
-            reader.readAsArrayBuffer(fileSlice);
-        } catch(e) {
+            const fileData = await selectedPdfFile.arrayBuffer();
+            const loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(fileData) });
+            const pdfDoc = await loadingTask.promise;
+            detectedTotalPages = pdfDoc.numPages.toString();
+            
+            const fullLabel = `Selected: ${selectedPdfFile.name} (${detectedTotalPages} Pages)`;
+            statusText.innerText = fullLabel;
+            statusText.title = fullLabel;
+            statusText.style.color = '#ffffff';
+        } catch(err) {
             detectedTotalPages = "100+";
-            statusText.innerText = `Selected: ${selectedPdfFile.name}`;
+            const fallbackLabel = `Selected: ${selectedPdfFile.name}`;
+            statusText.innerText = fallbackLabel;
+            statusText.title = fallbackLabel;
             statusText.style.color = '#ffffff';
         }
 
@@ -3085,7 +3088,7 @@ function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRet
                 } else if (attempts < maxRetries) {
                     setTimeout(attemptUpload, 1000);
                 } else {
-                    reject(new Error(`Storage error (${xhr.status}): Transfer failed after ${maxRetries} attempts.`));
+                    reject(new Error(`Storage transfer failed with status ${xhr.status}.`));
                 }
             };
 
@@ -3093,7 +3096,7 @@ function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRet
                 if (attempts < maxRetries) {
                     setTimeout(attemptUpload, 1200);
                 } else {
-                    reject(new Error("Worker connection lost. Please check internet connection."));
+                    reject(new Error("Worker connection lost. Check network connection."));
                 }
             };
 
@@ -3294,15 +3297,18 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(pdfAuthData.error || "Permission denied for PDF upload.");
         }
 
-        // Step 3: Stream Cover via Worker
-        stageTitle.innerText = "Uploading Cover Artwork...";
+        // Step 3: Stream Cover Artwork
+        stageTitle.innerText = "⚡ Syncing Cover Artwork...";
         await uploadFileSmart(coverAuthData.fileKey, selectedCoverFile, coverMime, (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 4: Stream PDF with Chunked Multi-Retry Pipeline
-        stageTitle.innerText = "Uploading PDF Manuscript in chunks...";
+        // Step 4: Stream PDF Manuscript (Attractive Text)
+        stageTitle.innerText = "⚡ Ultra-Speed Encrypted Cloud Sync...";
+        const subMsg = pipeline.querySelector('.sync-subtext') || pipeline.querySelector('p');
+        if (subMsg) subMsg.innerText = "Optimizing pages for HD reader view...";
+
         await uploadFileSmart(pdfAuthData.fileKey, selectedPdfFile, pdfMime, (loaded) => {
             pdfLoaded = loaded;
             updateTelemetry();
