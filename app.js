@@ -2438,7 +2438,7 @@ function initTargetLockedDoubleTapZoom() {
     });
 }
 
-// ULTRA SMOOTH REALTIME SCROLL & PAGE INDICATOR SYNC (Lag-Free)
+// ULTRA SMOOTH REALTIME SCROLL & PAGE INDICATOR SYNC (Lag-Free & Linear)
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
@@ -2452,7 +2452,7 @@ function initPdfScrollTracker() {
             const totalScrollable = container.scrollHeight - container.clientHeight;
             if (totalScrollable > 0 && badgeWrap) {
                 const scrollFraction = Math.max(0, Math.min(1, container.scrollTop / totalScrollable));
-                // 14% to 82% smooth vertical movement along with scrollbar
+                // 14% to 82% smooth vertical movement directly aligned with scroll position
                 badgeWrap.style.top = `${14 + (scrollFraction * 68)}%`;
             }
 
@@ -2543,7 +2543,8 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     
     const downloadModal = document.getElementById("downloadModal");
     downloadModal.style.display = "flex";
-    // Always start at top for every book (Fix scroll carryover)
+    
+    // Always start at top for every book (Fix scroll carryover issue)
     downloadModal.scrollTop = 0;
     const innerScrollWrapper = downloadModal.querySelector('.download-content-wrapper') || downloadModal.firstElementChild;
     if (innerScrollWrapper) innerScrollWrapper.scrollTop = 0;
@@ -3031,7 +3032,7 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
 
         statusText.innerText = `Analyzing pages of ${selectedPdfFile.name}...`;
 
-        // Direct Accurate Page Count Parsing with pdfjs
+        // Accurate Page Count Parsing with pdfjs
         try {
             const fileData = await selectedPdfFile.arrayBuffer();
             const loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(fileData) });
