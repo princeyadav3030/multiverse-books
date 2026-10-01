@@ -90,7 +90,7 @@ let CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
 let savedBooks = JSON.parse(localStorage.getItem('spidy_saved_books')) || [];
 let selectedCoverFile = null;
 let selectedPdfFile = null;
-let detectedTotalPages = "100+";
+let detectedTotalPages = 0;
 let detectedFileSizeMB = "0 MB";
 
 let dynamicBannersList = [];
@@ -475,10 +475,7 @@ window.openSubjectModulesList = function(subjectKey) {
             const safeEncodedKey = encodeURIComponent(rawPdfUrl);
             const encodedTitle = encodeURIComponent(mod.name || "Module Document");
 
-            let pageLabel = "Complete Document";
-            if (mod.pages && !mod.pages.includes("180 Pages")) {
-                pageLabel = mod.pages.includes("Page") ? mod.pages : `${mod.pages} Pages`;
-            }
+            let pageLabel = mod.pages ? (mod.pages.includes("Page") ? mod.pages : `${mod.pages} Pages`) : "Complete Document";
 
             html += `
             <div class="module-pdf-card" onclick="window.readModulePdfDirectly(decodeURIComponent('${safeEncodedKey}'), decodeURIComponent('${encodedTitle}'))">
@@ -2239,7 +2236,6 @@ function initVirtualizationObserver(pdf) {
     });
 }
 
-// ULTRA-HD RENDERING ENGINE (Multiplied Pixel Density for Crisp Text)
 async function renderSingleHdPage(pdf, pageNum) {
     if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return; 
     renderedPagesMap.set(pageNum, true);
@@ -2253,7 +2249,6 @@ async function renderSingleHdPage(pdf, pageNum) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
-        // High-DPI Scale: 2.2x to 2.5x sharpness
         const devicePR = Math.max(window.devicePixelRatio || 1, 2.2);
         const viewport = page.getViewport({ scale: currentScale });
 
@@ -2382,7 +2377,6 @@ function applyTargetLockedZoom(scaleFactor, targetPageNum) {
     }
 }
 
-// Distance-Aware Double Tap (Fast Scroll Par Zoom Trigger Nahi Hoga)
 function initTargetLockedDoubleTapZoom() {
     const container = document.getElementById('pdfContainer');
     if (!container) return;
@@ -2438,7 +2432,6 @@ function initTargetLockedDoubleTapZoom() {
     });
 }
 
-// ULTRA SMOOTH REALTIME SCROLL & PAGE INDICATOR SYNC (Lag-Free & Linear)
 function initPdfScrollTracker() {
     const container = document.getElementById('pdfContainer');
     const badge = document.getElementById('pdfCurrentPageNum');
@@ -2452,11 +2445,9 @@ function initPdfScrollTracker() {
             const totalScrollable = container.scrollHeight - container.clientHeight;
             if (totalScrollable > 0 && badgeWrap) {
                 const scrollFraction = Math.max(0, Math.min(1, container.scrollTop / totalScrollable));
-                // 14% to 82% smooth vertical movement directly aligned with scroll position
                 badgeWrap.style.top = `${14 + (scrollFraction * 68)}%`;
             }
 
-            // Calculate current page on center viewport
             const containerCenter = container.getBoundingClientRect().top + (container.clientHeight / 2);
             const wrappers = container.querySelectorAll('.pdf-page-wrapper');
 
@@ -2543,8 +2534,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     
     const downloadModal = document.getElementById("downloadModal");
     downloadModal.style.display = "flex";
-    
-    // Always start at top for every book (Fix scroll carryover issue)
     downloadModal.scrollTop = 0;
     const innerScrollWrapper = downloadModal.querySelector('.download-content-wrapper') || downloadModal.firstElementChild;
     if (innerScrollWrapper) innerScrollWrapper.scrollTop = 0;
@@ -2565,9 +2554,8 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
     const totalPagesSub = document.getElementById('dlTotalPages');
     if (totalPagesSub) {
-        const rawPages = (book.totalPages || "").toString().trim();
-        const pagesText = rawPages && rawPages !== "0" && !rawPages.includes("100+") ? `${rawPages} Pages Included` : "Complete Book Included";
-        totalPagesSub.innerText = pagesText;
+        const pCount = (book.totalPages && book.totalPages !== "0") ? book.totalPages : "Complete Book";
+        totalPagesSub.innerText = isNaN(pCount) ? `${pCount} Included` : `${pCount} Pages Included`;
     }
     
     const dlPdfBtn = document.getElementById("dlPdfLinkBtn");
@@ -2970,7 +2958,7 @@ function resetUploadFormState() {
 
     selectedCoverFile = null;
     selectedPdfFile = null;
-    detectedTotalPages = "100+";
+    detectedTotalPages = 0;
 
     const coverStatus = document.getElementById('coverStatusText');
     if (coverStatus) {
@@ -3012,7 +3000,7 @@ document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// FULL REALTIME ACCURATE PAGE COUNT DETECTION
+// ROBUST REALTIME ACCURATE PAGE COUNT DETECTION
 document.getElementById('filePdfSelect')?.addEventListener('change', async (e) => {
     if (e.target.files && e.target.files.length > 0) {
         selectedPdfFile = e.target.files[0];
@@ -3030,24 +3018,30 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
             return;
         }
 
-        statusText.innerText = `Analyzing pages of ${selectedPdfFile.name}...`;
+        statusText.innerText = `Counting pages of ${selectedPdfFile.name}...`;
 
-        // Accurate Page Count Parsing with pdfjs
+        // Direct Stream Parsing with PDFJS
         try {
-            const fileData = await selectedPdfFile.arrayBuffer();
-            const loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(fileData) });
-            const pdfDoc = await loadingTask.promise;
-            detectedTotalPages = pdfDoc.numPages.toString();
-            
-            const fullLabel = `Selected: ${selectedPdfFile.name} (${detectedTotalPages} Pages)`;
-            statusText.innerText = fullLabel;
-            statusText.title = fullLabel;
-            statusText.style.color = '#ffffff';
-        } catch(err) {
-            detectedTotalPages = "100+";
-            const fallbackLabel = `Selected: ${selectedPdfFile.name}`;
-            statusText.innerText = fallbackLabel;
-            statusText.title = fallbackLabel;
+            const fileReader = new FileReader();
+            fileReader.onload = async function() {
+                try {
+                    const typedarray = new Uint8Array(this.result);
+                    const pdfDoc = await window.pdfjsLib.getDocument({ data: typedarray }).promise;
+                    detectedTotalPages = pdfDoc.numPages;
+                    const fullLabel = `Selected: ${selectedPdfFile.name} (${detectedTotalPages} Pages)`;
+                    statusText.innerText = fullLabel;
+                    statusText.title = fullLabel;
+                    statusText.style.color = '#ffffff';
+                } catch(err) {
+                    detectedTotalPages = 0;
+                    statusText.innerText = `Selected: ${selectedPdfFile.name}`;
+                    statusText.style.color = '#ffffff';
+                }
+            };
+            fileReader.readAsArrayBuffer(selectedPdfFile);
+        } catch(e) {
+            detectedTotalPages = 0;
+            statusText.innerText = `Selected: ${selectedPdfFile.name}`;
             statusText.style.color = '#ffffff';
         }
 
@@ -3057,7 +3051,7 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
 });
 
 // =========================================================================
-// 19. BULLETPROOF MULTI-RETRY WORKER TRANSFER ENGINE
+// 19. ULTRA HIGH SPEED RETRY WORKER PIPELINE
 // =========================================================================
 function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRetries = 3) {
     return new Promise((resolve, reject) => {
@@ -3095,7 +3089,7 @@ function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRet
 
             xhr.onerror = () => {
                 if (attempts < maxRetries) {
-                    setTimeout(attemptUpload, 1200);
+                    setTimeout(attemptUpload, 1500);
                 } else {
                     reject(new Error("Worker connection lost. Check network connection."));
                 }
@@ -3103,7 +3097,7 @@ function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRet
 
             xhr.ontimeout = () => {
                 if (attempts < maxRetries) {
-                    setTimeout(attemptUpload, 1200);
+                    setTimeout(attemptUpload, 1500);
                 } else {
                     reject(new Error("Upload connection timed out."));
                 }
@@ -3116,7 +3110,6 @@ function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRet
     });
 }
 
-// 100% Robust Upload Dispatcher
 async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     let cleanKey = fileKey.replace(/^\/+/, "");
     if (cleanKey.startsWith("http://") || cleanKey.startsWith("https://")) {
@@ -3127,9 +3120,9 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     }
 
     const fileSize = file.size;
-    const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB per chunk
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB chunks
 
-    // Option A: 50MB se chhota file direct stream
+    // Direct Stream for Files <= 50MB
     if (fileSize <= 50 * 1024 * 1024) {
         const targetUrl = `${WORKER_PROXY_URL}/upload?key=${encodeURIComponent(cleanKey)}`;
         return await uploadSingleBlobViaWorker(targetUrl, file, mimeType, (loaded, total) => {
@@ -3137,7 +3130,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
         });
     }
 
-    // Option B: 50MB se badi (100MB - 1GB) file -> Multipart Chunks with Auto-Retry
+    // Multipart Chunks for Files > 50MB
     const createRes = await fetch(`${WORKER_PROXY_URL}/multipart/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3145,7 +3138,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     });
     const createData = await createRes.json();
     if (!createRes.ok || !createData.success) {
-        throw new Error(createData.error || "Failed to initialize multipart session on Worker.");
+        throw new Error(createData.error || "Failed to initialize upload session.");
     }
 
     const uploadId = createData.uploadId;
@@ -3178,7 +3171,6 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
         });
     }
 
-    // Complete Multipart Upload
     const completeRes = await fetch(`${WORKER_PROXY_URL}/multipart/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3190,7 +3182,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     });
     const completeData = await completeRes.json();
     if (!completeRes.ok || !completeData.success) {
-        throw new Error(completeData.error || "Failed to finalize multipart assembly on storage.");
+        throw new Error(completeData.error || "Failed to finalize file upload.");
     }
 
     if (onProgress) onProgress(fileSize, fileSize);
@@ -3262,7 +3254,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const coverMime = selectedCoverFile.type || "image/jpeg";
         const pdfMime = selectedPdfFile.type || "application/pdf";
 
-        // Step 1: Cover Auth Check
         const coverAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3280,7 +3271,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(coverAuthData.error || "Permission denied for cover upload.");
         }
 
-        // Step 2: PDF Auth & Quota Check
         const pdfAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3298,14 +3288,12 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(pdfAuthData.error || "Permission denied for PDF upload.");
         }
 
-        // Step 3: Stream Cover Artwork
         stageTitle.innerText = "⚡ Syncing Cover Artwork...";
         await uploadFileSmart(coverAuthData.fileKey, selectedCoverFile, coverMime, (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 4: Stream PDF Manuscript (Attractive Text)
         stageTitle.innerText = "⚡ Ultra-Speed Encrypted Cloud Sync...";
         const subMsg = pipeline.querySelector('.sync-subtext') || pipeline.querySelector('p');
         if (subMsg) subMsg.innerText = "Optimizing pages for HD reader view...";
@@ -3315,7 +3303,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             updateTelemetry();
         });
 
-        // Step 5: Save Record to Firestore
         stageTitle.innerText = "Finalizing book registration...";
         percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
         progressFill.style.width = `99%`;
@@ -3339,7 +3326,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             fileSize: detectedFileSizeMB,
             sizeBytes: Number(selectedPdfFile.size),
             fileFormat: "PDF",
-            totalPages: detectedTotalPages.toString(),
+            totalPages: detectedTotalPages > 0 ? detectedTotalPages.toString() : "Complete Book",
             dateAdded: new Date().toLocaleDateString('en-GB').toUpperCase(),
             createdAt: Date.now(),
             uploaderUid: auth.currentUser.uid
