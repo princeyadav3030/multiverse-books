@@ -1517,12 +1517,29 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 .pdf-page-wrapper .textLayer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; opacity: 1; line-height: 1.0; pointer-events: auto; user-select: text; -webkit-user-select: text; }
 .pdf-page-wrapper .textLayer > span, .pdf-page-wrapper .textLayer > span > * { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
 
+/* PDF PAGE BADGE: CLEAN NO BLACK SHADOW GLOW */
 #pdfPageBadge {
-    display: none; position: fixed; right: 0 !important; top: 14%; transform: translateY(-50%);
-    background: #000000; color: #ffffff; border: 1.5px solid rgba(255, 255, 255, 0.4);
-    border-right: none !important; border-radius: 24px 0 0 24px !important; padding: 8px 14px 8px 12px !important;
-    font-size: 12.5px; font-weight: 900; font-family: 'Inter', sans-serif; cursor: pointer; z-index: 100;
-    box-shadow: -4px 6px 20px rgba(0, 0, 0, 0.9); align-items: center; justify-content: center; backdrop-filter: blur(10px);
+    display: none; 
+    position: fixed; 
+    right: 0 !important; 
+    top: 14%; 
+    transform: translateY(-50%);
+    background: #000000 !important; 
+    color: #ffffff; 
+    border: 1.5px solid rgba(255, 255, 255, 0.35);
+    border-right: none !important; 
+    border-radius: 20px 0 0 20px !important; 
+    padding: 7px 13px 7px 11px !important;
+    font-size: 12.5px; 
+    font-weight: 800; 
+    font-family: 'Inter', sans-serif; 
+    cursor: pointer; 
+    z-index: 100;
+    box-shadow: none !important;
+    filter: none !important;
+    align-items: center; 
+    justify-content: center; 
+    backdrop-filter: blur(8px);
 }
 #pdfPageBadge:hover { border-color: #38bdf8; }
 #pdfPageBadge:active { transform: translateY(-50%) scale(0.92); }
@@ -1635,10 +1652,10 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 }
 .header-back-btn i { font-size: 15px; }
 
-/* CHAT BODY OVERLAP PREVENT FIX */
+/* CHAT BODY: GAP EXACT 70PX FIX */
 .chat-body { 
     flex: 1; 
-    padding: 15px 12px 105px 12px !important; 
+    padding: 15px 12px 70px 12px !important; 
     overflow-y: auto; overflow-x: hidden;
     display: flex; flex-direction: column; gap: 14px; 
     background: transparent;
@@ -1994,7 +2011,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 .loader-powered-text { position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); color: #ffffff; font-size: 11px; font-weight: 900; letter-spacing: 1.5px; font-family: 'Poppins', sans-serif; text-transform: uppercase; z-index: 10; white-space: nowrap; }
 
 /* ======================================================== */
-/* UNIFIED COMMUNITY POPUP (CUSTOM TYPOGRAPHY FIX)          */
+/* UNIFIED COMMUNITY POPUP (ORIGINAL COLORS & PRECISE TYPO) */
 /* ======================================================== */
 .community-popup-overlay {
     position: fixed !important;
@@ -2055,27 +2072,27 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 @keyframes community-sweep-light { 0%, 40% { left: -100%; } 60%, 100% { left: 160%; } }
 .community-pill-emoji { font-size: 12px; line-height: 1; display: inline-block; }
 
-/* MAIN TITLE: BOLD SANS-SERIF */
+/* MAIN TITLE: BOLD SANS-SERIF (EXACT ORIGINAL FIT & COLOR) */
 .community-popup-title {
     color: #ffffff !important; 
-    font-size: 20px !important; 
+    font-size: 19px !important; 
     letter-spacing: -0.4px !important; 
-    margin-bottom: 8px !important; 
+    margin-bottom: 6px !important; 
     font-weight: 800 !important; 
     font-family: 'Poppins', 'Plus Jakarta Sans', sans-serif !important; 
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7) !important;
 }
 
-/* SUBTITLE / DESCRIPTION: BOLD SERIF */
+/* SUBTITLE / DESCRIPTION: BOLD SERIF (EXACT ORIGINAL FIT & COLOR) */
 .community-popup-desc {
-    color: #e2e8f0 !important; 
-    font-size: 12px !important; 
-    line-height: 1.6 !important; 
-    margin-bottom: 15px !important; 
-    padding: 0 6px !important; 
+    color: #9ca3af !important; 
+    font-size: 11.5px !important; 
+    line-height: 1.55 !important; 
+    margin-bottom: 14px !important; 
+    padding: 0 4px !important; 
     font-weight: 700 !important; 
     font-family: 'Playfair Display', Georgia, serif !important;
-    letter-spacing: 0.15px !important;
+    letter-spacing: 0.1px !important;
 }
 
 .community-channel-list { display: flex; flex-direction: column; gap: 9px; margin-bottom: 12px; }
@@ -2306,7 +2323,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 .subject-icon-wrap { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; }
 .icon-physics { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
 .icon-chemistry { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
-.icon-botany { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(169, 85, 247, 0.3); }
+.icon-botany { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
 .icon-zoology { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
 .icon-maths { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
 .subject-meta-text { flex: 1; min-width: 0; }
