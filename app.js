@@ -585,7 +585,7 @@ document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 6. COMMUNITY POPUP
+// 6. COMMUNITY POPUP (EXACT 6s DELAY FIX)
 // ==========================================
 let hasClickedWA = false;
 let hasClickedTG = false;
@@ -646,6 +646,7 @@ function initCommunityDualPopup() {
 
             window.open('https://whatsapp.com/channel/0029Vb6NBZx1yT2GByTTVf2A', '_blank');
 
+            // Set to exact 6 seconds as requested
             setTimeout(() => {
                 hasClickedWA = true;
                 isJoiningWA = false;
@@ -654,7 +655,7 @@ function initCommunityDualPopup() {
                     waStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
                 }
                 checkAndComplete();
-            }, 2200);
+            }, 6000);
         };
     }
 
@@ -671,6 +672,7 @@ function initCommunityDualPopup() {
 
             window.open('https://t.me/MultiverseBooks', '_blank');
 
+            // Set to exact 6 seconds as requested
             setTimeout(() => {
                 hasClickedTG = true;
                 isJoiningTG = false;
@@ -679,7 +681,7 @@ function initCommunityDualPopup() {
                     tgStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
                 }
                 checkAndComplete();
-            }, 2200);
+            }, 6000);
         };
     }
 
@@ -696,6 +698,7 @@ function initCommunityDualPopup() {
 
             window.open('https://www.instagram.com/PRINCE_YADAV_3030', '_blank');
 
+            // Set to exact 6 seconds as requested
             setTimeout(() => {
                 hasClickedIG = true;
                 isJoiningIG = false;
@@ -704,7 +707,7 @@ function initCommunityDualPopup() {
                     igStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
                 }
                 checkAndComplete();
-            }, 2200);
+            }, 6000);
         };
     }
 
@@ -849,7 +852,7 @@ function syncAndSanitizeBookmarks() {
 }
 
 // ==========================================
-// 8. CHANNEL NOTIFICATIONS
+// 8. CHANNEL NOTIFICATIONS (AUTO-SCROLL FIX)
 // ==========================================
 const chatBody = document.getElementById('chatBody');
 const contextOverlay = document.getElementById('contextOverlay');
@@ -1066,6 +1069,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         chatBody.innerHTML = '';
         chatBody.appendChild(fragment);
 
+        // Immediate Double Frame Scroll Execution (Fix bottom-stick bug)
         requestAnimationFrame(() => {
             chatBody.scrollTop = chatBody.scrollHeight;
             requestAnimationFrame(() => {
@@ -1761,7 +1765,8 @@ document.getElementById('open-search')?.addEventListener('click', () => {
 
 document.getElementById('open-noti')?.addEventListener('click', () => { 
     history.pushState({ popup: 'noti' }, ''); 
-    document.getElementById('noti-panel').classList.add('active'); 
+    const notiPanel = document.getElementById('noti-panel');
+    notiPanel.classList.add('active'); 
     
     const blinkDot = document.querySelector('.blink-dot');
     if (blinkDot) blinkDot.style.display = 'none'; 
@@ -1773,7 +1778,7 @@ document.getElementById('open-noti')?.addEventListener('click', () => {
             if (chatBody && !hasTarget) {
                 chatBody.scrollTop = chatBody.scrollHeight;
             }
-        }, 150);
+        }, 100);
     } else {
         renderChannelLoader();
     }
@@ -2110,7 +2115,7 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
 }
 
 // =========================================================================
-// 14. ULTRA HD PDF VIEWER (High DPI Sharp Text Rendering)
+// 14. ULTRA HD PDF VIEWER (Direct Sharp High-DPI Rendering)
 // =========================================================================
 async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     const container = document.getElementById('pdfContainer');
@@ -2236,7 +2241,7 @@ function initVirtualizationObserver(pdf) {
     });
 }
 
-// ULTRA-HD RENDERING ENGINE (Multiplied Pixel Density for Crisp Text)
+// ULTRA-HD QUALITY RENDERING ENGINE
 async function renderSingleHdPage(pdf, pageNum) {
     if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return; 
     renderedPagesMap.set(pageNum, true);
@@ -2250,6 +2255,7 @@ async function renderSingleHdPage(pdf, pageNum) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
+        // Exact 2.2x High DPI Scale for Sharpness
         const devicePR = Math.max(window.devicePixelRatio || 1, 2.2);
         const viewport = page.getViewport({ scale: currentScale });
 
@@ -2378,6 +2384,7 @@ function applyTargetLockedZoom(scaleFactor, targetPageNum) {
     }
 }
 
+// SMART INTENT-BASED DOUBLE TAP ZOOM (High-Speed Scroll Safe)
 function initTargetLockedDoubleTapZoom() {
     const container = document.getElementById('pdfContainer');
     if (!container) return;
@@ -2399,7 +2406,8 @@ function initTargetLockedDoubleTapZoom() {
         if (e.touches.length === 1) {
             const diffX = Math.abs(e.touches[0].clientX - touchStartX);
             const diffY = Math.abs(e.touches[0].clientY - touchStartY);
-            if (diffX > 8 || diffY > 8) {
+            // 16px safe movement margin for intentional scrolling
+            if (diffX > 16 || diffY > 16) {
                 hasMovedDuringTouch = true;
             }
         }
@@ -2413,7 +2421,7 @@ function initTargetLockedDoubleTapZoom() {
 
         if (e.changedTouches.length === 1) {
             const now = Date.now();
-            if ((now - lastTapTime) < 280) {
+            if ((now - lastTapTime) < 320) {
                 e.preventDefault();
                 const touch = e.changedTouches[0];
                 const touchedEl = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -2521,7 +2529,7 @@ async function jumpToPdfPage(pageNum) {
 }
 
 // ==========================================
-// 15. BOOK DETAIL & READ ONLINE
+// 15. BOOK DETAIL & READ ONLINE (RESET FIX)
 // ==========================================
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
@@ -2535,9 +2543,12 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     
     const downloadModal = document.getElementById("downloadModal");
     downloadModal.style.display = "flex";
+    
+    // Complete Scroll Reset on Opening Any Book
     downloadModal.scrollTop = 0;
     const innerScrollWrapper = downloadModal.querySelector('.download-content-wrapper') || downloadModal.firstElementChild;
     if (innerScrollWrapper) innerScrollWrapper.scrollTop = 0;
+    window.scrollTo(0, 0);
     
     const previewImg = document.getElementById("dlPreviewImage");
     previewImg.src = getSecureAssetUrl(book.image); 
@@ -2553,7 +2564,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         fileSizeSub.innerText = `${sizeText}${formatText} Document`;
     }
 
-    // Exact Page Count Rendering (No hardcoded fallback strings)
+    // Exact Page Count Direct Binding
     const totalPagesSub = document.getElementById('dlTotalPages');
     if (totalPagesSub) {
         const pNum = parseInt(book.totalPages, 10);
@@ -3027,7 +3038,6 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
         statusText.innerText = `Counting exact pages...`;
 
         try {
-            // Memory safe: Slice 256KB to detect pages without loading 600MB
             const sampleSlice = selectedPdfFile.slice(0, Math.min(selectedPdfFile.size, 262144));
             const buffer = await sampleSlice.arrayBuffer();
             const loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
@@ -3039,14 +3049,13 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
             statusText.title = fullLabel;
             statusText.style.color = '#ffffff';
         } catch(err) {
-            // Fallback: Parse whole file if metadata is located at the tail
             try {
-                const tailSlice = selectedPdfFile.slice(Math.max(0, selectedPdfFile.size - 262144), selectedPdfFile.size);
                 const fullBuffer = await selectedPdfFile.arrayBuffer();
                 const docRef = await window.pdfjsLib.getDocument({ data: new Uint8Array(fullBuffer) }).promise;
                 detectedTotalPages = docRef.numPages;
                 const fullLabel = `Selected: ${selectedPdfFile.name} (${detectedTotalPages} Pages)`;
                 statusText.innerText = fullLabel;
+                statusText.title = fullLabel;
                 statusText.style.color = '#ffffff';
             } catch(e2) {
                 detectedTotalPages = 1;
@@ -3061,7 +3070,7 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
 });
 
 // =========================================================================
-// 19. BULLETPROOF MULTI-RETRY WORKER PIPELINE (ZERO CONNECTION LOST)
+// 19. ULTRA HIGH SPEED RETRY WORKER PIPELINE
 // =========================================================================
 function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRetries = 4) {
     return new Promise((resolve, reject) => {
@@ -3072,7 +3081,6 @@ function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRet
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", targetUrl, true);
 
-            // Universal Safe Streaming Header
             xhr.setRequestHeader("Content-Type", mimeType || "application/octet-stream");
 
             xhr.upload.onprogress = (e) => {
@@ -3129,9 +3137,8 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     }
 
     const fileSize = file.size;
-    const CHUNK_SIZE = 10 * 1024 * 1024; // Safe 10MB chunk boundary
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB chunks
 
-    // Direct Stream for Files <= 20MB
     if (fileSize <= 20 * 1024 * 1024) {
         const targetUrl = `${WORKER_PROXY_URL}/upload?key=${encodeURIComponent(cleanKey)}`;
         return await uploadSingleBlobViaWorker(targetUrl, file, mimeType, (loaded, total) => {
@@ -3139,7 +3146,6 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
         });
     }
 
-    // Multipart Chunks for All Larger Files
     const createRes = await fetch(`${WORKER_PROXY_URL}/multipart/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3263,7 +3269,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         const coverMime = selectedCoverFile.type || "image/jpeg";
         const pdfMime = selectedPdfFile.type || "application/pdf";
 
-        // Step 1: Cover Auth Check
         const coverAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3281,7 +3286,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(coverAuthData.error || "Permission denied for cover upload.");
         }
 
-        // Step 2: PDF Auth & Quota Check
         const pdfAuthRes = await fetch('/api/generate-upload-url', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3299,14 +3303,12 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             throw new Error(pdfAuthData.error || "Permission denied for PDF upload.");
         }
 
-        // Step 3: Stream Cover Artwork
         stageTitle.innerText = "⚡ Syncing Cover Artwork...";
         await uploadFileSmart(coverAuthData.fileKey, selectedCoverFile, coverMime, (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        // Step 4: Stream PDF Manuscript
         stageTitle.innerText = "⚡ Ultra-Speed Encrypted Cloud Sync...";
         const subMsg = pipeline.querySelector('.sync-subtext') || pipeline.querySelector('p');
         if (subMsg) subMsg.innerText = "Optimizing pages for HD reader view...";
@@ -3316,7 +3318,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             updateTelemetry();
         });
 
-        // Step 5: Save Record to Firestore
         stageTitle.innerText = "Finalizing book registration...";
         percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
         progressFill.style.width = `99%`;
@@ -3328,7 +3329,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             finalSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
         }
 
-        // Exact Pages Format Lock
         const finalPagesCount = detectedTotalPages > 0 ? detectedTotalPages.toString() : "1";
 
         const newBook = {
