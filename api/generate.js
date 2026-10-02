@@ -9,22 +9,23 @@ module.exports = async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // Session query parameters capture karein
-  const sessionId = req.query.session || req.query.sid;
+  // 1. Session ID Capture (Multi-Fallback Mechanism)
+  // Shorteners query string ko modify kar sakte hain, isliye alag-alag keys check kiye gaye hain
+  let sessionId = req.query.session || req.query.sid || req.query.s;
 
-  // Real Client IP aur User-Agent extract karein (Proxy/CDN safe)
+  // Agar shortener ne query string corrupt kar di ho, toh raw URL se session extract karein
+  if (!sessionId && req.url) {
+    const rawMatch = req.url.match(/s\d{13}[a-f0-9]{12}/i);
+    if (rawMatch) {
+      sessionId = rawMatch[0];
+    }
+  }
+
+  // 2. Client IP & User Agent extraction
   const currentRawIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
                        req.socket?.remoteAddress || 
                        'unknown';
   const currentUserAgent = (req.headers['user-agent'] || 'unknown').slice(0, 150);
-
-  // Dynamic Subnet Signature (Mobile Network / Tower-switch safe)
-  let currentSubnet = 'unknown';
-  if (currentRawIp.includes('.')) {
-    currentSubnet = currentRawIp.split('.').slice(0, 2).join('.');
-  } else if (currentRawIp.includes(':')) {
-    currentSubnet = currentRawIp.split(':').slice(0, 3).join(':');
-  }
 
   const now = Date.now();
   let isAuthorized = false;
@@ -40,26 +41,17 @@ module.exports = async function handler(req, res) {
       if (sessionSnap.exists) {
         sessionData = sessionSnap.data();
 
-        // 1. Single-use and Expiry check
+        // Check 1: Expiry & Single-use Burn check
         const isNotExpired = now <= sessionData.expiresAt;
         const isNotConsumed = sessionData.consumed === false;
 
-        // 2. Minimum 12 seconds time delay (Anti-Fast Bypass Bot Protection)
+        // Check 2: Minimum delay check (Instant bypass bot block)
         const isTimeSatisfied = now >= (sessionData.unlocksAt || 0);
-
-        // 3. Device Signature Check (Subnet match YA User-Agent match)
-        // Tower badalne par bhi mobile user block nahi hoga
-        const isNetworkMatch = (sessionData.ipSubnet === currentSubnet) || 
-                               (sessionData.clientIp === currentRawIp) ||
-                               (sessionData.clientIp === 'unknown');
-        const isAgentMatch = (sessionData.userAgent === currentUserAgent);
 
         if (!isNotConsumed || !isNotExpired) {
           rejectionReason = "Expired Link: Yeh verification link pehle hi use ho chuka hai ya expire ho gaya.";
         } else if (!isTimeSatisfied) {
           rejectionReason = "Bypass Detected: Ad verification steps suspicious speed se complete kiye gaye.";
-        } else if (!isNetworkMatch && !isAgentMatch) {
-          rejectionReason = "Device Mismatch: Same device aur browser par open karein jahan se start kiya tha.";
         } else {
           isAuthorized = true;
         }
@@ -72,7 +64,7 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // Agar unauthorized, direct copy ya invalid session ho toh 403 Restricted UI dikhayein
+  // Agar unauthorized ya direct access ho toh 403 screen render karein
   if (!isAuthorized) {
     res.setHeader('Content-Type', 'text/html');
     return res.status(403).send(`
