@@ -3,29 +3,57 @@
 const { db } = require('../utils/firebaseAdmin');
 const { v4: uuidv4 } = require('uuid');
 
+// Browser se aane wale raw Cookie string ko parse karne ka helper function
+function parseCookies(cookieHeader) {
+  const list = {};
+  if (!cookieHeader) return list;
+  cookieHeader.split(';').forEach((cookie) => {
+    let [name, ...rest] = cookie.split('=');
+    name = name?.trim();
+    if (!name) return;
+    const value = rest.join('=').trim();
+    list[name] = decodeURIComponent(value);
+  });
+  return list;
+}
+
 module.exports = async function handler(req, res) {
-  // Sirf GET requests allow karein (browser shortlink redirect handle karne ke liye)
+  // Sirf GET requests allow karein
   if (req.method !== 'GET') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // 1. Session ID Capture (Multi-Fallback Mechanism)
-  // Shorteners query string ko modify kar sakte hain, isliye alag-alag keys check kiye gaye hain
-  let sessionId = req.query.session || req.query.sid || req.query.s;
+  // 1. Session ID & Secret capture karein (Cookie + Query Param Multi-Fallback)
+  let targetSessionId = null;
+  let targetSecret = null;
 
-  // Agar shortener ne query string corrupt kar di ho, toh raw URL se session extract karein
-  if (!sessionId && req.url) {
-    const rawMatch = req.url.match(/s\d{13}[a-f0-9]{12}/i);
-    if (rawMatch) {
-      sessionId = rawMatch[0];
+  // A. Cookie Check (Shortener dynamic parameter drop protection)
+  const cookies = parseCookies(req.headers.cookie);
+  if (cookies.spidy_flow_session) {
+    try {
+      const decoded = Buffer.from(cookies.spidy_flow_session, 'base64').toString('utf8');
+      const parsed = JSON.parse(decoded);
+      if (parsed.sid) {
+        targetSessionId = parsed.sid;
+        targetSecret = parsed.sec || null;
+      }
+    } catch (err) {
+      // Cookie parsing fallback
     }
   }
 
-  // 2. Client IP & User Agent extraction
-  const currentRawIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                       req.socket?.remoteAddress || 
-                       'unknown';
-  const currentUserAgent = (req.headers['user-agent'] || 'unknown').slice(0, 150);
+  // B. Query string Fallback (Agar browser me cookie blocked ho)
+  if (!targetSessionId) {
+    targetSessionId = req.query.session || req.query.sid || req.query.s;
+  }
+
+  // C. Raw URL Regex Match Fallback
+  if (!targetSessionId && req.url) {
+    const rawMatch = req.url.match(/SES_\d+_[a-f0-9]+/i);
+    if (rawMatch) {
+      targetSessionId = rawMatch[0];
+    }
+  }
 
   const now = Date.now();
   let isAuthorized = false;
@@ -33,30 +61,35 @@ module.exports = async function handler(req, res) {
   let sessionDocRef = null;
   let sessionData = null;
 
-  if (sessionId) {
+  if (targetSessionId) {
     try {
-      sessionDocRef = db.collection('pending_sessions').doc(sessionId);
+      sessionDocRef = db.collection('pending_sessions').doc(targetSessionId);
       const sessionSnap = await sessionDocRef.get();
 
       if (sessionSnap.exists) {
         sessionData = sessionSnap.data();
 
-        // Check 1: Expiry & Single-use Burn check
+        // Check 1: Expiry aur Single-use check
         const isNotExpired = now <= sessionData.expiresAt;
         const isNotConsumed = sessionData.consumed === false;
 
-        // Check 2: Minimum delay check (Instant bypass bot block)
+        // Check 2: Minimum 10-second Anti-Bot traversal time
         const isTimeSatisfied = now >= (sessionData.unlocksAt || 0);
+
+        // Check 3: Secret verification (agar cookie se aaya ho)
+        const isSecretValid = !targetSecret || (sessionData.sessionSecret === targetSecret);
 
         if (!isNotConsumed || !isNotExpired) {
           rejectionReason = "Expired Link: Yeh verification link pehle hi use ho chuka hai ya expire ho gaya.";
         } else if (!isTimeSatisfied) {
-          rejectionReason = "Bypass Detected: Ad verification steps suspicious speed se complete kiye gaye.";
+          rejectionReason = "Bypass Detected: Ad verification steps suspicious speed se complete huye.";
+        } else if (!isSecretValid) {
+          rejectionReason = "Invalid Signature: Verification handshake match nahi hua.";
         } else {
           isAuthorized = true;
         }
       } else {
-        rejectionReason = "Invalid Session: Verification session exist nahi karta ya delete ho chuka hai.";
+        rejectionReason = "Invalid Session: Session database me nahi mila ya expire ho gaya.";
       }
     } catch (e) {
       console.error("Firestore read error:", e);
@@ -64,7 +97,9 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // Agar unauthorized ya direct access ho toh 403 screen render karein
+  // =========================================================================
+  // 403 UNAUTHORIZED / DIRECT ACCESS CYBERPUNK ERROR UI
+  // =========================================================================
   if (!isAuthorized) {
     res.setHeader('Content-Type', 'text/html');
     return res.status(403).send(`
@@ -330,15 +365,17 @@ module.exports = async function handler(req, res) {
     `);
   }
 
-  // --- SUCCESS VERIFICATION PATH ---
+  // =========================================================================
+  // SUCCESS PATH: TOKEN ISSUE, SESSION BURN & AUTO COOKIE CLEANUP
+  // =========================================================================
   try {
-    // 1. Session ko turant Burn (Consume) karein taaki link dobara reuse na ho sake
+    // 1. Session ko turant Burn karein taaki link dubara use na ho
     await sessionDocRef.update({
       consumed: true,
       consumedAt: now
     });
 
-    // 2. 10 Days ke liye unique token issue karein
+    // 2. 10 Days valid token banayein
     const token = 'SPIDY-' + uuidv4().substring(0, 8).toUpperCase();
     const expiresAt = now + (10 * 24 * 60 * 60 * 1000);
 
@@ -350,10 +387,15 @@ module.exports = async function handler(req, res) {
       deviceBound: sessionData.fingerprint || null,
       isActivated: true,
       source: 'shortlink_verified',
-      boundSession: sessionId
+      boundSession: targetSessionId
     });
 
-    // 3. User ko token parameter ke sath homepage par redirect kar dein
+    // 3. Used cookie ko browser se delete kar dein
+    res.setHeader('Set-Cookie', [
+      'spidy_flow_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure'
+    ]);
+
+    // 4. Token ke sath redirect karein homepage par
     return res.redirect(`/?t=${token}`);
 
   } catch (err) {
