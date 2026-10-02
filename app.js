@@ -898,7 +898,6 @@ function setUserReaction(postId, emoji) {
     else localStorage.removeItem(`reaction_${postId}`);
 }
 
-// ABSOLUTE BOTTOM SCROLLER: Ensures latest messages are never cut off
 function forceScrollChatToBottom() {
     if (!chatBody) return;
     unreadPostsCount = 0;
@@ -1826,7 +1825,7 @@ document.getElementById('open-search')?.addEventListener('click', () => {
     setTimeout(() => { searchInputEl.focus(); }, 300); 
 });
 
-// NOTIFICATION PANEL OPEN: Instant bottom scroll so latest posts are immediately visible
+// NOTIFICATION PANEL OPEN: Instant bottom scroll
 document.getElementById('open-noti')?.addEventListener('click', () => { 
     history.pushState({ popup: 'noti' }, ''); 
     document.getElementById('noti-panel').classList.add('active'); 
@@ -2809,7 +2808,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. TOKEN VERIFICATION & GET KEY
+// 17. TOKEN VERIFICATION & GET KEY (LOCAL-STORAGE SYNC)
 // ==========================================
 document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
     if (history.state && history.state.popup === 'tokenModal') {
@@ -2823,7 +2822,7 @@ document.getElementById('tokenInput')?.addEventListener('input', () => {
     document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
-// DIRECT IP-BOUND SESSION GENERATOR
+// GET KEY HANDLER: Saves session locally to eliminate cross-site URL loss
 document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('getKeyBtn');
     const originalContent = btn.innerHTML;
@@ -2832,6 +2831,7 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
 
     try {
         const fp = generateDeviceFingerprint();
+        localStorage.setItem('spidy_device_fp', fp);
         
         const sessionRes = await fetch('/api/create-session', {
             method: 'POST',
@@ -2841,9 +2841,11 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
         const sessionData = await sessionRes.json();
 
         if (sessionRes.ok && sessionData.success && sessionData.session) {
-            const sid = sessionData.session;
-            const finalDestination = encodeURIComponent(`https://multiverse-books.vercel.app/api/generate?session=${sid}`);
-            window.location.href = `https://arolinks.com/6RTf5?url=${finalDestination}&session=${encodeURIComponent(sid)}`;
+            // Local storage me lock karo
+            localStorage.setItem('spidy_active_session_id', sessionData.session);
+            
+            // Seedha Arolinks par redirect
+            window.location.href = "https://arolinks.com/6RTf5";
         } else {
             window.location.href = "https://arolinks.com/6RTf5";
         }
