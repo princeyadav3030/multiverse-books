@@ -3,103 +3,83 @@
 const { db } = require('../utils/firebaseAdmin');
 const { v4: uuidv4 } = require('uuid');
 
-// Browser se aane wale raw Cookie string ko parse karne ka helper function
-function parseCookies(cookieHeader) {
-  const list = {};
-  if (!cookieHeader) return list;
-  cookieHeader.split(';').forEach((cookie) => {
-    let [name, ...rest] = cookie.split('=');
-    name = name?.trim();
-    if (!name) return;
-    const value = rest.join('=').trim();
-    list[name] = decodeURIComponent(value);
-  });
-  return list;
-}
-
 module.exports = async function handler(req, res) {
-  // Sirf GET requests allow karein
   if (req.method !== 'GET') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // 1. Session ID & Secret capture karein (Cookie + Query Param Multi-Fallback)
-  let targetSessionId = null;
-  let targetSecret = null;
+  // 1. Client IP capture karein
+  const rawIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                req.socket?.remoteAddress || 
+                'unknown';
 
-  // A. Cookie Check (Shortener dynamic parameter drop protection)
-  const cookies = parseCookies(req.headers.cookie);
-  if (cookies.spidy_flow_session) {
-    try {
-      const decoded = Buffer.from(cookies.spidy_flow_session, 'base64').toString('utf8');
-      const parsed = JSON.parse(decoded);
-      if (parsed.sid) {
-        targetSessionId = parsed.sid;
-        targetSecret = parsed.sec || null;
-      }
-    } catch (err) {
-      // Cookie parsing fallback
-    }
-  }
-
-  // B. Query string Fallback (Agar browser me cookie blocked ho)
-  if (!targetSessionId) {
-    targetSessionId = req.query.session || req.query.sid || req.query.s;
-  }
-
-  // C. Raw URL Regex Match Fallback
-  if (!targetSessionId && req.url) {
-    const rawMatch = req.url.match(/SES_\d+_[a-f0-9]+/i);
-    if (rawMatch) {
-      targetSessionId = rawMatch[0];
-    }
+  let currentSubnet = 'unknown';
+  if (rawIp.includes('.')) {
+    currentSubnet = rawIp.split('.').slice(0, 2).join('.');
+  } else if (rawIp.includes(':')) {
+    currentSubnet = rawIp.split(':').slice(0, 3).join(':');
   }
 
   const now = Date.now();
   let isAuthorized = false;
   let rejectionReason = "Direct Generation Blocked";
-  let sessionDocRef = null;
+  let matchedDocRef = null;
   let sessionData = null;
 
-  if (targetSessionId) {
-    try {
-      sessionDocRef = db.collection('pending_sessions').doc(targetSessionId);
-      const sessionSnap = await sessionDocRef.get();
+  try {
+    // 2. Client IP ya Subnet ke basis par active pending sessions khojein
+    // Isse shortener URL parameters drop hone par bhi session match ho jata hai
+    let snapshot = await db.collection('pending_sessions')
+      .where('consumed', '==', false)
+      .where('clientIp', '==', rawIp)
+      .get();
 
-      if (sessionSnap.exists) {
-        sessionData = sessionSnap.data();
+    // Agar direct IP match na mile (e.g. dynamic mobile data shift), subnet se match karein
+    if (snapshot.empty && currentSubnet !== 'unknown') {
+      snapshot = await db.collection('pending_sessions')
+        .where('consumed', '==', false)
+        .where('ipSubnet', '==', currentSubnet)
+        .get();
+    }
 
-        // Check 1: Expiry aur Single-use check
-        const isNotExpired = now <= sessionData.expiresAt;
-        const isNotConsumed = sessionData.consumed === false;
+    if (!snapshot.empty) {
+      // Latest valid session pick karein
+      const validDocs = [];
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        if (now <= d.expiresAt) {
+          validDocs.push({ ref: doc.ref, data: d });
+        }
+      });
 
-        // Check 2: Minimum 10-second Anti-Bot traversal time
+      // Timestamp ke hisab se sort karein
+      validDocs.sort((a, b) => b.data.timestamp - a.data.timestamp);
+
+      if (validDocs.length > 0) {
+        const candidate = validDocs[0];
+        matchedDocRef = candidate.ref;
+        sessionData = candidate.data;
+
+        // Anti-Bot: Kam se kam 12 seconds link traverse time pura hona chahiye
         const isTimeSatisfied = now >= (sessionData.unlocksAt || 0);
 
-        // Check 3: Secret verification (agar cookie se aaya ho)
-        const isSecretValid = !targetSecret || (sessionData.sessionSecret === targetSecret);
-
-        if (!isNotConsumed || !isNotExpired) {
-          rejectionReason = "Expired Link: Yeh verification link pehle hi use ho chuka hai ya expire ho gaya.";
-        } else if (!isTimeSatisfied) {
-          rejectionReason = "Bypass Detected: Ad verification steps suspicious speed se complete huye.";
-        } else if (!isSecretValid) {
-          rejectionReason = "Invalid Signature: Verification handshake match nahi hua.";
+        if (!isTimeSatisfied) {
+          rejectionReason = "Bypass Detected: Ad verification steps suspicious speed se complete kiye gaye.";
         } else {
           isAuthorized = true;
         }
       } else {
-        rejectionReason = "Invalid Session: Session database me nahi mila ya expire ho gaya.";
+        rejectionReason = "Expired Link: Verification session expire ho chuka hai. Kripya dobara try karein.";
       }
-    } catch (e) {
-      console.error("Firestore read error:", e);
-      rejectionReason = "Database Connection Error. Please refresh and retry.";
+    } else {
+      rejectionReason = "Direct Generation Blocked: Koi active verification session nahi mila. Kripya official site se start karein.";
     }
+  } catch (error) {
+    console.error("Firestore Verification Error:", error);
+    rejectionReason = "Database Connection Error. Please refresh and retry.";
   }
 
-  // =========================================================================
-  // 403 UNAUTHORIZED / DIRECT ACCESS CYBERPUNK ERROR UI
-  // =========================================================================
+  // Agar unauthorized ho toh 403 block UI render karein
   if (!isAuthorized) {
     res.setHeader('Content-Type', 'text/html');
     return res.status(403).send(`
@@ -365,12 +345,10 @@ module.exports = async function handler(req, res) {
     `);
   }
 
-  // =========================================================================
-  // SUCCESS PATH: TOKEN ISSUE, SESSION BURN & AUTO COOKIE CLEANUP
-  // =========================================================================
+  // --- SUCCESS VERIFICATION PATH ---
   try {
-    // 1. Session ko turant Burn karein taaki link dubara use na ho
-    await sessionDocRef.update({
+    // 1. Session turant burn karein taaki dubara reuse na ho
+    await matchedDocRef.update({
       consumed: true,
       consumedAt: now
     });
@@ -387,15 +365,10 @@ module.exports = async function handler(req, res) {
       deviceBound: sessionData.fingerprint || null,
       isActivated: true,
       source: 'shortlink_verified',
-      boundSession: targetSessionId
+      boundSession: sessionData.sessionId || 'ip_bound'
     });
 
-    // 3. Used cookie ko browser se delete kar dein
-    res.setHeader('Set-Cookie', [
-      'spidy_flow_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure'
-    ]);
-
-    // 4. Token ke sath redirect karein homepage par
+    // 3. Homepage par redirect karein token ke sath
     return res.redirect(`/?t=${token}`);
 
   } catch (err) {
