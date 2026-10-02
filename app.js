@@ -765,7 +765,7 @@ if (urlParamsCheck.has('t')) {
             expiry: Date.now() + (10 * 24 * 60 * 60 * 1000)
         }));
 
-        // 2. Token modal band karein agar screen par open ho
+        // 2. Token modal open hone par band karein aur value fill karein
         const tokenModal = document.getElementById('tokenModalOverlay');
         if (tokenModal) tokenModal.style.display = 'none';
 
@@ -2031,7 +2031,7 @@ document.getElementById('supportContactForm')?.addEventListener('submit', async 
             btnIcon.innerHTML = `<polyline points="20 6 9 17 4 12"></polyline>`;
             
             e.target.reset();
-            document.getElementById('selectedSubjectInput').value = "⚠️️ Report Broken Download Link";
+            document.getElementById('selectedSubjectInput').value = "⚠️ Report Broken Download Link";
             document.getElementById('selectedSubjectDisplay').innerText = "⚠️ Report Broken Download Link";
             issueOptions.forEach((btn, idx) => {
                 if (idx === 0) btn.classList.add('selected');
@@ -2834,7 +2834,7 @@ document.getElementById('tokenInput')?.addEventListener('input', () => {
     document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
-// DIRECT COOKIE-AUTHENTICATED GET KEY HANDSHAKE
+// ZERO-DROPPED-PARAM SHORTENER TRIGGER
 document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('getKeyBtn');
     const originalContent = btn.innerHTML;
@@ -2844,25 +2844,16 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     try {
         const fp = generateDeviceFingerprint();
         
-        // 1. Session call karein jo server par Set-Cookie header set karega
-        const sessionRes = await fetch('/api/create-session', {
+        // 1. Session request trigger karein (IP & Subnet server par pending session me lock ho jata hai)
+        await fetch('/api/create-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fingerprint: fp })
         });
-        const sessionData = await sessionRes.json();
 
-        if (sessionRes.ok && sessionData.success) {
-            // Shortener direct fixed generate endpoint par bhej sakta hai
-            // Kyunki verification cookie browser me pehle hi save ho chuki hai
-            const sid = sessionData.session;
-            const destinationUrl = `https://multiverse-books.vercel.app/api/generate?sid=${encodeURIComponent(sid)}`;
-            const finalDestination = encodeURIComponent(destinationUrl);
-            
-            window.location.href = `https://arolinks.com/6RTf5?url=${finalDestination}`;
-        } else {
-            window.location.href = "https://arolinks.com/6RTf5";
-        }
+        // 2. Shortener ke fixed clean URL par bhejein (Parameters cut hone ka jhanjhat khatam)
+        window.location.href = "https://arolinks.com/6RTf5";
+
     } catch (e) {
         window.location.href = "https://arolinks.com/6RTf5";
     } finally {
