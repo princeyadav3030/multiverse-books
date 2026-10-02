@@ -1,62 +1,79 @@
+// File: api/generate.js
+
 const { db } = require('../utils/firebaseAdmin');
 const { v4: uuidv4 } = require('uuid');
 
 module.exports = async function handler(req, res) {
+  // Sirf GET requests allow karein (browser shortlink redirect handle karne ke liye)
   if (req.method !== 'GET') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  const currentIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                    req.socket?.remoteAddress || 'unknown';
+  // Session query parameters capture karein
+  const sessionId = req.query.session || req.query.sid;
+
+  // Real Client IP aur User-Agent extract karein (Proxy/CDN safe)
+  const currentRawIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                       req.socket?.remoteAddress || 
+                       'unknown';
+  const currentUserAgent = (req.headers['user-agent'] || 'unknown').slice(0, 150);
+
+  // Dynamic Subnet Signature (Mobile Network / Tower-switch safe)
+  let currentSubnet = 'unknown';
+  if (currentRawIp.includes('.')) {
+    currentSubnet = currentRawIp.split('.').slice(0, 2).join('.');
+  } else if (currentRawIp.includes(':')) {
+    currentSubnet = currentRawIp.split(':').slice(0, 3).join(':');
+  }
+
   const now = Date.now();
+  let isAuthorized = false;
+  let rejectionReason = "Direct Generation Blocked";
+  let sessionDocRef = null;
+  let sessionData = null;
 
-  try {
-    // Single field safe query - Crash free (No Composite Index needed)
-    const sessionsQuery = await db.collection('pending_sessions')
-      .where('consumed', '==', false)
-      .limit(30)
-      .get();
+  if (sessionId) {
+    try {
+      sessionDocRef = db.collection('pending_sessions').doc(sessionId);
+      const sessionSnap = await sessionDocRef.get();
 
-    let isAuthorized = false;
-    let targetSessionDoc = null;
+      if (sessionSnap.exists) {
+        sessionData = sessionSnap.data();
 
-    if (!sessionsQuery.empty) {
-      for (const docSnap of sessionsQuery.docs) {
-        const data = docSnap.data();
-        
-        // Memory match: IP match + 15 min expiry window
-        if (data.clientIp === currentIp && now <= data.expiresAt) {
+        // 1. Single-use and Expiry check
+        const isNotExpired = now <= sessionData.expiresAt;
+        const isNotConsumed = sessionData.consumed === false;
+
+        // 2. Minimum 12 seconds time delay (Anti-Fast Bypass Bot Protection)
+        const isTimeSatisfied = now >= (sessionData.unlocksAt || 0);
+
+        // 3. Device Signature Check (Subnet match YA User-Agent match)
+        // Tower badalne par bhi mobile user block nahi hoga
+        const isNetworkMatch = (sessionData.ipSubnet === currentSubnet) || 
+                               (sessionData.clientIp === currentRawIp) ||
+                               (sessionData.clientIp === 'unknown');
+        const isAgentMatch = (sessionData.userAgent === currentUserAgent);
+
+        if (!isNotConsumed || !isNotExpired) {
+          rejectionReason = "Expired Link: Yeh verification link pehle hi use ho chuka hai ya expire ho gaya.";
+        } else if (!isTimeSatisfied) {
+          rejectionReason = "Bypass Detected: Ad verification steps suspicious speed se complete kiye gaye.";
+        } else if (!isNetworkMatch && !isAgentMatch) {
+          rejectionReason = "Device Mismatch: Same device aur browser par open karein jahan se start kiya tha.";
+        } else {
           isAuthorized = true;
-          targetSessionDoc = docSnap.ref;
-          break;
         }
+      } else {
+        rejectionReason = "Invalid Session: Verification session exist nahi karta ya delete ho chuka hai.";
       }
+    } catch (e) {
+      console.error("Firestore read error:", e);
+      rejectionReason = "Database Connection Error. Please refresh and retry.";
     }
+  }
 
-    // AGAR ADS COMPLETE KARKE AAYA (VALID): Direct Token Issue
-    if (isAuthorized && targetSessionDoc) {
-      await targetSessionDoc.update({
-        consumed: true,
-        consumedAt: now
-      });
-
-      const token = 'SPIDY-' + uuidv4().substring(0, 8).toUpperCase();
-      const expiresAt = now + (10 * 24 * 60 * 60 * 1000); // 10 Days
-
-      await db.collection('tokens').doc(token).set({
-        token: token,
-        used: false,
-        createdAt: now,
-        expiresAt: expiresAt,
-        deviceBound: null,
-        isActivated: false,
-        source: 'shortlink_verified'
-      });
-
-      return res.redirect(`/?t=${token}`);
-    }
-
-    // AGAR DIRECT BINA GET KEY KE KHOLA: Original 403 Page
+  // Agar unauthorized, direct copy ya invalid session ho toh 403 Restricted UI dikhayein
+  if (!isAuthorized) {
     res.setHeader('Content-Type', 'text/html');
     return res.status(403).send(`
       <!DOCTYPE html>
@@ -236,6 +253,12 @@ module.exports = async function handler(req, res) {
             border-radius: 14px;
             border: 1px solid rgba(255, 255, 255, 0.15);
             box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
+            transition: transform 0.15s ease, opacity 0.15s ease;
+          }
+
+          .btn-home:active {
+            transform: scale(0.96);
+            opacity: 0.9;
           }
 
           .btn-support {
@@ -252,6 +275,13 @@ module.exports = async function handler(req, res) {
             text-decoration: none;
             border-radius: 14px;
             border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.15s ease;
+          }
+
+          .btn-support:active {
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            transform: scale(0.96);
           }
 
           .card-footer {
@@ -265,6 +295,7 @@ module.exports = async function handler(req, res) {
             font-size: 11px;
             color: #64748b;
             font-weight: 600;
+            letter-spacing: 0.3px;
           }
 
           .card-footer i {
@@ -281,11 +312,12 @@ module.exports = async function handler(req, res) {
             <i class="fas fa-shield-halved"></i>
           </div>
 
-          <div class="error-badge">403 • Unauthorized Access</div>
-          <h1 class="card-title">Direct Generation Blocked</h1>
+          <div class="error-badge">403 • UNAUTHORIZED ACCESS</div>
+          <h1 class="card-title">Verification Incomplete</h1>
 
           <p class="card-desc">
-            Directly opening or copying the generator link is prohibited. Please click <span>'Get Key'</span> on the website and complete verification.
+            ${rejectionReason}<br><br>
+            Please click <span>'Get Key'</span> on the official website and complete all verification steps properly.
           </p>
 
           <div class="btn-group">
@@ -304,9 +336,36 @@ module.exports = async function handler(req, res) {
       </body>
       </html>
     `);
+  }
 
-  } catch (error) {
-    console.error("Generate Gateway Error:", error);
-    return res.status(500).send("Database Error: Failed to generate token.");
+  // --- SUCCESS VERIFICATION PATH ---
+  try {
+    // 1. Session ko turant Burn (Consume) karein taaki link dobara reuse na ho sake
+    await sessionDocRef.update({
+      consumed: true,
+      consumedAt: now
+    });
+
+    // 2. 10 Days ke liye unique token issue karein
+    const token = 'SPIDY-' + uuidv4().substring(0, 8).toUpperCase();
+    const expiresAt = now + (10 * 24 * 60 * 60 * 1000);
+
+    await db.collection('tokens').doc(token).set({
+      token: token,
+      used: false,
+      createdAt: now,
+      expiresAt: expiresAt,
+      deviceBound: sessionData.fingerprint || null,
+      isActivated: true,
+      source: 'shortlink_verified',
+      boundSession: sessionId
+    });
+
+    // 3. User ko token parameter ke sath homepage par redirect kar dein
+    return res.redirect(`/?t=${token}`);
+
+  } catch (err) {
+    console.error("Token Generation Error:", err);
+    return res.status(500).send("Database Error: Failed to issue token.");
   }
 };
