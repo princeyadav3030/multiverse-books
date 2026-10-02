@@ -4,66 +4,57 @@ const { db } = require('../utils/firebaseAdmin');
 const crypto = require('crypto');
 
 module.exports = async function handler(req, res) {
-  // Sirf POST requests allow karein
+  // CORS Headers set karein taaki client direct connect kar sake
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ 
-      success: false, 
-      error: 'Method Not Allowed' 
-    });
+    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
   try {
     const { fingerprint } = req.body || {};
     const timestamp = Date.now();
 
-    // 1. Client IP capture karein (Proxy/CDN safe header parsing)
+    // 1. Client IP capture karein
     const rawIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
                   req.socket?.remoteAddress || 
                   'unknown';
 
-    // 2. User-Agent extract karein
-    const userAgent = (req.headers['user-agent'] || 'unknown').slice(0, 150);
+    // 2. Short, URL-safe session token (Bina kisi special character ke taaki shortener strip na kare)
+    const randomHex = crypto.randomBytes(6).toString('hex').toLowerCase();
+    const sessionId = `s${timestamp}${randomHex}`;
 
-    // 3. Network Subnet Signature (Mobile Network / Tower-switch safe)
-    // IPv4 me first 2 octets match karta hai (e.g., 49.36.x.x) taaki session fail na ho
-    let ipSubnet = 'unknown';
-    if (rawIp.includes('.')) {
-      ipSubnet = rawIp.split('.').slice(0, 2).join('.');
-    } else if (rawIp.includes(':')) {
-      ipSubnet = rawIp.split(':').slice(0, 3).join(':'); // IPv6 subnet support
-    }
-
-    // 4. Secure Random Session Identifier
-    const randomHex = crypto.randomBytes(8).toString('hex').toUpperCase();
-    const sessionId = `REQ_${timestamp}_${randomHex}`;
-
-    // 5. Firestore me pending verification session record karein
+    // 3. Firestore me session save karein
     await db.collection('pending_sessions').doc(sessionId).set({
       sessionId: sessionId,
       clientIp: rawIp,
-      ipSubnet: ipSubnet,
-      userAgent: userAgent,
       fingerprint: fingerprint || 'unknown',
       timestamp: timestamp,
-      // Anti-Bypass Security: Minimum 12 seconds link traversal delay
-      unlocksAt: timestamp + (12 * 1000),
-      // Expiry Window: 15 minutes
-      expiresAt: timestamp + (15 * 60 * 1000),
+      // Anti-Bot: Minimum 10 seconds traversal time
+      unlocksAt: timestamp + (10 * 1000),
+      // Valid for 20 minutes
+      expiresAt: timestamp + (20 * 60 * 1000),
       consumed: false,
       createdAt: timestamp
     });
 
-    // 6. Client ko valid Session ID bhejein
+    // 4. Return clean session
     return res.status(200).json({
       success: true,
       session: sessionId
     });
 
   } catch (error) {
-    console.error("Create Session Execution Error:", error);
+    console.error("Session Creation Error:", error);
     return res.status(500).json({ 
       success: false, 
-      error: 'Failed to initialize session gateway' 
+      error: 'Failed to create session' 
     });
   }
 };
