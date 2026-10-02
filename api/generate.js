@@ -6,35 +6,34 @@ module.exports = async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // 1. IP aur Client headers capture karein
   const currentIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
                     req.socket?.remoteAddress || 'unknown';
   const now = Date.now();
 
   try {
-    // 2. Database me check karein kya is IP se pichle 15 minutes me 'Get Key' dabaya gaya tha?
+    // Single field safe query - Crash free (No Composite Index needed)
     const sessionsQuery = await db.collection('pending_sessions')
-      .where('clientIp', '==', currentIp)
       .where('consumed', '==', false)
-      .orderBy('timestamp', 'desc')
-      .limit(1)
+      .limit(30)
       .get();
 
     let isAuthorized = false;
     let targetSessionDoc = null;
 
     if (!sessionsQuery.empty) {
-      const docSnap = sessionsQuery.docs[0];
-      const data = docSnap.data();
-
-      // Time validity check (minimum 6s buffer aur 15 mins expiry window)
-      if (now <= data.expiresAt && now >= (data.unlocksAt - 2000)) {
-        isAuthorized = true;
-        targetSessionDoc = docSnap.ref;
+      for (const docSnap of sessionsQuery.docs) {
+        const data = docSnap.data();
+        
+        // Memory match: IP match + 15 min expiry window
+        if (data.clientIp === currentIp && now <= data.expiresAt) {
+          isAuthorized = true;
+          targetSessionDoc = docSnap.ref;
+          break;
+        }
       }
     }
 
-    // 3. AGAR VALID SESSION MIL GAYA: Turant token generate karke homepage par redirect karo
+    // AGAR ADS COMPLETE KARKE AAYA (VALID): Direct Token Issue
     if (isAuthorized && targetSessionDoc) {
       await targetSessionDoc.update({
         consumed: true,
@@ -57,7 +56,7 @@ module.exports = async function handler(req, res) {
       return res.redirect(`/?t=${token}`);
     }
 
-    // 4. AGAR DIRECT OPEN KIYA GAYA HO (UNAUTHORIZED): Wahi original exact UI render hoga
+    // AGAR DIRECT BINA GET KEY KE KHOLA: Original 403 Page
     res.setHeader('Content-Type', 'text/html');
     return res.status(403).send(`
       <!DOCTYPE html>
@@ -237,12 +236,6 @@ module.exports = async function handler(req, res) {
             border-radius: 14px;
             border: 1px solid rgba(255, 255, 255, 0.15);
             box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
-            transition: transform 0.15s ease, opacity 0.15s ease;
-          }
-
-          .btn-home:active {
-            transform: scale(0.96);
-            opacity: 0.9;
           }
 
           .btn-support {
@@ -259,13 +252,6 @@ module.exports = async function handler(req, res) {
             text-decoration: none;
             border-radius: 14px;
             border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: all 0.15s ease;
-          }
-
-          .btn-support:active {
-            background: rgba(255, 255, 255, 0.08);
-            color: #ffffff;
-            transform: scale(0.96);
           }
 
           .card-footer {
@@ -279,7 +265,6 @@ module.exports = async function handler(req, res) {
             font-size: 11px;
             color: #64748b;
             font-weight: 600;
-            letter-spacing: 0.3px;
           }
 
           .card-footer i {
@@ -319,8 +304,9 @@ module.exports = async function handler(req, res) {
       </body>
       </html>
     `);
-  } catch (err) {
-    console.error("Gateway execution error:", err);
-    return res.status(500).send("Internal Server Error");
+
+  } catch (error) {
+    console.error("Generate Gateway Error:", error);
+    return res.status(500).send("Database Error: Failed to generate token.");
   }
 };
