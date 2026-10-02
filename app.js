@@ -750,7 +750,7 @@ const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
 
-// AUTO-CLAIM VERIFIED SHORTLINK TOKEN (Agar URL me ?t=SPIDY-XXXX aayega)
+// AUTO-CLAIM TOKEN HANDSHAKE (?t=SPIDY-XXXX)
 if (urlParamsCheck.has('t')) {
     const rawToken = urlParamsCheck.get('t').trim();
     if (rawToken.startsWith('SPIDY-')) {
@@ -760,7 +760,7 @@ if (urlParamsCheck.has('t')) {
             fp: fp,
             expiry: Date.now() + (10 * 24 * 60 * 60 * 1000)
         }));
-        showToast("Key Verified! 10 Days Unlimited Access Granted.", "success");
+        showToast("Key Verified! 10 Days Access Granted.", "success");
         window.history.replaceState({}, '', window.location.pathname);
     }
 }
@@ -870,7 +870,7 @@ function syncAndSanitizeBookmarks() {
 }
 
 // ==========================================
-// 8. CHANNEL NOTIFICATIONS
+// 8. CHANNEL NOTIFICATIONS (Direct Bottom Visibility)
 // ==========================================
 const chatBody = document.getElementById('chatBody');
 const contextOverlay = document.getElementById('contextOverlay');
@@ -898,13 +898,31 @@ function setUserReaction(postId, emoji) {
     else localStorage.removeItem(`reaction_${postId}`);
 }
 
+// ABSOLUTE BOTTOM SCROLLER: Ensures latest messages are never cut off
+function forceScrollChatToBottom() {
+    if (!chatBody) return;
+    unreadPostsCount = 0;
+    if (unreadBadge) {
+        unreadBadge.innerText = '0';
+        unreadBadge.classList.remove('active');
+    }
+    if (scrollDownWrapper) {
+        scrollDownWrapper.classList.remove('show');
+    }
+
+    chatBody.scrollTop = chatBody.scrollHeight + 1000;
+    requestAnimationFrame(() => {
+        chatBody.scrollTop = chatBody.scrollHeight + 1000;
+    });
+}
+
 function scrollToBottomSmooth() {
     unreadPostsCount = 0;
     if (unreadBadge) {
         unreadBadge.innerText = '0';
         unreadBadge.classList.remove('active');
     }
-    chatBody.scrollTo({ top: chatBody.scrollHeight, behavior: 'smooth' });
+    chatBody.scrollTo({ top: chatBody.scrollHeight + 1000, behavior: 'smooth' });
 }
 
 if (scrollDownBtn) scrollDownBtn.addEventListener('click', scrollToBottomSmooth);
@@ -912,7 +930,7 @@ if (scrollDownBtn) scrollDownBtn.addEventListener('click', scrollToBottomSmooth)
 if (chatBody) {
     chatBody.addEventListener('scroll', () => {
         const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
-        if (distanceFromBottom > 120) {
+        if (distanceFromBottom > 140) {
             scrollDownWrapper.classList.add('show');
         } else {
             scrollDownWrapper.classList.remove('show');
@@ -1088,9 +1106,9 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         chatBody.appendChild(fragment);
 
         requestAnimationFrame(() => {
-            chatBody.scrollTop = chatBody.scrollHeight;
+            chatBody.scrollTop = chatBody.scrollHeight + 1000;
             requestAnimationFrame(() => {
-                chatBody.scrollTop = chatBody.scrollHeight;
+                chatBody.scrollTop = chatBody.scrollHeight + 1000;
                 chatBody.style.visibility = 'visible';
             });
         });
@@ -1336,7 +1354,7 @@ onAuthStateChanged(auth, async (user) => {
             }
 
             const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
-            if (distanceFromBottom > 120 && livePosts.length > prevCount) {
+            if (distanceFromBottom > 140 && livePosts.length > prevCount) {
                 unreadPostsCount += (livePosts.length - prevCount);
                 unreadBadge.innerText = unreadPostsCount > 99 ? '99+' : unreadPostsCount;
                 unreadBadge.classList.add('active');
@@ -1352,7 +1370,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ==========================================
-// 10. REALTIME PAGINATION HANDLER (Clean Reset)
+// 10. REALTIME PAGINATION HANDLER
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -1566,7 +1584,7 @@ if (confirmLogoutBtn) {
 }
 
 // ==========================================
-// 12. MASTER FILTERS & SEARCH (Hindi Unicode Supported)
+// 12. MASTER FILTERS & SEARCH
 // ==========================================
 const FIXED_EXAM_LIST = [
     "10th", "11th", "12th", "Ssc", "Railway", "Defence", 
@@ -1630,7 +1648,6 @@ document.getElementById('applyFiltersBtn')?.addEventListener('click', () => {
 
 function normalizeTextForSearch(str) {
     if (!str) return '';
-    // FIXED: Unicode characters support added (Hindi + English)
     return str.toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').trim();
 }
 
@@ -1809,6 +1826,7 @@ document.getElementById('open-search')?.addEventListener('click', () => {
     setTimeout(() => { searchInputEl.focus(); }, 300); 
 });
 
+// NOTIFICATION PANEL OPEN: Instant bottom scroll so latest posts are immediately visible
 document.getElementById('open-noti')?.addEventListener('click', () => { 
     history.pushState({ popup: 'noti' }, ''); 
     document.getElementById('noti-panel').classList.add('active'); 
@@ -1820,13 +1838,10 @@ document.getElementById('open-noti')?.addEventListener('click', () => {
         renderChannelFeed(livePosts, true);
         setTimeout(() => {
             const hasTarget = window.location.hash.includes("post/");
-            if (chatBody && !hasTarget) {
-                chatBody.scrollTop = chatBody.scrollHeight;
-                requestAnimationFrame(() => {
-                    chatBody.scrollTop = chatBody.scrollHeight;
-                });
+            if (!hasTarget) {
+                forceScrollChatToBottom();
             }
-        }, 100);
+        }, 60);
     } else {
         renderChannelLoader();
     }
@@ -2294,7 +2309,7 @@ function initVirtualizationObserver(pdf) {
     });
 }
 
-// ULTRA-HD PAGE RENDERER (Original High-Res Vector Crispness)
+// ULTRA-HD RENDERING
 async function renderSingleHdPage(pdf, pageNum) {
     if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return; 
     renderedPagesMap.set(pageNum, true);
@@ -2308,7 +2323,6 @@ async function renderSingleHdPage(pdf, pageNum) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
-        // Exact 2.2x Hardware density rendering: Original upload crispness
         const devicePR = Math.max(window.devicePixelRatio || 1, 2.0);
         const viewport = page.getViewport({ scale: currentScale });
 
@@ -2321,7 +2335,7 @@ async function renderSingleHdPage(pdf, pageNum) {
         canvas.style.height = `100%`;
 
         wrapper.classList.remove('page-placeholder');
-        wrapper.innerHTML = ''; // Clear existing memory & prevents duplicate textLayer leak
+        wrapper.innerHTML = '';
         wrapper.appendChild(canvas);
 
         const renderTask = page.render({
@@ -2442,7 +2456,6 @@ function applyTargetLockedZoom(scaleFactor, targetPageNum) {
     }
 }
 
-// SMART DOUBLE-TAP ZOOM (Passive Safe)
 function initTargetLockedDoubleTapZoom() {
     const container = document.getElementById('pdfContainer');
     if (!container) return;
@@ -2479,7 +2492,6 @@ function initTargetLockedDoubleTapZoom() {
         if (e.changedTouches.length === 1) {
             const now = Date.now();
             if ((now - lastTapTime) < 260) {
-                // FIXED: Checked e.cancelable to prevent Android warning
                 if (e.cancelable) e.preventDefault();
                 const touch = e.changedTouches[0];
                 const touchedEl = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -2667,7 +2679,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         btn.disabled = true;
 
         try {
-            // Force refresh token for session validity
             const userToken = await auth.currentUser.getIdToken(true);
             const response = await fetch('/api/get-book', {
                 method: 'POST',
@@ -2798,7 +2809,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. TOKEN VERIFICATION & NEW ANTI-BYPASS GET KEY
+// 17. TOKEN VERIFICATION & GET KEY
 // ==========================================
 document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
     if (history.state && history.state.popup === 'tokenModal') {
@@ -2812,7 +2823,7 @@ document.getElementById('tokenInput')?.addEventListener('input', () => {
     document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
-// NEW UNBREAKABLE GET KEY LOGIC (Bound with Cookie & Time-Lock)
+// DIRECT IP-BOUND SESSION GENERATOR
 document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('getKeyBtn');
     const originalContent = btn.innerHTML;
@@ -2822,7 +2833,6 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     try {
         const fp = generateDeviceFingerprint();
         
-        // 1. Backend session init karein (HttpOnly cookie set ho jayegi)
         const sessionRes = await fetch('/api/create-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2832,8 +2842,8 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
 
         if (sessionRes.ok && sessionData.success && sessionData.session) {
             const sid = sessionData.session;
-            // 2. Direct Arolinks par jayein (Session bound hoga)
-            window.location.href = `https://arolinks.com/6RTf5?session=${encodeURIComponent(sid)}`;
+            const finalDestination = encodeURIComponent(`https://multiverse-books.vercel.app/api/generate?session=${sid}`);
+            window.location.href = `https://arolinks.com/6RTf5?url=${finalDestination}&session=${encodeURIComponent(sid)}`;
         } else {
             window.location.href = "https://arolinks.com/6RTf5";
         }
@@ -3261,7 +3271,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     return true;
 }
 
-// Add Book Form Handler (Firestore serverTimestamp used)
+// Add Book Form Handler
 document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -3402,7 +3412,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             fileFormat: "PDF",
             totalPages: finalPagesCount,
             dateAdded: new Date().toLocaleDateString('en-GB').toUpperCase(),
-            // FIXED: Server timestamp to sync sorting order
             createdAt: serverTimestamp(),
             uploaderUid: auth.currentUser.uid
         };
