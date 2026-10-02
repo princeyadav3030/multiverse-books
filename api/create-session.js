@@ -10,30 +10,28 @@ module.exports = async function handler(req, res) {
     const { fingerprint } = req.body || {};
     const timestamp = Date.now();
 
-    // User ka Real Client IP aur User-Agent pakdein
+    // User IP address capture
     const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
                      req.socket?.remoteAddress || 'unknown';
-    const userAgent = req.headers['user-agent'] || 'unknown';
 
     // Unique secure session ID generate karein
     const randomHex = crypto.randomBytes(6).toString('hex').toUpperCase();
     const sessionId = `REQ_${timestamp}_${randomHex}`;
 
-    // Firestore me pending session save karein (IP & Device Lock)
+    // Firestore me pending session save karein
     await db.collection('pending_sessions').doc(sessionId).set({
       sessionId: sessionId,
       clientIp: clientIp,
-      userAgent: userAgent,
       fingerprint: fingerprint || 'unknown',
       timestamp: timestamp,
-      // Anti-Fast Bypass: Minimum 12 seconds delay rakha hai
-      unlocksAt: timestamp + (12 * 1000), 
-      expiresAt: timestamp + (10 * 60 * 1000), // 10 minute tak valid
+      // Kam se kam 10 seconds ads delay (anti-instant hit)
+      unlocksAt: timestamp + (10 * 1000), 
+      expiresAt: timestamp + (15 * 60 * 1000), // 15 minute expiry
       consumed: false,
       createdAt: timestamp
     });
 
-    // Client ko session ID return karein
+    // Session ID return karein jo browser ke localStorage me lock hogi
     return res.status(200).json({
       success: true,
       session: sessionId
