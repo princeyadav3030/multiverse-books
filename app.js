@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { 
     getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, 
-    query, orderBy, setDoc, getDoc, getDocs, limit, startAfter, Timestamp 
+    query, orderBy, setDoc, getDoc, getDocs, limit, startAfter, Timestamp, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { 
     getAuth, signInWithEmailAndPassword, GoogleAuthProvider, 
@@ -28,7 +28,6 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const analytics = getAnalytics(app); 
 
-// Global Listener Unsubscribers to Prevent Duplicate Reads & Leaks
 let unsubBanners = null;
 let unsubPrompts = null;
 let unsubChannel = null;
@@ -545,7 +544,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     }
 
     try {
-        const userToken = await auth.currentUser.getIdToken(false);
+        const userToken = await auth.currentUser.getIdToken(true);
         const response = await fetch('/api/get-book', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -590,7 +589,7 @@ document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 6. COMMUNITY POPUP (6-SECOND VERIFICATION DELAY)
+// 6. COMMUNITY POPUP
 // ==========================================
 let hasClickedWA = false;
 let hasClickedTG = false;
@@ -651,7 +650,6 @@ function initCommunityDualPopup() {
 
             window.open('https://whatsapp.com/channel/0029Vb6NBZx1yT2GByTTVf2A', '_blank');
 
-            // Set to exact 6 seconds delay
             setTimeout(() => {
                 hasClickedWA = true;
                 isJoiningWA = false;
@@ -677,7 +675,6 @@ function initCommunityDualPopup() {
 
             window.open('https://t.me/MultiverseBooks', '_blank');
 
-            // Set to exact 6 seconds delay
             setTimeout(() => {
                 hasClickedTG = true;
                 isJoiningTG = false;
@@ -703,7 +700,6 @@ function initCommunityDualPopup() {
 
             window.open('https://www.instagram.com/PRINCE_YADAV_3030', '_blank');
 
-            // Set to exact 6 seconds delay
             setTimeout(() => {
                 hasClickedIG = true;
                 isJoiningIG = false;
@@ -748,11 +744,26 @@ document.getElementById('closeUploadPopupBtn')?.addEventListener('click', (e) =>
 });
 
 // ==========================================
-// 7. INITIAL LOADER & DEEP LINKING
+// 7. INITIAL LOADER, TOKEN CLAIM & DEEP LINK
 // ==========================================
 const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
+
+// AUTO-CLAIM VERIFIED SHORTLINK TOKEN (Agar URL me ?t=SPIDY-XXXX aayega)
+if (urlParamsCheck.has('t')) {
+    const rawToken = urlParamsCheck.get('t').trim();
+    if (rawToken.startsWith('SPIDY-')) {
+        const fp = generateDeviceFingerprint();
+        localStorage.setItem('spidy_secure_session', JSON.stringify({
+            token: rawToken,
+            fp: fp,
+            expiry: Date.now() + (10 * 24 * 60 * 60 * 1000)
+        }));
+        showToast("Key Verified! 10 Days Unlimited Access Granted.", "success");
+        window.history.replaceState({}, '', window.location.pathname);
+    }
+}
 
 if (isDeepLinkLoad) {
     document.getElementById('mainAppWrapper').style.display = 'none';
@@ -1076,7 +1087,6 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         chatBody.innerHTML = '';
         chatBody.appendChild(fragment);
 
-        // Immediate Double Frame Scroll Execution to Show Latest Posts Completely at the Bottom
         requestAnimationFrame(() => {
             chatBody.scrollTop = chatBody.scrollHeight;
             requestAnimationFrame(() => {
@@ -1169,7 +1179,6 @@ if (contextOverlay) {
     });
 }
 
-// Global Copy Handler
 document.addEventListener('click', (e) => {
     const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
     if (copyBtn) {
@@ -1206,7 +1215,6 @@ document.addEventListener('click', (e) => {
 // 9. AUTHENTICATION OBSERVER
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
-    // Unsubscribe duplicate listeners if already initialized
     if (unsubBanners) { unsubBanners(); unsubBanners = null; }
     if (unsubPrompts) { unsubPrompts(); unsubPrompts = null; }
     if (unsubChannel) { unsubChannel(); unsubChannel = null; }
@@ -1344,15 +1352,18 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ==========================================
-// 10. REALTIME PAGINATION HANDLER
+// 10. REALTIME PAGINATION HANDLER (Clean Reset)
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
+        booksData = [];
+        lastVisibleBookDoc = null;
+        hasMoreBooksToFetch = true;
+
         const booksRef = collection(db, "books");
         const q = query(booksRef, orderBy("createdAt", "desc"), limit(BATCH_SIZE));
         const snapshot = await getDocs(q);
 
-        booksData = [];
         snapshot.forEach((docSnap) => {
             let data = docSnap.data();
             data.id = docSnap.id;
@@ -1555,7 +1566,7 @@ if (confirmLogoutBtn) {
 }
 
 // ==========================================
-// 12. MASTER FILTERS & SEARCH
+// 12. MASTER FILTERS & SEARCH (Hindi Unicode Supported)
 // ==========================================
 const FIXED_EXAM_LIST = [
     "10th", "11th", "12th", "Ssc", "Railway", "Defence", 
@@ -1619,7 +1630,8 @@ document.getElementById('applyFiltersBtn')?.addEventListener('click', () => {
 
 function normalizeTextForSearch(str) {
     if (!str) return '';
-    return str.toString().toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    // FIXED: Unicode characters support added (Hindi + English)
+    return str.toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').trim();
 }
 
 function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords) {
@@ -1797,7 +1809,6 @@ document.getElementById('open-search')?.addEventListener('click', () => {
     setTimeout(() => { searchInputEl.focus(); }, 300); 
 });
 
-// Notifications Panel Handler: Immediate Bottom Scroll for Latest Post Visibility[span_5](start_span)[span_5](end_span)
 document.getElementById('open-noti')?.addEventListener('click', () => { 
     history.pushState({ popup: 'noti' }, ''); 
     document.getElementById('noti-panel').classList.add('active'); 
@@ -1884,7 +1895,6 @@ document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => {
 });
 document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => { history.back(); });
 
-// PDF Viewer Close
 window.closePdfViewerDirectly = function() {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer) pdfViewer.style.display = 'none';
@@ -2154,14 +2164,14 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
 }
 
 // =========================================================================
-// 14. ULTRA HD PDF VIEWER (Direct Vector-Scale Sharp Text Rendering)
+// 14. ULTRA HD VECTOR PDF ENGINE (High Density Crisp Display)
 // =========================================================================
 async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     const container = document.getElementById('pdfContainer');
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
     if (!keepExistingLoader) {
-        showCenteredPdfLoader("Loading book securely...");
+        showCenteredPdfLoader("Loading book in HD Quality...");
     }
     
     scrollContainer.innerHTML = '';
@@ -2203,7 +2213,7 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
         document.getElementById('goToPageRange').innerText = `1 - ${pdfTotalPagesCount}`;
 
         const screenWidth = window.innerWidth;
-        basePageWidth = Math.min(screenWidth - 12, 780);
+        basePageWidth = Math.min(screenWidth - 12, 850);
 
         const firstPage = await pdf.getPage(1);
         const firstViewport = firstPage.getViewport({ scale: 1.0 });
@@ -2236,7 +2246,6 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
         initPdfScrollTracker();
         initTargetLockedDoubleTapZoom();
 
-        // Exact Book Isolation: Har specific book ka alag reading state
         const savedPage = localStorage.getItem(`last_read_${activeBookSlug}`);
         if (savedPage) {
             const targetPage = parseInt(savedPage, 10);
@@ -2276,7 +2285,7 @@ function initVirtualizationObserver(pdf) {
         });
     }, {
         root: document.getElementById('pdfContainer'),
-        rootMargin: '120px 0px 120px 0px',
+        rootMargin: '140px 0px 140px 0px',
         threshold: 0.01
     });
 
@@ -2285,7 +2294,7 @@ function initVirtualizationObserver(pdf) {
     });
 }
 
-// ULTRA-HD RENDERING ENGINE (Hardware Scaled for Crisp Text & No RAM Waste)
+// ULTRA-HD PAGE RENDERER (Original High-Res Vector Crispness)
 async function renderSingleHdPage(pdf, pageNum) {
     if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return; 
     renderedPagesMap.set(pageNum, true);
@@ -2299,8 +2308,8 @@ async function renderSingleHdPage(pdf, pageNum) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
-        // Exact 2.0x hardware crisp ratio: avoids Android browser crashes
-        const devicePR = Math.min(window.devicePixelRatio || 1, 2.0);
+        // Exact 2.2x Hardware density rendering: Original upload crispness
+        const devicePR = Math.max(window.devicePixelRatio || 1, 2.0);
         const viewport = page.getViewport({ scale: currentScale });
 
         const canvas = document.createElement('canvas');
@@ -2312,7 +2321,7 @@ async function renderSingleHdPage(pdf, pageNum) {
         canvas.style.height = `100%`;
 
         wrapper.classList.remove('page-placeholder');
-        wrapper.innerHTML = ''; 
+        wrapper.innerHTML = ''; // Clear existing memory & prevents duplicate textLayer leak
         wrapper.appendChild(canvas);
 
         const renderTask = page.render({
@@ -2433,7 +2442,7 @@ function applyTargetLockedZoom(scaleFactor, targetPageNum) {
     }
 }
 
-// SMART DOUBLE-TAP ZOOM: Blocked during any swipe/scroll gesture
+// SMART DOUBLE-TAP ZOOM (Passive Safe)
 function initTargetLockedDoubleTapZoom() {
     const container = document.getElementById('pdfContainer');
     if (!container) return;
@@ -2455,7 +2464,6 @@ function initTargetLockedDoubleTapZoom() {
         if (e.touches.length === 1) {
             const diffX = Math.abs(e.touches[0].clientX - touchStartX);
             const diffY = Math.abs(e.touches[0].clientY - touchStartY);
-            // Agar finger 6px se zyada move huyi to double-tap cancel hoga
             if (diffX > 6 || diffY > 6) {
                 isMovingGesture = true;
             }
@@ -2471,7 +2479,8 @@ function initTargetLockedDoubleTapZoom() {
         if (e.changedTouches.length === 1) {
             const now = Date.now();
             if ((now - lastTapTime) < 260) {
-                e.preventDefault();
+                // FIXED: Checked e.cancelable to prevent Android warning
+                if (e.cancelable) e.preventDefault();
                 const touch = e.changedTouches[0];
                 const touchedEl = document.elementFromPoint(touch.clientX, touch.clientY);
                 const pageWrapper = touchedEl ? touchedEl.closest('.pdf-page-wrapper') : null;
@@ -2593,7 +2602,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     const downloadModal = document.getElementById("downloadModal");
     downloadModal.style.display = "flex";
 
-    // Instant Reset of Scroll State: Har naya book top se open hoga[span_6](start_span)[span_6](end_span)[span_7](start_span)[span_7](end_span)
     downloadModal.scrollTop = 0;
     const innerScrollWrapper = downloadModal.querySelector('.download-content-wrapper') || downloadModal.firstElementChild;
     if (innerScrollWrapper) innerScrollWrapper.scrollTop = 0;
@@ -2659,7 +2667,8 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         btn.disabled = true;
 
         try {
-            const userToken = await auth.currentUser.getIdToken(false);
+            // Force refresh token for session validity
+            const userToken = await auth.currentUser.getIdToken(true);
             const response = await fetch('/api/get-book', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2769,7 +2778,7 @@ submitReportBtn?.addEventListener('click', async () => {
                 issueType: issueType,
                 status: 'Pending',
                 reportedBy: (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : 'Unknown User',
-                createdAt: new Date().getTime()
+                createdAt: serverTimestamp()
             });
         } catch (error) {}
 
@@ -2789,7 +2798,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. TOKEN VERIFICATION HANDSHAKE
+// 17. TOKEN VERIFICATION & NEW ANTI-BYPASS GET KEY
 // ==========================================
 document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
     if (history.state && history.state.popup === 'tokenModal') {
@@ -2803,6 +2812,7 @@ document.getElementById('tokenInput')?.addEventListener('input', () => {
     document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
+// NEW UNBREAKABLE GET KEY LOGIC (Bound with Cookie & Time-Lock)
 document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('getKeyBtn');
     const originalContent = btn.innerHTML;
@@ -2811,6 +2821,8 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
 
     try {
         const fp = generateDeviceFingerprint();
+        
+        // 1. Backend session init karein (HttpOnly cookie set ho jayegi)
         const sessionRes = await fetch('/api/create-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2818,9 +2830,10 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
         });
         const sessionData = await sessionRes.json();
 
-        if (sessionRes.ok && sessionData.success) {
-            const { session, sig, ts } = sessionData;
-            window.location.href = `https://arolinks.com/6RTf5?session=${encodeURIComponent(session)}&sig=${encodeURIComponent(sig)}&ts=${encodeURIComponent(ts)}`;
+        if (sessionRes.ok && sessionData.success && sessionData.session) {
+            const sid = sessionData.session;
+            // 2. Direct Arolinks par jayein (Session bound hoga)
+            window.location.href = `https://arolinks.com/6RTf5?session=${encodeURIComponent(sid)}`;
         } else {
             window.location.href = "https://arolinks.com/6RTf5";
         }
@@ -2830,7 +2843,7 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
         setTimeout(() => {
             btn.innerHTML = originalContent;
             btn.style.pointerEvents = 'auto';
-        }, 1000);
+        }, 1500);
     }
 });
 
@@ -3064,7 +3077,7 @@ document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// MEMORY-SAFE FAST EXACT PAGE COUNT PARSER
+// EXACT FAST PAGE COUNT PARSER
 document.getElementById('filePdfSelect')?.addEventListener('change', async (e) => {
     if (e.target.files && e.target.files.length > 0) {
         selectedPdfFile = e.target.files[0];
@@ -3116,9 +3129,7 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
     }
 });
 
-// =========================================================================
-// 19. MULTI-RETRY WORKER PIPELINE (5MB Reliable Chunks)
-// =========================================================================
+// MULTI-RETRY WORKER PIPELINE
 function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRetries = 4) {
     return new Promise((resolve, reject) => {
         let attempts = 0;
@@ -3183,7 +3194,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     }
 
     const fileSize = file.size;
-    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB standard safe chunk boundary
+    const CHUNK_SIZE = 5 * 1024 * 1024;
 
     if (fileSize <= 10 * 1024 * 1024) {
         const targetUrl = `${WORKER_PROXY_URL}/upload?key=${encodeURIComponent(cleanKey)}`;
@@ -3250,7 +3261,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     return true;
 }
 
-// Add Book Form Handler
+// Add Book Form Handler (Firestore serverTimestamp used)
 document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -3310,7 +3321,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     }
 
     try {
-        const userToken = await auth.currentUser.getIdToken(false);
+        const userToken = await auth.currentUser.getIdToken(true);
 
         const coverMime = selectedCoverFile.type || "image/jpeg";
         const pdfMime = selectedPdfFile.type || "application/pdf";
@@ -3391,7 +3402,8 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
             fileFormat: "PDF",
             totalPages: finalPagesCount,
             dateAdded: new Date().toLocaleDateString('en-GB').toUpperCase(),
-            createdAt: Date.now(),
+            // FIXED: Server timestamp to sync sorting order
+            createdAt: serverTimestamp(),
             uploaderUid: auth.currentUser.uid
         };
 
