@@ -9,29 +9,29 @@ module.exports = async function handler(req, res) {
   try {
     const { fingerprint } = req.body || {};
     const timestamp = Date.now();
-    
-    // Unique Session ID aur Secure Client Secret generate karein
-    const randomHex = crypto.randomBytes(8).toString('hex').toUpperCase();
-    const sessionId = `REQ_${timestamp}_${randomHex}`;
-    const secretKey = crypto.randomBytes(24).toString('hex');
 
-    // Firestore me pending session save karein
+    // User ka Real Client IP aur User-Agent pakdein
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                     req.socket?.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    // Unique secure session ID generate karein
+    const randomHex = crypto.randomBytes(6).toString('hex').toUpperCase();
+    const sessionId = `REQ_${timestamp}_${randomHex}`;
+
+    // Firestore me pending session save karein (IP & Device Lock)
     await db.collection('pending_sessions').doc(sessionId).set({
       sessionId: sessionId,
-      secretKey: secretKey,
-      timestamp: timestamp,
-      // Anti-Fast-Bypass: Kam se kam 35 seconds ads me lagne chahiye
-      unlocksAt: timestamp + (35 * 1000),
-      expiresAt: timestamp + (10 * 60 * 1000), // 10 minutes expiry
+      clientIp: clientIp,
+      userAgent: userAgent,
       fingerprint: fingerprint || 'unknown',
+      timestamp: timestamp,
+      // Anti-Fast Bypass: Minimum 12 seconds delay rakha hai
+      unlocksAt: timestamp + (12 * 1000), 
+      expiresAt: timestamp + (10 * 60 * 1000), // 10 minute tak valid
       consumed: false,
       createdAt: timestamp
     });
-
-    // Browser ke andar HttpOnly Secure Cookie lock karein (Bypasser isse copy nahi kar sakta)
-    res.setHeader('Set-Cookie', [
-      `spidy_handshake=${secretKey}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600; Secure`
-    ]);
 
     // Client ko session ID return karein
     return res.status(200).json({
@@ -43,7 +43,7 @@ module.exports = async function handler(req, res) {
     console.error("Create Session Error:", error);
     return res.status(500).json({ 
       success: false, 
-      error: 'Failed to initialize secure session handshake' 
+      error: 'Failed to initialize session' 
     });
   }
 };
