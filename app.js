@@ -1,3 +1,5 @@
+// File: app.js
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { 
     getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, 
@@ -163,7 +165,8 @@ function parseMarkdown(rawText) {
         return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" data-clipboard="${encodedCopy}"><i class="far fa-copy"></i> COPY CODE</button></div>`;
     });
 
-    safe = safe.replace(/(^|\n)(&gt;|>)\s*(.+?)(?=(\n\n|\n(?!&gt;|>)|$))/gs, function(match, prefix, qTag, content) {
+    // Cross-browser safe blockquote parsing (replaces /s flag)
+    safe = safe.replace(/(^|\n)(&gt;|>)\s*([\s\S]+?)(?=(\n\n|\n(?!&gt;|>)|$))/g, function(match, prefix, qTag, content) {
         let cleanContent = content.replace(/(^|\n)(&gt;|>)\s*/g, '$1');
         return prefix + `<div class="wa-markdown-quote">${cleanContent}</div>`;
     });
@@ -755,11 +758,21 @@ if (urlParamsCheck.has('t')) {
     const rawToken = urlParamsCheck.get('t').trim();
     if (rawToken.startsWith('SPIDY-')) {
         const fp = generateDeviceFingerprint();
+        
+        // 1. Session store karein 10 din validity ke sath
         localStorage.setItem('spidy_secure_session', JSON.stringify({
             token: rawToken,
             fp: fp,
             expiry: Date.now() + (10 * 24 * 60 * 60 * 1000)
         }));
+
+        // 2. Token modal open rehne par band karein aur value fill karein
+        const tokenModal = document.getElementById('tokenModalOverlay');
+        if (tokenModal) tokenModal.style.display = 'none';
+
+        const tokenInput = document.getElementById('tokenInput');
+        if (tokenInput) tokenInput.value = rawToken;
+
         showToast("Key Verified! 10 Days Access Granted.", "success");
         window.history.replaceState({}, '', window.location.pathname);
     }
@@ -870,7 +883,7 @@ function syncAndSanitizeBookmarks() {
 }
 
 // ==========================================
-// 8. CHANNEL NOTIFICATIONS (Direct Bottom Visibility)
+// 8. CHANNEL NOTIFICATIONS
 // ==========================================
 const chatBody = document.getElementById('chatBody');
 const contextOverlay = document.getElementById('contextOverlay');
@@ -1445,6 +1458,8 @@ async function loadNextBooksBatch() {
         applyMasterFilter(true, newItems);
 
     } catch (err) {
+        // Network error par infinite freeze na ho
+        if (infiniteLoader) infiniteLoader.style.display = 'none';
     } finally {
         isFetchingBooksBatch = false;
         if (!hasMoreBooksToFetch && infiniteLoader) {
@@ -1654,7 +1669,8 @@ function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords
     let matchesCategory = true;
     if (currentSelectedCategory !== "All") {
         let bookExamsString = (book.exams || "").toUpperCase();
-        let keywordsToCheck = EXAM_CATEGORY_MAP[currentSelectedCategory] || [currentSelectedCategory.toUpperCase()];
+        const targetKey = Object.keys(EXAM_CATEGORY_MAP).find(k => k.toLowerCase() === currentSelectedCategory.toLowerCase());
+        let keywordsToCheck = targetKey ? EXAM_CATEGORY_MAP[targetKey] : [currentSelectedCategory.toUpperCase()];
         matchesCategory = keywordsToCheck.some(keyword => bookExamsString.includes(keyword));
     }
 
@@ -1825,7 +1841,6 @@ document.getElementById('open-search')?.addEventListener('click', () => {
     setTimeout(() => { searchInputEl.focus(); }, 300); 
 });
 
-// NOTIFICATION PANEL OPEN: Instant bottom scroll
 document.getElementById('open-noti')?.addEventListener('click', () => { 
     history.pushState({ popup: 'noti' }, ''); 
     document.getElementById('noti-panel').classList.add('active'); 
@@ -2178,7 +2193,7 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
 }
 
 // =========================================================================
-// 14. ULTRA HD VECTOR PDF ENGINE (High Density Crisp Display)
+// 14. ULTRA HD VECTOR PDF ENGINE
 // =========================================================================
 async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     const container = document.getElementById('pdfContainer');
@@ -2308,7 +2323,6 @@ function initVirtualizationObserver(pdf) {
     });
 }
 
-// ULTRA-HD RENDERING
 async function renderSingleHdPage(pdf, pageNum) {
     if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return; 
     renderedPagesMap.set(pageNum, true);
@@ -2808,7 +2822,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. TOKEN VERIFICATION & GET KEY (LOCAL-STORAGE SYNC)
+// 17. TOKEN VERIFICATION & GET KEY
 // ==========================================
 document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
     if (history.state && history.state.popup === 'tokenModal') {
@@ -2822,7 +2836,7 @@ document.getElementById('tokenInput')?.addEventListener('input', () => {
     document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
-// GET KEY HANDLER: Saves session locally to eliminate cross-site URL loss
+// DIRECT IP-BOUND SESSION GENERATOR
 document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('getKeyBtn');
     const originalContent = btn.innerHTML;
@@ -2831,7 +2845,6 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
 
     try {
         const fp = generateDeviceFingerprint();
-        localStorage.setItem('spidy_device_fp', fp);
         
         const sessionRes = await fetch('/api/create-session', {
             method: 'POST',
@@ -2841,11 +2854,9 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
         const sessionData = await sessionRes.json();
 
         if (sessionRes.ok && sessionData.success && sessionData.session) {
-            // Local storage me lock karo
-            localStorage.setItem('spidy_active_session_id', sessionData.session);
-            
-            // Seedha Arolinks par redirect
-            window.location.href = "https://arolinks.com/6RTf5";
+            const sid = sessionData.session;
+            const finalDestination = encodeURIComponent(`https://multiverse-books.vercel.app/api/generate?session=${sid}`);
+            window.location.href = `https://arolinks.com/6RTf5?url=${finalDestination}&session=${encodeURIComponent(sid)}`;
         } else {
             window.location.href = "https://arolinks.com/6RTf5";
         }
