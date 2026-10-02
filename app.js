@@ -165,7 +165,6 @@ function parseMarkdown(rawText) {
         return `<div class="tg-copy-card"><div class="tg-copy-header">${escapeHTML(cardTitle)}</div><div class="tg-copy-body"><ul>${listHtml}</ul></div><button type="button" class="tg-copy-action-btn" data-clipboard="${encodedCopy}"><i class="far fa-copy"></i> COPY CODE</button></div>`;
     });
 
-    // Cross-browser safe blockquote parsing (replaces /s flag)
     safe = safe.replace(/(^|\n)(&gt;|>)\s*([\s\S]+?)(?=(\n\n|\n(?!&gt;|>)|$))/g, function(match, prefix, qTag, content) {
         let cleanContent = content.replace(/(^|\n)(&gt;|>)\s*/g, '$1');
         return prefix + `<div class="wa-markdown-quote">${cleanContent}</div>`;
@@ -1458,7 +1457,6 @@ async function loadNextBooksBatch() {
         applyMasterFilter(true, newItems);
 
     } catch (err) {
-        // Network error par infinite freeze na ho
         if (infiniteLoader) infiniteLoader.style.display = 'none';
     } finally {
         isFetchingBooksBatch = false;
@@ -2836,7 +2834,7 @@ document.getElementById('tokenInput')?.addEventListener('input', () => {
     document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
-// DIRECT IP-BOUND SESSION GENERATOR
+// DIRECT SHORTENER INTEGRATION (Anti-Parameter Drop)
 document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('getKeyBtn');
     const originalContent = btn.innerHTML;
@@ -2855,8 +2853,12 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
 
         if (sessionRes.ok && sessionData.success && sessionData.session) {
             const sid = sessionData.session;
-            const finalDestination = encodeURIComponent(`https://multiverse-books.vercel.app/api/generate?session=${sid}`);
-            window.location.href = `https://arolinks.com/6RTf5?url=${finalDestination}&session=${encodeURIComponent(sid)}`;
+            
+            // Clean destination URL: Shorteners do not strip simple query parameter syntax
+            const destinationUrl = `https://multiverse-books.vercel.app/api/generate?s=${encodeURIComponent(sid)}`;
+            const finalDestination = encodeURIComponent(destinationUrl);
+            
+            window.location.href = `https://arolinks.com/6RTf5?url=${finalDestination}`;
         } else {
             window.location.href = "https://arolinks.com/6RTf5";
         }
@@ -3100,7 +3102,6 @@ document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
     }
 });
 
-// EXACT FAST PAGE COUNT PARSER
 document.getElementById('filePdfSelect')?.addEventListener('change', async (e) => {
     if (e.target.files && e.target.files.length > 0) {
         selectedPdfFile = e.target.files[0];
@@ -3152,7 +3153,6 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
     }
 });
 
-// MULTI-RETRY WORKER PIPELINE
 function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRetries = 4) {
     return new Promise((resolve, reject) => {
         let attempts = 0;
@@ -3284,7 +3284,6 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     return true;
 }
 
-// Add Book Form Handler
 document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
