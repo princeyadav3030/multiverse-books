@@ -1,40 +1,59 @@
 const { db } = require('../utils/firebaseAdmin');
 const { v4: uuidv4 } = require('uuid');
-const crypto = require('crypto');
+
+// Helper to extract cookie from request
+function getCookie(req, name) {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  const { session, sig, ts } = req.query;
-  const referer = (req.headers['referer'] || req.headers['referrer'] || '').toLowerCase();
-  const SECRET = process.env.SHORTLINK_AUTH_SECRET || "SPIDY_BYPASS_SHIELD_99";
+  // Session ID query se pick karein (chahe session ho ya sid)
+  const sessionId = req.query.session || req.query.sid;
+  const cookieSecret = getCookie(req, 'spidy_handshake');
+  const now = Date.now();
 
-  // Validate Handshake Parameters
-  let isValidHandshake = false;
+  let isAuthorized = false;
+  let rejectionReason = "Direct Generation Blocked";
+  let sessionDocRef = null;
 
-  if (session && sig && ts) {
-    const timeDiff = Date.now() - Number(ts);
-    // 10 minutes (600,000 ms) expiry window
-    if (timeDiff >= 0 && timeDiff <= 600000) {
-      const expectedSig = crypto
-        .createHmac('sha256', SECRET)
-        .update(`${session}_${ts}`)
-        .digest('hex');
+  if (sessionId) {
+    sessionDocRef = db.collection('pending_sessions').doc(sessionId);
+    const sessionSnap = await sessionDocRef.get();
 
-      if (crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) {
-        isValidHandshake = true;
+    if (sessionSnap.exists) {
+      const data = sessionSnap.data();
+
+      // Check 1: Kya user usi browser me aaya hai? (Cookie match)
+      const isCookieValid = cookieSecret && (cookieSecret === data.secretKey);
+
+      // Check 2: Kya ads flow me kam se kam 35 seconds lage? (Anti-Fast Bypass)
+      const isTimeSatisfied = now >= (data.unlocksAt || 0);
+
+      // Check 3: Kya session expired ya consumed toh nahi hai?
+      const isNotExpired = now <= data.expiresAt;
+      const isNotConsumed = data.consumed === false;
+
+      if (!isCookieValid) {
+        rejectionReason = "Unauthorized Browser: Please complete the ads in the same browser where you started.";
+      } else if (!isTimeSatisfied) {
+        rejectionReason = "Bypass Detected: Ad verification steps were completed suspiciously fast.";
+      } else if (!isNotConsumed || !isNotExpired) {
+        rejectionReason = "Expired Link: This verification link has already been used or expired.";
+      } else {
+        isAuthorized = true;
       }
     }
   }
 
-  // Allow verified handshake OR valid shortener referrer
-  const isAuthorizedAccess = isValidHandshake || 
-    referer.includes('arolinks') || 
-    referer.includes('droplink');
-
-  if (!isAuthorizedAccess) {
+  // Agar unauthorized, direct copy ya bypass hit hua to 403 page render karein
+  if (!isAuthorized) {
     res.setHeader('Content-Type', 'text/html');
     return res.status(403).send(`
       <!DOCTYPE html>
@@ -277,7 +296,8 @@ module.exports = async function handler(req, res) {
           <h1 class="card-title">Direct Generation Blocked</h1>
 
           <p class="card-desc">
-            Directly opening or copying the generator link is prohibited. Please click <span>'Get Key'</span> on the website and complete verification.
+            ${rejectionReason}<br><br>
+            Please click <span>'Get Key'</span> on the official website and complete all verification steps properly.
           </p>
 
           <div class="btn-group">
@@ -298,23 +318,36 @@ module.exports = async function handler(req, res) {
     `);
   }
 
-  // Generate Unique Token
+  // 1. Session ko turant Burn (Consume) karein taaki dobara koi reuse na kar sake
+  await sessionDocRef.update({
+    consumed: true,
+    consumedAt: now
+  });
+
+  // 2. 10 Days ke liye unique token issue karein
   const token = 'SPIDY-' + uuidv4().substring(0, 8).toUpperCase();
-  const expiresAt = Date.now() + (10 * 24 * 60 * 60 * 1000); // 10 Days
+  const expiresAt = now + (10 * 24 * 60 * 60 * 1000);
 
   try {
     await db.collection('tokens').doc(token).set({
       token: token,
       used: false,
-      createdAt: Date.now(),
+      createdAt: now,
       expiresAt: expiresAt,
       deviceBound: null,
       isActivated: false,
-      source: 'website',
-      boundSession: session || 'direct_flow'
+      source: 'shortlink_verified',
+      boundSession: sessionId
     });
 
+    // 3. Handshake cookie ko expire karein
+    res.setHeader('Set-Cookie', [
+      'spidy_handshake=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure'
+    ]);
+
+    // 4. Token ke sath homepage par redirect karein
     return res.redirect(`/?t=${token}`);
+
   } catch (err) {
     console.error("Token Generation Error:", err);
     return res.status(500).send("Database Error: Failed to issue token.");
