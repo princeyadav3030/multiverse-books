@@ -1,22 +1,17 @@
 const { db } = require('../utils/firebaseAdmin');
 const { v4: uuidv4 } = require('uuid');
 
-// Helper to extract cookie from request
-function getCookie(req, name) {
-  const cookieHeader = req.headers.cookie;
-  if (!cookieHeader) return null;
-  const match = cookieHeader.match(new RegExp('(^| )' + name + '=([^;]+)'));
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // Session ID query se pick karein (chahe session ho ya sid)
+  // Session ID query parameter se capture karein
   const sessionId = req.query.session || req.query.sid;
-  const cookieSecret = getCookie(req, 'spidy_handshake');
+  
+  // Real Client IP capture karein
+  const currentIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                    req.socket?.remoteAddress || 'unknown';
   const now = Date.now();
 
   let isAuthorized = false;
@@ -30,18 +25,18 @@ module.exports = async function handler(req, res) {
     if (sessionSnap.exists) {
       const data = sessionSnap.data();
 
-      // Check 1: Kya user usi browser me aaya hai? (Cookie match)
-      const isCookieValid = cookieSecret && (cookieSecret === data.secretKey);
+      // Check 1: IP ya Network validation (Anti-Link Share)
+      const isDeviceValid = (data.clientIp === currentIp) || (data.clientIp === 'unknown');
 
-      // Check 2: Kya ads flow me kam se kam 35 seconds lage? (Anti-Fast Bypass)
+      // Check 2: Minimum 12 seconds time-delay (Fast bot & instant script block)
       const isTimeSatisfied = now >= (data.unlocksAt || 0);
 
-      // Check 3: Kya session expired ya consumed toh nahi hai?
+      // Check 3: Expiry & Single-use Burn check
       const isNotExpired = now <= data.expiresAt;
       const isNotConsumed = data.consumed === false;
 
-      if (!isCookieValid) {
-        rejectionReason = "Unauthorized Browser: Please complete the ads in the same browser where you started.";
+      if (!isDeviceValid) {
+        rejectionReason = "Unauthorized Device: Please complete verification on the same network or device.";
       } else if (!isTimeSatisfied) {
         rejectionReason = "Bypass Detected: Ad verification steps were completed suspiciously fast.";
       } else if (!isNotConsumed || !isNotExpired) {
@@ -49,10 +44,12 @@ module.exports = async function handler(req, res) {
       } else {
         isAuthorized = true;
       }
+    } else {
+      rejectionReason = "Invalid Session: Session does not exist or was cleared.";
     }
   }
 
-  // Agar unauthorized, direct copy ya bypass hit hua to 403 page render karein
+  // Agar unauthorized, direct copy ya bypass attempt ho to block screen dikhayein
   if (!isAuthorized) {
     res.setHeader('Content-Type', 'text/html');
     return res.status(403).send(`
@@ -318,7 +315,7 @@ module.exports = async function handler(req, res) {
     `);
   }
 
-  // 1. Session ko turant Burn (Consume) karein taaki dobara koi reuse na kar sake
+  // 1. Session ko turant Burn (Consume) karein taaki link dubara reuse na ho sake
   await sessionDocRef.update({
     consumed: true,
     consumedAt: now
@@ -340,12 +337,7 @@ module.exports = async function handler(req, res) {
       boundSession: sessionId
     });
 
-    // 3. Handshake cookie ko expire karein
-    res.setHeader('Set-Cookie', [
-      'spidy_handshake=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure'
-    ]);
-
-    // 4. Token ke sath homepage par redirect karein
+    // 3. User ko token ke sath homepage par redirect kar dein
     return res.redirect(`/?t=${token}`);
 
   } catch (err) {
