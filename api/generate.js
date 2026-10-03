@@ -27,11 +27,10 @@ module.exports = async function handler(req, res) {
     <style>
         :root {
             --bg-base: #060709;
-            --card-surface: rgba(15, 23, 42, 0.78);
-            --border-glow: rgba(16, 185, 129, 0.22);
+            --card-surface: rgba(15, 23, 42, 0.72);
+            --border-glow: rgba(255, 255, 255, 0.08);
             --neon-emerald: #10b981;
             --neon-cyan: #06b6d4;
-            --glow-color: rgba(16, 185, 129, 0.35);
             --text-main: #ffffff;
             --text-muted: #94a3b8;
         }
@@ -57,12 +56,12 @@ module.exports = async function handler(req, res) {
             overflow-x: hidden;
         }
 
-        /* Ambient Cyan/Emerald Glow */
+        /* Ambient Cyan/Emerald Soft Glow */
         .ambient-glow {
             position: absolute;
-            width: 360px;
-            height: 360px;
-            background: radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, rgba(6, 182, 212, 0.08) 50%, transparent 70%);
+            width: 340px;
+            height: 340px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, rgba(6, 182, 212, 0.05) 50%, transparent 70%);
             border-radius: 50%;
             filter: blur(85px);
             pointer-events: none;
@@ -74,8 +73,8 @@ module.exports = async function handler(req, res) {
             position: absolute;
             inset: 0;
             background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
             background-size: 28px 28px;
             mask-image: radial-gradient(circle at center, black 40%, transparent 80%);
             -webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 80%);
@@ -83,7 +82,7 @@ module.exports = async function handler(req, res) {
             z-index: 0;
         }
 
-        /* Main Card */
+        /* Main Card - Top quote/strip removed completely */
         .auth-card {
             position: relative;
             z-index: 1;
@@ -93,13 +92,12 @@ module.exports = async function handler(req, res) {
             backdrop-filter: blur(28px);
             -webkit-backdrop-filter: blur(28px);
             border: 1px solid var(--border-glow);
-            border-radius: 28px;
-            padding: 32px 22px 24px;
+            border-radius: 26px;
+            padding: 30px 22px 24px;
             text-align: center;
             box-shadow: 
                 0 25px 50px -12px rgba(0, 0, 0, 0.95),
-                0 0 35px rgba(16, 185, 129, 0.08),
-                inset 0 1px 1px rgba(255, 255, 255, 0.12);
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
             animation: cardFadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -108,40 +106,20 @@ module.exports = async function handler(req, res) {
             100% { transform: scale(1) translateY(0); opacity: 1; }
         }
 
-        /* Top Glowing Neon Sweep Line */
-        .auth-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-emerald), #0ea5e9, var(--neon-emerald), var(--neon-cyan));
-            background-size: 200% 100%;
-            animation: gradient-sweep 3.5s linear infinite;
-            border-top-left-radius: 28px;
-            border-top-right-radius: 28px;
-        }
-
-        @keyframes gradient-sweep {
-            0% { background-position: 0% 0; }
-            100% { background-position: 200% 0; }
-        }
-
-        /* Cyber Hexagon Rotating Icon (Matching Image 2 Design in Emerald) */
+        /* Cyber Hexagon Rotating Icon */
         .icon-hex {
-            width: 68px;
-            height: 68px;
-            margin: 0 auto 16px;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1.5px solid rgba(16, 185, 129, 0.45);
+            width: 66px;
+            height: 66px;
+            margin: 0 auto 15px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1.5px solid rgba(16, 185, 129, 0.38);
             border-radius: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: var(--neon-emerald);
-            font-size: 26px;
-            box-shadow: 0 0 22px var(--glow-color);
+            font-size: 24px;
+            box-shadow: 0 0 18px rgba(16, 185, 129, 0.22);
             position: relative;
         }
 
@@ -150,7 +128,7 @@ module.exports = async function handler(req, res) {
             position: absolute;
             inset: -4px;
             border-radius: 24px;
-            border: 1.5px dashed rgba(6, 182, 212, 0.5);
+            border: 1px dashed rgba(6, 182, 212, 0.45);
             animation: rotatePerimeter 16s linear infinite;
         }
 
@@ -165,9 +143,9 @@ module.exports = async function handler(req, res) {
             font-size: 11px;
             font-weight: 700;
             color: var(--neon-emerald);
-            background: rgba(16, 185, 129, 0.12);
-            border: 1px solid rgba(16, 185, 129, 0.32);
-            padding: 4px 14px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.28);
+            padding: 3px 12px;
             border-radius: 20px;
             letter-spacing: 0.8px;
             margin-bottom: 12px;
@@ -179,18 +157,18 @@ module.exports = async function handler(req, res) {
             font-weight: 800;
             letter-spacing: -0.3px;
             color: #ffffff;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .card-subtitle {
             font-size: 13px;
             color: var(--text-muted);
-            margin-bottom: 22px;
+            margin-bottom: 20px;
             line-height: 1.5;
-            padding: 0 4px;
+            padding: 0 6px;
         }
 
-        /* Key Input Box (Strictly bounded so long tokens never overflow) */
+        /* Attractive, Highly Professional Key Display Container */
         .key-wrapper {
             position: relative;
             width: 100%;
@@ -199,9 +177,9 @@ module.exports = async function handler(req, res) {
 
         .key-display-box {
             width: 100%;
-            min-height: 58px;
-            background: rgba(0, 0, 0, 0.55);
-            border: 1px solid rgba(16, 185, 129, 0.28);
+            min-height: 56px;
+            background: linear-gradient(180deg, rgba(3, 7, 18, 0.75) 0%, rgba(10, 15, 29, 0.6) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.24);
             border-radius: 14px;
             padding: 12px 14px;
             color: #34d399;
@@ -211,9 +189,9 @@ module.exports = async function handler(req, res) {
             letter-spacing: 1.5px;
             outline: none;
             text-align: center;
-            box-shadow: inset 0 3px 12px rgba(0, 0, 0, 0.75);
-            
-            /* Responsive Wrapping */
+            box-shadow: 
+                inset 0 2px 8px rgba(0, 0, 0, 0.8),
+                0 0 15px rgba(16, 185, 129, 0.05);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -221,7 +199,7 @@ module.exports = async function handler(req, res) {
             white-space: normal;
             line-height: 1.4;
             user-select: all;
-            transition: border-color 0.2s ease;
+            transition: all 0.2s ease;
         }
 
         .key-display-box.empty {
@@ -229,6 +207,8 @@ module.exports = async function handler(req, res) {
             font-weight: 600;
             letter-spacing: 0.8px;
             font-size: 14px;
+            border-color: rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.45);
         }
 
         /* Action Buttons */
@@ -236,25 +216,26 @@ module.exports = async function handler(req, res) {
             display: flex;
             flex-direction: column;
             gap: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
 
+        /* Controlled, Balanced Button Glow */
         .btn-copy {
             width: 100%;
-            padding: 14px;
+            padding: 13px;
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: #ffffff;
             font-size: 14px;
             font-weight: 700;
             border: none;
-            border-radius: 14px;
+            border-radius: 13px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 9px;
-            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
-            transition: transform 0.15s ease, opacity 0.15s ease;
+            gap: 8px;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+            transition: transform 0.15s ease, opacity 0.15s ease, background 0.2s ease;
         }
 
         .btn-copy:active {
@@ -264,7 +245,7 @@ module.exports = async function handler(req, res) {
 
         .btn-copy.copied {
             background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-            box-shadow: 0 8px 24px rgba(6, 182, 212, 0.4);
+            box-shadow: 0 4px 14px rgba(6, 182, 212, 0.25);
         }
 
         .btn-support {
@@ -273,14 +254,14 @@ module.exports = async function handler(req, res) {
             justify-content: center;
             gap: 8px;
             width: 100%;
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.04);
+            padding: 11px;
+            background: rgba(255, 255, 255, 0.035);
             color: var(--text-muted);
             font-size: 13px;
             font-weight: 600;
             text-decoration: none;
-            border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 13px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
             transition: all 0.15s ease;
         }
 
@@ -290,23 +271,23 @@ module.exports = async function handler(req, res) {
             transform: scale(0.97);
         }
 
-        /* Warning Box */
+        /* Warning Advisory Box */
         .warning-box {
-            background: rgba(244, 63, 94, 0.07);
-            border: 1px solid rgba(244, 63, 94, 0.18);
-            border-left: 4px solid #f43f5e;
-            border-radius: 12px;
-            padding: 13px 14px;
+            background: rgba(244, 63, 94, 0.06);
+            border: 1px solid rgba(244, 63, 94, 0.16);
+            border-left: 3.5px solid #f43f5e;
+            border-radius: 11px;
+            padding: 12px 14px;
             display: flex;
             align-items: flex-start;
-            gap: 11px;
+            gap: 10px;
             text-align: left;
-            margin-bottom: 18px;
+            margin-bottom: 20px;
         }
 
         .warning-box i {
             color: #f43f5e;
-            font-size: 15px;
+            font-size: 14px;
             margin-top: 2px;
         }
 
@@ -317,17 +298,18 @@ module.exports = async function handler(req, res) {
             font-weight: 500;
         }
 
-        /* Card Footer */
+        /* Restored Original Clean Footer Spacing */
         .card-footer {
-            padding-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.07);
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 16px;
+            gap: 20px;
             font-size: 11px;
             color: #64748b;
             font-weight: 600;
+            letter-spacing: 0.3px;
         }
 
         .card-footer span {
@@ -338,6 +320,7 @@ module.exports = async function handler(req, res) {
 
         .card-footer i {
             color: var(--neon-emerald);
+            font-size: 12px;
         }
     </style>
 </head>
@@ -378,6 +361,7 @@ module.exports = async function handler(req, res) {
             <p>This Auth Key is specifically generated for your current device and will only function on it. If you try to use this key on any other device, it will be rejected.</p>
         </div>
 
+        <!-- Clean Footer -->
         <div class="card-footer">
             <span><i class="far fa-clock"></i> Valid for 10 Days</span>
             <span><i class="fas fa-shield-halved"></i> Secure Gateway</span>
