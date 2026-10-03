@@ -32,6 +32,7 @@ module.exports = async function handler(req, res) {
             --neon-cyan: #06b6d4;
             --neon-blue: #3b82f6;
             --neon-purple: #8b5cf6;
+            --neon-red: #ef4444;
             --text-main: #ffffff;
             --text-muted: #94a3b8;
         }
@@ -81,7 +82,7 @@ module.exports = async function handler(req, res) {
             z-index: 0;
         }
 
-        /* Compact, Highly Focused Frame */
+        /* Compact & Balanced Card */
         .auth-card {
             position: relative;
             z-index: 1;
@@ -108,17 +109,17 @@ module.exports = async function handler(req, res) {
 
         /* Rotating Hexagon Icon */
         .icon-hex {
-            width: 60px;
-            height: 60px;
-            margin: 0 auto 14px;
+            width: 58px;
+            height: 58px;
+            margin: 0 auto 12px;
             background: rgba(16, 185, 129, 0.09);
             border: 1.5px solid rgba(16, 185, 129, 0.4);
-            border-radius: 18px;
+            border-radius: 17px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: var(--neon-emerald);
-            font-size: 22px;
+            font-size: 21px;
             box-shadow: 0 0 18px rgba(16, 185, 129, 0.22);
             position: relative;
         }
@@ -127,13 +128,45 @@ module.exports = async function handler(req, res) {
             content: '';
             position: absolute;
             inset: -4px;
-            border-radius: 22px;
+            border-radius: 21px;
             border: 1.5px dashed rgba(6, 182, 212, 0.45);
             animation: rotatePerimeter 16s linear infinite;
         }
 
         @keyframes rotatePerimeter {
             100% { transform: rotate(360deg); }
+        }
+
+        /* Dynamic Status Badge (Green/Red) */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            letter-spacing: 0.8px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            transition: all 0.25s ease;
+        }
+
+        /* Green Badge - Key Generated */
+        .status-badge.green {
+            color: var(--neon-emerald);
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+        }
+
+        /* Red Badge - No Key Generated / Error */
+        .status-badge.red {
+            color: var(--neon-red);
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.15);
         }
 
         .card-title {
@@ -147,11 +180,11 @@ module.exports = async function handler(req, res) {
         .card-subtitle {
             font-size: 12px;
             color: var(--text-muted);
-            margin-bottom: 16px;
+            margin-bottom: 15px;
             line-height: 1.4;
         }
 
-        /* Attractive, Bounded Key Console Box */
+        /* Key Console Box */
         .key-wrapper {
             position: relative;
             width: 100%;
@@ -199,7 +232,7 @@ module.exports = async function handler(req, res) {
             background: rgba(239, 68, 68, 0.06);
         }
 
-        /* Buttons Stack with Cohesive Colors */
+        /* Unified Color Buttons */
         .btn-stack {
             display: flex;
             flex-direction: column;
@@ -207,7 +240,6 @@ module.exports = async function handler(req, res) {
             margin-bottom: 15px;
         }
 
-        /* 1. Copy Key - Neon Emerald */
         .btn-copy {
             width: 100%;
             padding: 12px 14px;
@@ -236,7 +268,6 @@ module.exports = async function handler(req, res) {
             box-shadow: 0 4px 14px rgba(6, 182, 212, 0.3);
         }
 
-        /* 2. Homepage - Electric Blue */
         .btn-home {
             display: flex;
             align-items: center;
@@ -260,7 +291,6 @@ module.exports = async function handler(req, res) {
             opacity: 0.9;
         }
 
-        /* 3. Support - Cyber Purple Gradient */
         .btn-support {
             display: flex;
             align-items: center;
@@ -317,13 +347,13 @@ module.exports = async function handler(req, res) {
             font-weight: 500;
         }
 
-        /* Footer Aligned to Left and Right Corners */
+        /* Footer Aligned to Left & Right Corners */
         .card-footer {
             padding-top: 13px;
             border-top: 1px solid rgba(255, 255, 255, 0.06);
             display: flex;
             align-items: center;
-            justify-content: space-between; /* Left and Right Spacing */
+            justify-content: space-between;
             padding-left: 4px;
             padding-right: 4px;
             font-size: 11px;
@@ -352,6 +382,12 @@ module.exports = async function handler(req, res) {
         <!-- Rotating Hexagon Logo -->
         <div class="icon-hex">
             <i class="fas fa-key"></i>
+        </div>
+
+        <!-- Dynamic Status Badge -->
+        <div class="status-badge ${displayKey ? 'green' : 'red'}" id="statusBadge">
+            <i class="${displayKey ? 'fas fa-check-circle' : 'fas fa-circle-exclamation'}"></i>
+            <span>${displayKey ? 'KEY GENERATED' : 'NO KEY GENERATED'}</span>
         </div>
 
         <h1 class="card-title">Your Authentication Key</h1>
@@ -393,10 +429,14 @@ module.exports = async function handler(req, res) {
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const authKeyContainer = document.getElementById('authKeyContainer');
+            const statusBadge = document.getElementById('statusBadge');
+            const badgeText = statusBadge.querySelector('span');
+            const badgeIcon = statusBadge.querySelector('i');
             const copyBtn = document.getElementById('copyBtn');
             const btnText = copyBtn.querySelector('span');
             const btnIcon = copyBtn.querySelector('i');
 
+            // MINIMUM AD TIME IN SECONDS
             const MIN_AD_TIME_SECONDS = 15;
 
             let key = "${displayKey}";
@@ -412,6 +452,10 @@ module.exports = async function handler(req, res) {
                     if (elapsedSeconds < MIN_AD_TIME_SECONDS) {
                         authKeyContainer.innerText = 'Verification Incomplete! Please complete ads.';
                         authKeyContainer.classList.add('blocked');
+                        
+                        statusBadge.className = 'status-badge red';
+                        badgeIcon.className = 'fas fa-triangle-exclamation';
+                        badgeText.innerText = 'VERIFICATION INCOMPLETE';
                         return;
                     } else if (elapsedSeconds <= (15 * 60)) {
                         key = pending;
@@ -422,9 +466,19 @@ module.exports = async function handler(req, res) {
             if (key) {
                 authKeyContainer.innerText = key;
                 authKeyContainer.classList.remove('empty', 'blocked');
+
+                // Green State: Key Generated
+                statusBadge.className = 'status-badge green';
+                badgeIcon.className = 'fas fa-check-circle';
+                badgeText.innerText = 'KEY GENERATED';
             } else {
                 authKeyContainer.innerText = 'No Key Generated';
                 authKeyContainer.classList.add('empty');
+
+                // Red State: No Key Generated
+                statusBadge.className = 'status-badge red';
+                badgeIcon.className = 'fas fa-circle-exclamation';
+                badgeText.innerText = 'NO KEY GENERATED';
             }
 
             copyBtn.addEventListener('click', () => {
