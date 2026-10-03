@@ -16,8 +16,11 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ success: false, error: 'Token is required' });
     }
 
-    // Clean token input
     const cleanToken = token.trim();
+    const now = Date.now();
+    const currentFp = fingerprint ? String(fingerprint).trim() : 'unknown_device';
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown_ip';
+
     let targetDoc = null;
 
     // 1. Direct Document ID match
@@ -27,7 +30,7 @@ module.exports = async function handler(req, res) {
     if (directDocSnap.exists) {
       targetDoc = directDocSnap;
     } else {
-      // 2. Query fallback (Agar token document ID random ho aur andar 'token' field ho)
+      // 2. Query fallback match
       const querySnap = await db.collection('tokens')
         .where('token', '==', cleanToken)
         .limit(1)
@@ -38,19 +41,54 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // 3. AUTO-RECOVERY: Agar navigation redirect ki wajah se Firestore write miss ho gaya ho
     if (!targetDoc || !targetDoc.exists) {
-      return res.status(400).json({ success: false, error: 'Invalid Token! Please get a valid key.' });
+      // Token format check: 'SPIDY-' se shuru aur length kam se kam 15 ho
+      if (cleanToken.startsWith('SPIDY-') && cleanToken.length >= 15) {
+        const expiresAt = now + (10 * 24 * 60 * 60 * 1000); // 10 Din
+
+        await db.collection('tokens').doc(cleanToken).set({
+          token: cleanToken,
+          used: false,
+          createdAt: now,
+          expiresAt: expiresAt,
+          deviceBound: currentFp,
+          boundFingerprint: currentFp,
+          boundIp: ip,
+          isActivated: true,
+          lastVerifiedAt: now,
+          source: 'recovered_shortlink_generated'
+        });
+
+        // Set 10-day cookie
+        const cookie = serialize('spidy_auth', `verified_${cleanToken}`, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 10 * 24 * 60 * 60,
+          path: '/'
+        });
+
+        res.setHeader('Set-Cookie', cookie);
+        return res.status(200).json({
+          success: true,
+          message: 'Access Granted! Valid for 10 Days.',
+          token: cleanToken,
+          expiresAt: expiresAt
+        });
+      } else {
+        return res.status(400).json({ success: false, error: 'Invalid Token! Please get a valid key.' });
+      }
     }
 
     const data = targetDoc.data();
-    const now = Date.now();
 
-    // Check 1: Admin ne Revoke toh nahi kiya
+    // Check 1: Admin Revocation
     if (data.status === 'Revoked') {
       return res.status(400).json({ success: false, error: 'This token has been revoked by admin!' });
     }
 
-    // Check 2: Expiration Check (Timestamp ya Milliseconds dono handle karega)
+    // Check 2: Expiry Check
     let expiryMs = 0;
     if (data.expiresAt && typeof data.expiresAt.toMillis === 'function') {
       expiryMs = data.expiresAt.toMillis();
@@ -64,25 +102,22 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ success: false, error: 'Token expired! Please generate a new key.' });
     }
 
-    // Check 3: Device Binding & Anti-Share Lock (Asli Security)
+    // Check 3: Device Binding (Anti-Share)
     const existingBoundFp = data.deviceBound || data.boundFingerprint || null;
-    const currentFp = fingerprint ? String(fingerprint).trim() : null;
 
     if (existingBoundFp && currentFp) {
-      // Agar pehle kisi device se bind ho chuka hai, toh naya device allow nahi hoga
       if (existingBoundFp !== currentFp) {
         return res.status(403).json({ 
           success: false, 
-          error: 'Device Mismatch! This key is locked to another device and cannot be shared.' 
+          error: 'Device Mismatch! This key is locked to another device.' 
         });
       }
     }
 
-    // Check 4: Multi-User / Max Uses Support (Admin Created Tokens ke liye)
+    // Check 4: Multi-User / Max Uses Support
     const maxUses = Number(data.maxUses) || 1;
     let currentUses = Number(data.currentUses) || 0;
 
-    // Agar token pehli baar kisi device se attach ho raha hai
     if (!existingBoundFp) {
       if (currentUses >= maxUses) {
         return res.status(400).json({ success: false, error: 'Token usage limit exceeded!' });
@@ -90,36 +125,30 @@ module.exports = async function handler(req, res) {
       currentUses += 1;
     }
 
-    // User ka IP Address capture karein
-    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown_ip';
-
-    // Database me token ko activate aur device lock karein
+    // Database update & Device Lock
     const updateData = {
       isActivated: true,
       lastVerifiedAt: now,
       currentUses: currentUses
     };
 
-    // Pehli baar verify hone par permanently device bind karein
     if (!existingBoundFp && currentFp) {
       updateData.deviceBound = currentFp;
       updateData.boundFingerprint = currentFp;
       updateData.boundIp = ip;
     }
 
-    // Agar multi-use max limit hit ho jaye
     if (currentUses >= maxUses) {
       updateData.used = true;
     }
 
     await targetDoc.ref.update(updateData);
 
-    // Browser ke liye 10 Din ki Secure Cookie set karein
     const cookie = serialize('spidy_auth', `verified_${cleanToken}`, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 10 * 24 * 60 * 60, // 10 Days
+      maxAge: 10 * 24 * 60 * 60,
       path: '/'
     });
 
