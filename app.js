@@ -707,7 +707,7 @@ function initCommunityDualPopup() {
                 isJoiningIG = false;
                 if (igStatus) {
                     igStatus.classList.add('completed');
-                    tgStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
+                    igStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
                 }
                 checkAndComplete();
             }, 6000);
@@ -1910,7 +1910,8 @@ document.getElementById('menu-home-side')?.addEventListener('click', (e) => {
     document.getElementById('mainContentArea')?.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
-document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => { 
+document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => 
+{ 
     e.preventDefault(); 
     history.pushState({ popup: 'bookmarks' }, ''); 
     document.getElementById('bookmarks-panel').classList.add('active'); 
@@ -2840,37 +2841,40 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     btn.style.pointerEvents = 'none';
 
     try {
-        // 1. Generate unique random 16-character alphanumeric key
+        // 1. Ek unique 16-character alphanumeric key generate karein
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let rawCode = 'SPIDY-';
         for (let i = 0; i < 16; i++) {
             rawCode += chars.charAt(Math.floor(Math.random() * chars.length));
         }
 
-        // 2. Firestore me seedha new token save karein 10 din validity ke sath
+        // 2. Token ko Firebase Firestore me register karein 10 din validity ke sath
         const now = Date.now();
-        const expiresAt = now + (10 * 24 * 60 * 60 * 1000); // 10 Days
+        const expiresAt = now + (10 * 24 * 60 * 60 * 1000); // 10 Din
         
         await setDoc(doc(db, "tokens", rawCode), {
             token: rawCode,
             used: false,
             createdAt: now,
             expiresAt: expiresAt,
-            deviceBound: null, // First verify dabane par lock hoga
+            deviceBound: null, // First verification par lock hoga
             isActivated: true,
             source: 'shortlink_generated'
         });
 
-        // 3. Final Destination URL banayein jisme code shamil ho
+        // 3. User ke browser ke localStorage me key save karein
+        localStorage.setItem('spidy_pending_generated_key', rawCode);
+        localStorage.setItem('spidy_pending_key_time', now.toString());
+
+        // 4. Final Destination URL banayein jisme code shamil ho
         const destinationUrl = `https://multiverse-books.vercel.app/api/generate?code=${encodeURIComponent(rawCode)}`;
         const finalRedirect = encodeURIComponent(destinationUrl);
 
-        // 4. Arolinks shortener ke sath user ko redirect karein
+        // 5. Arolinks shortener ke sath user ko redirect karein
         window.location.href = `https://arolinks.com/6RTf5?url=${finalRedirect}`;
 
     } catch (e) {
         console.error("Key Setup Error:", e);
-        // Fallback agar Firestore network slow ho
         window.location.href = "https://arolinks.com/6RTf5";
     } finally {
         setTimeout(() => {
@@ -2908,6 +2912,10 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
             inputBox.classList.add('success-state');
             showToast('Access Granted! Valid for 10 Days.', 'success');
             
+            // Pending session key clear kar dein verify hote hi
+            localStorage.removeItem('spidy_pending_generated_key');
+            localStorage.removeItem('spidy_pending_key_time');
+
             localStorage.setItem('spidy_secure_session', JSON.stringify({
                 token: tokenValue,
                 fp: currentFingerprint,
