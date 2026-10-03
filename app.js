@@ -707,7 +707,7 @@ function initCommunityDualPopup() {
                 isJoiningIG = false;
                 if (igStatus) {
                     igStatus.classList.add('completed');
-                    igStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
+                    tgStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
                 }
                 checkAndComplete();
             }, 6000);
@@ -758,14 +758,12 @@ if (urlParamsCheck.has('t')) {
     if (rawToken.startsWith('SPIDY-')) {
         const fp = generateDeviceFingerprint();
         
-        // 1. Session store karein 10 din validity ke sath
         localStorage.setItem('spidy_secure_session', JSON.stringify({
             token: rawToken,
             fp: fp,
             expiry: Date.now() + (10 * 24 * 60 * 60 * 1000)
         }));
 
-        // 2. Token modal open hone par band karein aur value fill karein
         const tokenModal = document.getElementById('tokenModalOverlay');
         if (tokenModal) tokenModal.style.display = 'none';
 
@@ -2834,7 +2832,7 @@ document.getElementById('tokenInput')?.addEventListener('input', () => {
     document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
-// ZERO-DROPPED-PARAM SHORTENER TRIGGER
+// GET KEY HANDSHAKE (Generates client-side unique key & binds to target shortener)
 document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('getKeyBtn');
     const originalContent = btn.innerHTML;
@@ -2842,19 +2840,37 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     btn.style.pointerEvents = 'none';
 
     try {
-        const fp = generateDeviceFingerprint();
+        // 1. Generate unique random 16-character alphanumeric key
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let rawCode = 'SPIDY-';
+        for (let i = 0; i < 16; i++) {
+            rawCode += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+
+        // 2. Firestore me seedha new token save karein 10 din validity ke sath
+        const now = Date.now();
+        const expiresAt = now + (10 * 24 * 60 * 60 * 1000); // 10 Days
         
-        // 1. Session request trigger karein (IP & Subnet server par pending session me lock ho jata hai)
-        await fetch('/api/create-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fingerprint: fp })
+        await setDoc(doc(db, "tokens", rawCode), {
+            token: rawCode,
+            used: false,
+            createdAt: now,
+            expiresAt: expiresAt,
+            deviceBound: null, // First verify dabane par lock hoga
+            isActivated: true,
+            source: 'shortlink_generated'
         });
 
-        // 2. Shortener ke fixed clean URL par bhejein (Parameters cut hone ka jhanjhat khatam)
-        window.location.href = "https://arolinks.com/6RTf5";
+        // 3. Final Destination URL banayein jisme code shamil ho
+        const destinationUrl = `https://multiverse-books.vercel.app/api/generate?code=${encodeURIComponent(rawCode)}`;
+        const finalRedirect = encodeURIComponent(destinationUrl);
+
+        // 4. Arolinks shortener ke sath user ko redirect karein
+        window.location.href = `https://arolinks.com/6RTf5?url=${finalRedirect}`;
 
     } catch (e) {
+        console.error("Key Setup Error:", e);
+        // Fallback agar Firestore network slow ho
         window.location.href = "https://arolinks.com/6RTf5";
     } finally {
         setTimeout(() => {
