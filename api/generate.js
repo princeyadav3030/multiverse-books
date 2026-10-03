@@ -26,10 +26,12 @@ module.exports = async function handler(req, res) {
     <style>
         :root {
             --bg-base: #060709;
-            --card-surface: rgba(18, 20, 29, 0.85);
-            --border-glow: rgba(16, 185, 129, 0.25);
+            --card-surface: rgba(16, 18, 27, 0.88);
+            --border-glow: rgba(16, 185, 129, 0.22);
             --neon-emerald: #10b981;
             --neon-cyan: #06b6d4;
+            --neon-blue: #3b82f6;
+            --neon-purple: #8b5cf6;
             --text-main: #ffffff;
             --text-muted: #94a3b8;
         }
@@ -59,7 +61,7 @@ module.exports = async function handler(req, res) {
             position: absolute;
             width: 320px;
             height: 320px;
-            background: radial-gradient(circle, rgba(16, 185, 129, 0.14) 0%, rgba(6, 182, 212, 0.04) 50%, transparent 70%);
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, rgba(6, 182, 212, 0.04) 50%, transparent 70%);
             border-radius: 50%;
             filter: blur(80px);
             pointer-events: none;
@@ -79,23 +81,23 @@ module.exports = async function handler(req, res) {
             z-index: 0;
         }
 
-        /* Compact Card Size - Exactly matching Image 2 */
+        /* Compact, Highly Focused Frame */
         .auth-card {
             position: relative;
             z-index: 1;
             width: 100%;
-            max-width: 380px;
+            max-width: 375px;
             background: var(--card-surface);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
             border: 1px solid var(--border-glow);
             border-radius: 26px;
-            padding: 24px 20px 20px;
+            padding: 24px 20px 18px;
             text-align: center;
             box-shadow: 
                 0 25px 50px -12px rgba(0, 0, 0, 0.95),
-                0 0 25px rgba(16, 185, 129, 0.08),
-                inset 0 1px 1px rgba(255, 255, 255, 0.12);
+                0 0 25px rgba(16, 185, 129, 0.06),
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
             animation: cardFadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -106,9 +108,9 @@ module.exports = async function handler(req, res) {
 
         /* Rotating Hexagon Icon */
         .icon-hex {
-            width: 62px;
-            height: 62px;
-            margin: 0 auto 12px;
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 14px;
             background: rgba(16, 185, 129, 0.09);
             border: 1.5px solid rgba(16, 185, 129, 0.4);
             border-radius: 18px;
@@ -116,8 +118,8 @@ module.exports = async function handler(req, res) {
             align-items: center;
             justify-content: center;
             color: var(--neon-emerald);
-            font-size: 24px;
-            box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
+            font-size: 22px;
+            box-shadow: 0 0 18px rgba(16, 185, 129, 0.22);
             position: relative;
         }
 
@@ -134,27 +136,6 @@ module.exports = async function handler(req, res) {
             100% { transform: rotate(360deg); }
         }
 
-        .status-badge {
-            display: inline-block;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 10.5px;
-            font-weight: 700;
-            color: var(--neon-emerald);
-            background: rgba(16, 185, 129, 0.12);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            padding: 3px 12px;
-            border-radius: 20px;
-            letter-spacing: 0.8px;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-
-        .status-badge.blocked {
-            color: #ef4444;
-            background: rgba(239, 68, 68, 0.12);
-            border-color: rgba(239, 68, 68, 0.3);
-        }
-
         .card-title {
             font-size: 19px;
             font-weight: 800;
@@ -167,7 +148,7 @@ module.exports = async function handler(req, res) {
             font-size: 12px;
             color: var(--text-muted);
             margin-bottom: 16px;
-            line-height: 1.45;
+            line-height: 1.4;
         }
 
         /* Attractive, Bounded Key Console Box */
@@ -179,9 +160,9 @@ module.exports = async function handler(req, res) {
 
         .key-display-box {
             width: 100%;
-            min-height: 50px;
-            background: linear-gradient(180deg, rgba(7, 10, 18, 0.85) 0%, rgba(12, 17, 30, 0.7) 100%);
-            border: 1px solid rgba(16, 185, 129, 0.28);
+            min-height: 48px;
+            background: linear-gradient(180deg, rgba(6, 9, 16, 0.9) 0%, rgba(10, 15, 27, 0.75) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.26);
             border-radius: 13px;
             padding: 10px 12px;
             color: #34d399;
@@ -218,7 +199,7 @@ module.exports = async function handler(req, res) {
             background: rgba(239, 68, 68, 0.06);
         }
 
-        /* Stack of Buttons */
+        /* Buttons Stack with Cohesive Colors */
         .btn-stack {
             display: flex;
             flex-direction: column;
@@ -226,6 +207,7 @@ module.exports = async function handler(req, res) {
             margin-bottom: 15px;
         }
 
+        /* 1. Copy Key - Neon Emerald */
         .btn-copy {
             width: 100%;
             padding: 12px 14px;
@@ -254,6 +236,7 @@ module.exports = async function handler(req, res) {
             box-shadow: 0 4px 14px rgba(6, 182, 212, 0.3);
         }
 
+        /* 2. Homepage - Electric Blue */
         .btn-home {
             display: flex;
             align-items: center;
@@ -261,14 +244,14 @@ module.exports = async function handler(req, res) {
             gap: 8px;
             width: 100%;
             padding: 12px 14px;
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
             color: #ffffff;
             font-size: 13.5px;
             font-weight: 700;
             text-decoration: none;
             border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
             transition: transform 0.15s ease, opacity 0.15s ease;
         }
 
@@ -277,30 +260,37 @@ module.exports = async function handler(req, res) {
             opacity: 0.9;
         }
 
+        /* 3. Support - Cyber Purple Gradient */
         .btn-support {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 7px;
+            gap: 8px;
             width: 100%;
-            padding: 10px 14px;
-            background: rgba(255, 255, 255, 0.035);
-            color: var(--text-muted);
-            font-size: 12.5px;
+            padding: 11px 14px;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.18) 0%, rgba(99, 102, 241, 0.14) 100%);
+            color: #c4b5fd;
+            font-size: 13px;
             font-weight: 600;
             text-decoration: none;
             border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.12);
             transition: all 0.15s ease;
         }
 
+        .btn-support i {
+            color: #a78bfa;
+            font-size: 14px;
+        }
+
         .btn-support:active {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(139, 92, 246, 0.28);
             color: #ffffff;
             transform: scale(0.97);
         }
 
-        /* Sleek Notice Strip */
+        /* Advisory Strip */
         .advisory-strip {
             background: rgba(239, 68, 68, 0.06);
             border: 1px solid rgba(239, 68, 68, 0.18);
@@ -311,7 +301,7 @@ module.exports = async function handler(req, res) {
             align-items: flex-start;
             gap: 9px;
             text-align: left;
-            margin-bottom: 16px;
+            margin-bottom: 15px;
         }
 
         .advisory-strip i {
@@ -327,14 +317,15 @@ module.exports = async function handler(req, res) {
             font-weight: 500;
         }
 
-        /* Footer matching Image 2 */
+        /* Footer Aligned to Left and Right Corners */
         .card-footer {
-            padding-top: 14px;
+            padding-top: 13px;
             border-top: 1px solid rgba(255, 255, 255, 0.06);
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 16px;
+            justify-content: space-between; /* Left and Right Spacing */
+            padding-left: 4px;
+            padding-right: 4px;
             font-size: 11px;
             color: #64748b;
             font-weight: 600;
@@ -363,7 +354,6 @@ module.exports = async function handler(req, res) {
             <i class="fas fa-key"></i>
         </div>
 
-        <div class="status-badge" id="statusBadge">${displayKey ? 'KEY READY' : 'CHECKING...'}</div>
         <h1 class="card-title">Your Authentication Key</h1>
         <p class="card-subtitle">Your Auth Key is generated and ready to use in the app.</p>
 
@@ -393,7 +383,7 @@ module.exports = async function handler(req, res) {
             <p>This key binds to your device on first verification and cannot be transferred or shared.</p>
         </div>
 
-        <!-- Compact Footer -->
+        <!-- Left & Right Aligned Footer -->
         <div class="card-footer">
             <span><i class="far fa-clock"></i> Valid for 10 Days</span>
             <span><i class="fas fa-lock"></i> Secure Gateway</span>
@@ -403,7 +393,6 @@ module.exports = async function handler(req, res) {
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const authKeyContainer = document.getElementById('authKeyContainer');
-            const statusBadge = document.getElementById('statusBadge');
             const copyBtn = document.getElementById('copyBtn');
             const btnText = copyBtn.querySelector('span');
             const btnIcon = copyBtn.querySelector('i');
@@ -423,8 +412,6 @@ module.exports = async function handler(req, res) {
                     if (elapsedSeconds < MIN_AD_TIME_SECONDS) {
                         authKeyContainer.innerText = 'Verification Incomplete! Please complete ads.';
                         authKeyContainer.classList.add('blocked');
-                        statusBadge.innerText = 'BYPASS DETECTED';
-                        statusBadge.classList.add('blocked');
                         return;
                     } else if (elapsedSeconds <= (15 * 60)) {
                         key = pending;
@@ -435,12 +422,9 @@ module.exports = async function handler(req, res) {
             if (key) {
                 authKeyContainer.innerText = key;
                 authKeyContainer.classList.remove('empty', 'blocked');
-                statusBadge.innerText = 'KEY READY';
-                statusBadge.classList.remove('blocked');
             } else {
                 authKeyContainer.innerText = 'No Key Generated';
                 authKeyContainer.classList.add('empty');
-                statusBadge.innerText = 'NO ACCESS KEY';
             }
 
             copyBtn.addEventListener('click', () => {
