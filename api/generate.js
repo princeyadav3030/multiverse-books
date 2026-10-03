@@ -16,9 +16,11 @@ module.exports = async function handler(req, res) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Spidy Book Hub - Auth Key</title>
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+    <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <style>
@@ -121,7 +123,7 @@ module.exports = async function handler(req, res) {
             position: absolute;
             inset: -4px;
             border-radius: 24px;
-            border: 1px dashed rgba(6, 182, 212, 0.45);
+            border: 1.5px dashed rgba(6, 182, 212, 0.45);
             animation: rotatePerimeter 16s linear infinite;
         }
 
@@ -142,6 +144,12 @@ module.exports = async function handler(req, res) {
             letter-spacing: 0.8px;
             margin-bottom: 12px;
             text-transform: uppercase;
+        }
+
+        .status-badge.blocked {
+            color: #f43f5e;
+            background: rgba(244, 63, 94, 0.1);
+            border-color: rgba(244, 63, 94, 0.3);
         }
 
         .card-title {
@@ -200,6 +208,14 @@ module.exports = async function handler(req, res) {
             font-size: 14px;
             border-color: rgba(255, 255, 255, 0.08);
             background: rgba(0, 0, 0, 0.45);
+        }
+
+        .key-display-box.blocked {
+            color: #f43f5e;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            border-color: rgba(244, 63, 94, 0.3);
+            background: rgba(244, 63, 94, 0.05);
         }
 
         .btn-stack {
@@ -358,35 +374,51 @@ module.exports = async function handler(req, res) {
             const btnText = copyBtn.querySelector('span');
             const btnIcon = copyBtn.querySelector('i');
 
-            // 1. Check URL parameters pehle
-            let key = "${displayKey}";
+            // ========================================================
+            // YAHAN TIME CHANGE KAREIN (MINIMUM AD DURATION IN SECONDS)
+            // ========================================================
+            const MIN_AD_TIME_SECONDS = 15; // Abhi 15s hai, aage 25 ya 30 kar sakte hain
 
-            // 2. Agar Arolinks ne URL cut kar diya ho, toh localStorage se nikal lo!
+            let key = "${displayKey}";
+            const now = Date.now();
+
             if (!key) {
                 const pending = localStorage.getItem('spidy_pending_generated_key');
-                const pendingTime = localStorage.getItem('spidy_pending_key_time');
-                // Agar 15 minute ke andar generated key hai
-                if (pending && pendingTime && (Date.now() - parseInt(pendingTime, 10)) < (15 * 60 * 1000)) {
-                    key = pending;
+                const pendingTimeStr = localStorage.getItem('spidy_pending_key_time');
+
+                if (pending && pendingTimeStr) {
+                    const elapsedSeconds = (now - parseInt(pendingTimeStr, 10)) / 1000;
+
+                    // ANTI-BACK / BYPASS CHECK:
+                    if (elapsedSeconds < MIN_AD_TIME_SECONDS) {
+                        // User jaldi back aa gaya (Ads skip kiya)
+                        authKeyContainer.innerText = 'Verification Incomplete! Please complete ads.';
+                        authKeyContainer.classList.add('blocked');
+                        statusBadge.innerText = 'BYPASS DETECTED';
+                        statusBadge.classList.add('blocked');
+                        return;
+                    } else if (elapsedSeconds <= (15 * 60)) {
+                        // 15 seconds ke baad aur 15 minutes ke andar
+                        key = pending;
+                    }
                 }
             }
 
-            // 3. UI update karein
             if (key) {
                 authKeyContainer.innerText = key;
-                authKeyContainer.classList.remove('empty');
+                authKeyContainer.classList.remove('empty', 'blocked');
                 statusBadge.innerText = 'KEY READY';
+                statusBadge.classList.remove('blocked');
             } else {
                 authKeyContainer.innerText = 'No Key Generated';
                 authKeyContainer.classList.add('empty');
                 statusBadge.innerText = 'NO ACCESS KEY';
             }
 
-            // Copy logic
             copyBtn.addEventListener('click', () => {
                 const rawKey = authKeyContainer.innerText.trim();
 
-                if (!rawKey || rawKey === 'No Key Generated' || rawKey === 'Checking session...') {
+                if (!rawKey || rawKey === 'No Key Generated' || rawKey.includes('Incomplete') || rawKey === 'Checking session...') {
                     btnText.innerText = 'No Key to Copy!';
                     setTimeout(() => { btnText.innerText = 'Copy Auth Key'; }, 2000);
                     return;
