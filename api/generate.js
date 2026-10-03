@@ -5,7 +5,6 @@ module.exports = async function handler(req, res) {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // URL query parameter se code read karein (?code=XYZ ya ?key=XYZ)
   const incomingCode = req.query.code || req.query.key || '';
   const displayKey = incomingCode ? String(incomingCode).trim() : '';
 
@@ -17,11 +16,9 @@ module.exports = async function handler(req, res) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Spidy Book Hub - Auth Key</title>
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
-    <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <style>
@@ -56,7 +53,6 @@ module.exports = async function handler(req, res) {
             overflow-x: hidden;
         }
 
-        /* Ambient Cyan/Emerald Soft Glow */
         .ambient-glow {
             position: absolute;
             width: 340px;
@@ -68,7 +64,6 @@ module.exports = async function handler(req, res) {
             z-index: 0;
         }
 
-        /* Cyberpunk Grid Background */
         .cyber-grid {
             position: absolute;
             inset: 0;
@@ -82,7 +77,6 @@ module.exports = async function handler(req, res) {
             z-index: 0;
         }
 
-        /* Main Card - Top quote/strip removed completely */
         .auth-card {
             position: relative;
             z-index: 1;
@@ -106,7 +100,6 @@ module.exports = async function handler(req, res) {
             100% { transform: scale(1) translateY(0); opacity: 1; }
         }
 
-        /* Cyber Hexagon Rotating Icon */
         .icon-hex {
             width: 66px;
             height: 66px;
@@ -136,7 +129,6 @@ module.exports = async function handler(req, res) {
             100% { transform: rotate(360deg); }
         }
 
-        /* Status Badge */
         .status-badge {
             display: inline-block;
             font-family: 'JetBrains Mono', monospace;
@@ -168,7 +160,6 @@ module.exports = async function handler(req, res) {
             padding: 0 6px;
         }
 
-        /* Attractive, Highly Professional Key Display Container */
         .key-wrapper {
             position: relative;
             width: 100%;
@@ -211,7 +202,6 @@ module.exports = async function handler(req, res) {
             background: rgba(0, 0, 0, 0.45);
         }
 
-        /* Action Buttons */
         .btn-stack {
             display: flex;
             flex-direction: column;
@@ -219,7 +209,6 @@ module.exports = async function handler(req, res) {
             margin-bottom: 18px;
         }
 
-        /* Controlled, Balanced Button Glow */
         .btn-copy {
             width: 100%;
             padding: 13px;
@@ -271,7 +260,6 @@ module.exports = async function handler(req, res) {
             transform: scale(0.97);
         }
 
-        /* Warning Advisory Box */
         .warning-box {
             background: rgba(244, 63, 94, 0.06);
             border: 1px solid rgba(244, 63, 94, 0.16);
@@ -298,7 +286,6 @@ module.exports = async function handler(req, res) {
             font-weight: 500;
         }
 
-        /* Restored Original Clean Footer Spacing */
         .card-footer {
             padding-top: 14px;
             border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -329,23 +316,20 @@ module.exports = async function handler(req, res) {
     <div class="cyber-grid"></div>
 
     <div class="auth-card">
-        <!-- Rotating Hexagon Logo -->
         <div class="icon-hex">
             <i class="fas fa-key"></i>
         </div>
 
-        <div class="status-badge">${displayKey ? 'KEY READY' : 'NO ACCESS KEY'}</div>
+        <div class="status-badge" id="statusBadge">${displayKey ? 'KEY READY' : 'CHECKING...'}</div>
         <h1 class="card-title">Your Authentication Key</h1>
         <p class="card-subtitle">Your Auth Key is generated and ready to use in the app.</p>
 
-        <!-- Dynamic Fit Box -->
         <div class="key-wrapper">
             <div class="key-display-box ${displayKey ? '' : 'empty'}" id="authKeyContainer">
-                ${displayKey ? displayKey : 'No Key Generated'}
+                ${displayKey ? displayKey : 'Checking session...'}
             </div>
         </div>
 
-        <!-- Buttons Stack -->
         <div class="btn-stack">
             <button class="btn-copy" id="copyBtn">
                 <i class="far fa-copy"></i> <span>Copy Auth Key</span>
@@ -355,13 +339,11 @@ module.exports = async function handler(req, res) {
             </a>
         </div>
 
-        <!-- Device Lock Advisory -->
         <div class="warning-box">
             <i class="fas fa-circle-exclamation"></i>
             <p>This Auth Key is specifically generated for your current device and will only function on it. If you try to use this key on any other device, it will be rejected.</p>
         </div>
 
-        <!-- Clean Footer -->
         <div class="card-footer">
             <span><i class="far fa-clock"></i> Valid for 10 Days</span>
             <span><i class="fas fa-shield-halved"></i> Secure Gateway</span>
@@ -370,15 +352,41 @@ module.exports = async function handler(req, res) {
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const copyBtn = document.getElementById('copyBtn');
             const authKeyContainer = document.getElementById('authKeyContainer');
+            const statusBadge = document.getElementById('statusBadge');
+            const copyBtn = document.getElementById('copyBtn');
             const btnText = copyBtn.querySelector('span');
             const btnIcon = copyBtn.querySelector('i');
 
+            // 1. Check URL parameters pehle
+            let key = "${displayKey}";
+
+            // 2. Agar Arolinks ne URL cut kar diya ho, toh localStorage se nikal lo!
+            if (!key) {
+                const pending = localStorage.getItem('spidy_pending_generated_key');
+                const pendingTime = localStorage.getItem('spidy_pending_key_time');
+                // Agar 15 minute ke andar generated key hai
+                if (pending && pendingTime && (Date.now() - parseInt(pendingTime, 10)) < (15 * 60 * 1000)) {
+                    key = pending;
+                }
+            }
+
+            // 3. UI update karein
+            if (key) {
+                authKeyContainer.innerText = key;
+                authKeyContainer.classList.remove('empty');
+                statusBadge.innerText = 'KEY READY';
+            } else {
+                authKeyContainer.innerText = 'No Key Generated';
+                authKeyContainer.classList.add('empty');
+                statusBadge.innerText = 'NO ACCESS KEY';
+            }
+
+            // Copy logic
             copyBtn.addEventListener('click', () => {
                 const rawKey = authKeyContainer.innerText.trim();
 
-                if (!rawKey || rawKey === 'No Key Generated') {
+                if (!rawKey || rawKey === 'No Key Generated' || rawKey === 'Checking session...') {
                     btnText.innerText = 'No Key to Copy!';
                     setTimeout(() => { btnText.innerText = 'Copy Auth Key'; }, 2000);
                     return;
