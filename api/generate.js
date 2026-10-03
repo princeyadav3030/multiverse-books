@@ -1,378 +1,353 @@
 // File: api/generate.js
 
 const { db } = require('../utils/firebaseAdmin');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+
+function generateRandomKey() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = 'SPIDY-';
+  for (let i = 0; i < 16; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // 1. Client IP capture karein
-  const rawIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
-                req.socket?.remoteAddress || 
-                'unknown';
-
-  let currentSubnet = 'unknown';
-  if (rawIp.includes('.')) {
-    currentSubnet = rawIp.split('.').slice(0, 2).join('.');
-  } else if (rawIp.includes(':')) {
-    currentSubnet = rawIp.split(':').slice(0, 3).join(':');
-  }
-
+  let displayKey = "";
   const now = Date.now();
-  let isAuthorized = false;
-  let rejectionReason = "Direct Generation Blocked";
-  let matchedDocRef = null;
-  let sessionData = null;
+
+  // Check karein agar query me code pehle se hai ya naya banana hai
+  let incomingCode = req.query.code || req.query.key || null;
 
   try {
-    // 2. Client IP ya Subnet ke basis par active pending sessions khojein
-    // Isse shortener URL parameters drop hone par bhi session match ho jata hai
-    let snapshot = await db.collection('pending_sessions')
-      .where('consumed', '==', false)
-      .where('clientIp', '==', rawIp)
-      .get();
+    if (incomingCode) {
+      // Agar URL me pehle se code hai (e.g. ?code=XYZ)
+      displayKey = incomingCode;
+    } else {
+      // Naya unique 10-day token generate karein
+      const newKey = generateRandomKey();
+      const expiresAt = now + (10 * 24 * 60 * 60 * 1000); // 10 Din
 
-    // Agar direct IP match na mile (e.g. dynamic mobile data shift), subnet se match karein
-    if (snapshot.empty && currentSubnet !== 'unknown') {
-      snapshot = await db.collection('pending_sessions')
-        .where('consumed', '==', false)
-        .where('ipSubnet', '==', currentSubnet)
-        .get();
-    }
-
-    if (!snapshot.empty) {
-      // Latest valid session pick karein
-      const validDocs = [];
-      snapshot.forEach(doc => {
-        const d = doc.data();
-        if (now <= d.expiresAt) {
-          validDocs.push({ ref: doc.ref, data: d });
-        }
+      await db.collection('tokens').doc(newKey).set({
+        token: newKey,
+        used: false,
+        createdAt: now,
+        expiresAt: expiresAt,
+        deviceBound: null, // First verify par device lock hoga
+        isActivated: true,
+        source: 'shortlink_generated'
       });
 
-      // Timestamp ke hisab se sort karein
-      validDocs.sort((a, b) => b.data.timestamp - a.data.timestamp);
-
-      if (validDocs.length > 0) {
-        const candidate = validDocs[0];
-        matchedDocRef = candidate.ref;
-        sessionData = candidate.data;
-
-        // Anti-Bot: Kam se kam 12 seconds link traverse time pura hona chahiye
-        const isTimeSatisfied = now >= (sessionData.unlocksAt || 0);
-
-        if (!isTimeSatisfied) {
-          rejectionReason = "Bypass Detected: Ad verification steps suspicious speed se complete kiye gaye.";
-        } else {
-          isAuthorized = true;
-        }
-      } else {
-        rejectionReason = "Expired Link: Verification session expire ho chuka hai. Kripya dobara try karein.";
-      }
-    } else {
-      rejectionReason = "Direct Generation Blocked: Koi active verification session nahi mila. Kripya official site se start karein.";
+      displayKey = newKey;
     }
-  } catch (error) {
-    console.error("Firestore Verification Error:", error);
-    rejectionReason = "Database Connection Error. Please refresh and retry.";
+  } catch (err) {
+    console.error("Token Generation Error:", err);
+    displayKey = "ERROR_GENERATING_KEY";
   }
 
-  // Agar unauthorized ho toh 403 block UI render karein
-  if (!isAuthorized) {
-    res.setHeader('Content-Type', 'text/html');
-    return res.status(403).send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <title>Access Restricted | SPIDY BOOK HUB</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-        
-        <style>
-          :root {
-            --bg-base: #060709;
-            --card-surface: rgba(18, 20, 29, 0.85);
-            --border-glow: rgba(239, 68, 68, 0.28);
-            --danger-red: #ef4444;
-            --danger-glow: rgba(239, 68, 68, 0.35);
-            --text-main: #ffffff;
-            --text-muted: #94a3b8;
-          }
-
-          * {
+  // HTML Response Render karein (Aapka Diya Hua UI)
+  res.setHeader('Content-Type', 'text/html');
+  return res.status(200).send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spidy Book Hub - Auth Key</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Fira+Code:wght@500;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-          }
+            font-family: 'Poppins', sans-serif;
+        }
 
-          body {
-            background-color: var(--bg-base);
-            color: var(--text-main);
-            min-height: 100vh;
-            min-height: 100dvh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-            position: relative;
-            overflow: hidden;
-          }
-
-          .ambient-glow {
-            position: absolute;
-            width: 360px;
-            height: 360px;
-            background: radial-gradient(circle, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.02) 55%, transparent 70%);
-            border-radius: 50%;
-            filter: blur(75px);
-            pointer-events: none;
-            z-index: 0;
-          }
-
-          .cyber-grid {
-            position: absolute;
-            inset: 0;
+        body {
+            background-color: #020617;
             background-image: 
-              linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-            background-size: 28px 28px;
-            mask-image: radial-gradient(circle at center, black 40%, transparent 80%);
-            -webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 80%);
-            pointer-events: none;
-            z-index: 0;
-          }
-
-          .security-card {
-            position: relative;
-            z-index: 1;
-            width: 100%;
-            max-width: 390px;
-            background: var(--card-surface);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border: 1px solid var(--border-glow);
-            border-radius: 26px;
-            padding: 32px 22px 26px;
-            text-align: center;
-            box-shadow: 
-              0 25px 50px -12px rgba(0, 0, 0, 0.95),
-              0 0 30px rgba(239, 68, 68, 0.1),
-              inset 0 1px 1px rgba(255, 255, 255, 0.12);
-            animation: cardFadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-          }
-
-          @keyframes cardFadeUp {
-            0% { transform: scale(0.92) translateY(16px); opacity: 0; }
-            100% { transform: scale(1) translateY(0); opacity: 1; }
-          }
-
-          .icon-hex {
-            width: 68px;
-            height: 68px;
-            margin: 0 auto 18px;
-            background: rgba(239, 68, 68, 0.1);
-            border: 1.5px solid rgba(239, 68, 68, 0.4);
-            border-radius: 20px;
+                radial-gradient(circle at 15% 50%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 30%, rgba(6, 182, 212, 0.12) 0%, transparent 40%);
+            min-height: 100vh;
             display: flex;
-            align-items: center;
             justify-content: center;
-            color: var(--danger-red);
-            font-size: 28px;
-            box-shadow: 0 0 20px var(--danger-glow);
+            align-items: center;
+            color: #ffffff;
+            padding: 20px;
+            overflow: hidden;
             position: relative;
-          }
+        }
 
-          .icon-hex::after {
+        body::before {
             content: '';
             position: absolute;
-            inset: -4px;
-            border-radius: 24px;
-            border: 1px dashed rgba(239, 68, 68, 0.45);
-            animation: rotatePerimeter 16s linear infinite;
-          }
+            inset: 0;
+            background: 
+                linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: 0;
+            opacity: 0.5;
+        }
 
-          @keyframes rotatePerimeter {
-            100% { transform: rotate(360deg); }
-          }
+        .ambient-glow {
+            position: absolute;
+            width: 300px; 
+            height: 300px;
+            background: rgba(6, 182, 212, 0.25);
+            filter: blur(100px);
+            border-radius: 50%;
+            z-index: 0;
+            animation: pulse-glow 4s infinite alternate;
+        }
 
-          .error-badge {
-            display: inline-block;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--danger-red);
-            background: rgba(239, 68, 68, 0.12);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            padding: 4px 14px;
-            border-radius: 20px;
-            letter-spacing: 0.8px;
-            margin-bottom: 14px;
-            text-transform: uppercase;
-          }
+        @keyframes pulse-glow {
+            0% { transform: scale(1); opacity: 0.5; }
+            100% { transform: scale(1.1); opacity: 0.8; }
+        }
 
-          .card-title {
-            font-size: 20px;
-            font-weight: 800;
-            letter-spacing: -0.3px;
-            color: #ffffff;
-            margin-bottom: 10px;
-          }
-
-          .card-desc {
-            font-size: 13px;
-            line-height: 1.55;
-            color: var(--text-muted);
-            margin-bottom: 24px;
-            padding: 0 4px;
-          }
-
-          .card-desc span {
-            color: #ffffff;
-            font-weight: 700;
-          }
-
-          .btn-group {
-            display: flex;
-            flex-direction: column;
-            gap: 11px;
-          }
-
-          .btn-home {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+        .auth-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
             width: 100%;
-            padding: 14px 18px;
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            color: #ffffff;
-            font-size: 14px;
-            font-weight: 700;
-            text-decoration: none;
-            border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
-            transition: transform 0.15s ease, opacity 0.15s ease;
-          }
+            max-width: 420px;
+            border-radius: 16px;
+            padding: 35px 30px;
+            position: relative;
+            z-index: 1;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: none; 
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.7), 
+                inset 0 0 20px rgba(255, 255, 255, 0.02),
+                inset 0 4px 15px rgba(6, 182, 212, 0.15); 
+            text-align: center;
+            overflow: hidden;
+        }
 
-          .btn-home:active {
-            transform: scale(0.96);
-            opacity: 0.9;
-          }
-
-          .btn-support {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            padding: 12px 18px;
-            background: rgba(255, 255, 255, 0.04);
-            color: var(--text-muted);
-            font-size: 13px;
+            height: 3px;
+            background: linear-gradient(90deg, #06b6d4, #10b981, #0ea5e9, #10b981, #06b6d4);
+            background-size: 200% 100%;
+            animation: gradient-sweep 3s linear infinite;
+            z-index: 10;
+        }
+
+        @keyframes gradient-sweep {
+            0% { background-position: 0% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .icon-circle {
+            width: 60px;
+            height: 60px;
+            background: rgba(6, 182, 212, 0.1);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 15px;
+            color: #06b6d4;
+            font-size: 24px;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+            animation: float-icon 3s ease-in-out infinite;
+        }
+
+        @keyframes float-icon {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .auth-card h2 {
+            font-size: 22px;
             font-weight: 600;
-            text-decoration: none;
-            border-radius: 14px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .auth-card p.subtitle {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-bottom: 25px;
+        }
+
+        .key-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .key-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: all 0.15s ease;
-          }
+            border-radius: 12px;
+            padding: 16px;
+            color: #34d399;
+            font-family: 'Fira Code', monospace;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            letter-spacing: 2px;
+            outline: none;
+            box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.6);
+        }
 
-          .btn-support:active {
-            background: rgba(255, 255, 255, 0.08);
-            color: #ffffff;
-            transform: scale(0.96);
-          }
+        .copy-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #06b6d4 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 14.5px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(6, 182, 212, 0.25);
+            margin-bottom: 25px;
+            text-decoration: none;
+        }
 
-          .card-footer {
-            margin-top: 24px;
-            padding-top: 16px;
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        .copy-btn:hover {
+            box-shadow: 0 8px 25px rgba(6, 182, 212, 0.45);
+            transform: translateY(-2px);
+        }
+
+        .copy-btn:active {
+            transform: translateY(1px);
+        }
+
+        .copy-btn.copied {
+            background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .warning-box {
+            background: rgba(244, 63, 94, 0.06); 
+            border: 1px solid rgba(244, 63, 94, 0.15); 
+            border-left: 4px solid #f43f5e; 
+            border-radius: 8px;
+            padding: 15px 15px 15px 18px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            text-align: left;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(244, 63, 94, 0.1); 
+            position: relative;
+        }
+
+        .warning-box i {
+            color: #f43f5e; 
+            font-size: 16px;
+            margin-top: 3px;
+            filter: drop-shadow(0 0 5px rgba(244, 63, 94, 0.5)); 
+        }
+
+        .warning-box p {
+            color: #cbd5e1;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .card-footer span {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 11px;
-            color: #64748b;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-          }
+            gap: 6px;
+        }
+        
+        .card-footer i {
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-glow"></div>
 
-          .card-footer i {
-            color: #10b981;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="ambient-glow"></div>
-        <div class="cyber-grid"></div>
-
-        <div class="security-card">
-          <div class="icon-hex">
-            <i class="fas fa-shield-halved"></i>
-          </div>
-
-          <div class="error-badge">403 • UNAUTHORIZED ACCESS</div>
-          <h1 class="card-title">Verification Incomplete</h1>
-
-          <p class="card-desc">
-            ${rejectionReason}<br><br>
-            Please click <span>'Get Key'</span> on the official website and complete all verification steps properly.
-          </p>
-
-          <div class="btn-group">
-            <a href="/" class="btn-home">
-              <i class="fas fa-house"></i> Go to Homepage
-            </a>
-            <a href="https://t.me/MultiverseBooks" target="_blank" class="btn-support">
-              <i class="fab fa-telegram"></i> Need Help? Support
-            </a>
-          </div>
-
-          <div class="card-footer">
-            <i class="fas fa-lock"></i> SPIDY SYSTEM • SECURE GATEWAY
-          </div>
+    <div class="auth-card">
+        <div class="card-header">
+            <div class="icon-circle">
+                <i class="fas fa-key"></i>
+            </div>
+            <h2>Your Authentication Key</h2>
+            <p class="subtitle">Your Auth Key is generated and ready to use in the app.</p>
         </div>
-      </body>
-      </html>
-    `);
-  }
 
-  // --- SUCCESS VERIFICATION PATH ---
-  try {
-    // 1. Session turant burn karein taaki dubara reuse na ho
-    await matchedDocRef.update({
-      consumed: true,
-      consumedAt: now
-    });
+        <div class="key-container">
+            <input type="text" class="key-input" id="authKeyInput" value="${displayKey}" readonly>
+        </div>
 
-    // 2. 10 Days valid token banayein
-    const token = 'SPIDY-' + uuidv4().substring(0, 8).toUpperCase();
-    const expiresAt = now + (10 * 24 * 60 * 60 * 1000);
+        <button class="copy-btn" id="copyBtn">
+            <i class="far fa-copy"></i> <span>Copy Auth Key</span>
+        </button>
 
-    await db.collection('tokens').doc(token).set({
-      token: token,
-      used: false,
-      createdAt: now,
-      expiresAt: expiresAt,
-      deviceBound: sessionData.fingerprint || null,
-      isActivated: true,
-      source: 'shortlink_verified',
-      boundSession: sessionData.sessionId || 'ip_bound'
-    });
+        <div class="warning-box">
+            <i class="fas fa-exclamation-circle"></i>
+            <p>This Auth Key is valid for 10 Days. Enter this key on Spidy Book Hub to unlock access. It will automatically bind to your device upon first verification.</p>
+        </div>
 
-    // 3. Homepage par redirect karein token ke sath
-    return res.redirect(`/?t=${token}`);
+        <div class="card-footer">
+            <span><i class="far fa-clock"></i> Valid for 10 Days</span>
+            <span><i class="fas fa-shield-alt"></i> Secure connection</span>
+        </div>
+    </div>
 
-  } catch (err) {
-    console.error("Token Generation Error:", err);
-    return res.status(500).send("Database Error: Failed to issue token.");
-  }
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const copyBtn = document.getElementById('copyBtn');
+            const authKeyInput = document.getElementById('authKeyInput');
+            const btnText = copyBtn.querySelector('span');
+            const btnIcon = copyBtn.querySelector('i');
+
+            copyBtn.addEventListener('click', () => {
+                authKeyInput.select();
+                authKeyInput.setSelectionRange(0, 99999);
+
+                navigator.clipboard.writeText(authKeyInput.value).then(() => {
+                    copyBtn.classList.add('copied');
+                    btnIcon.className = 'fas fa-check';
+                    btnText.innerText = 'Copied Successfully!';
+                    
+                    setTimeout(() => {
+                        copyBtn.classList.remove('copied');
+                        btnIcon.className = 'far fa-copy';
+                        btnText.innerText = 'Copy Auth Key';
+                    }, 3000);
+                }).catch(err => {
+                    btnText.innerText = 'Failed to copy';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+  `);
 };
