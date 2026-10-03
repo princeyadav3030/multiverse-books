@@ -1,55 +1,16 @@
 // File: api/generate.js
 
-const { db } = require('../utils/firebaseAdmin');
-const crypto = require('crypto');
-
-function generateRandomKey() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = 'SPIDY-';
-  for (let i = 0; i < 16; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  let displayKey = "";
-  const now = Date.now();
+  // URL query parameter se code read karein (?code=XYZ ya ?key=XYZ)
+  const incomingCode = req.query.code || req.query.key || '';
 
-  // Check karein agar query me code pehle se hai ya naya banana hai
-  let incomingCode = req.query.code || req.query.key || null;
+  // Agar code nahi hai toh box bilkul khali (blank) rahega
+  const displayKey = incomingCode ? String(incomingCode).trim() : '';
 
-  try {
-    if (incomingCode) {
-      // Agar URL me pehle se code hai (e.g. ?code=XYZ)
-      displayKey = incomingCode;
-    } else {
-      // Naya unique 10-day token generate karein
-      const newKey = generateRandomKey();
-      const expiresAt = now + (10 * 24 * 60 * 60 * 1000); // 10 Din
-
-      await db.collection('tokens').doc(newKey).set({
-        token: newKey,
-        used: false,
-        createdAt: now,
-        expiresAt: expiresAt,
-        deviceBound: null, // First verify par device lock hoga
-        isActivated: true,
-        source: 'shortlink_generated'
-      });
-
-      displayKey = newKey;
-    }
-  } catch (err) {
-    console.error("Token Generation Error:", err);
-    displayKey = "ERROR_GENERATING_KEY";
-  }
-
-  // HTML Response Render karein (Aapka Diya Hua UI)
   res.setHeader('Content-Type', 'text/html');
   return res.status(200).send(`
 <!DOCTYPE html>
@@ -224,16 +185,11 @@ module.exports = async function handler(req, res) {
             transition: all 0.3s ease;
             box-shadow: 0 5px 15px rgba(6, 182, 212, 0.25);
             margin-bottom: 25px;
-            text-decoration: none;
         }
 
         .copy-btn:hover {
             box-shadow: 0 8px 25px rgba(6, 182, 212, 0.45);
             transform: translateY(-2px);
-        }
-
-        .copy-btn:active {
-            transform: translateY(1px);
         }
 
         .copy-btn.copied {
@@ -253,14 +209,12 @@ module.exports = async function handler(req, res) {
             text-align: left;
             margin-bottom: 25px;
             box-shadow: 0 4px 15px rgba(244, 63, 94, 0.1); 
-            position: relative;
         }
 
         .warning-box i {
             color: #f43f5e; 
             font-size: 16px;
             margin-top: 3px;
-            filter: drop-shadow(0 0 5px rgba(244, 63, 94, 0.5)); 
         }
 
         .warning-box p {
@@ -283,10 +237,6 @@ module.exports = async function handler(req, res) {
             align-items: center;
             gap: 6px;
         }
-        
-        .card-footer i {
-            font-size: 13px;
-        }
     </style>
 </head>
 <body>
@@ -302,7 +252,7 @@ module.exports = async function handler(req, res) {
         </div>
 
         <div class="key-container">
-            <input type="text" class="key-input" id="authKeyInput" value="${displayKey}" readonly>
+            <input type="text" class="key-input" id="authKeyInput" value="${displayKey}" placeholder="No Key Generated" readonly>
         </div>
 
         <button class="copy-btn" id="copyBtn">
@@ -311,7 +261,7 @@ module.exports = async function handler(req, res) {
 
         <div class="warning-box">
             <i class="fas fa-exclamation-circle"></i>
-            <p>This Auth Key is valid for 10 Days. Enter this key on Spidy Book Hub to unlock access. It will automatically bind to your device upon first verification.</p>
+            <p>This Auth Key is specifically generated for your current device and will only function on it. If you try to use this key on any other device, it will be rejected.</p>
         </div>
 
         <div class="card-footer">
@@ -328,6 +278,12 @@ module.exports = async function handler(req, res) {
             const btnIcon = copyBtn.querySelector('i');
 
             copyBtn.addEventListener('click', () => {
+                if (!authKeyInput.value.trim()) {
+                    btnText.innerText = 'No Key to Copy!';
+                    setTimeout(() => { btnText.innerText = 'Copy Auth Key'; }, 2000);
+                    return;
+                }
+
                 authKeyInput.select();
                 authKeyInput.setSelectionRange(0, 99999);
 
@@ -341,7 +297,7 @@ module.exports = async function handler(req, res) {
                         btnIcon.className = 'far fa-copy';
                         btnText.innerText = 'Copy Auth Key';
                     }, 3000);
-                }).catch(err => {
+                }).catch(() => {
                     btnText.innerText = 'Failed to copy';
                 });
             });
