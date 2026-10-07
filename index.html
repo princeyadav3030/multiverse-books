@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Playfair+Display:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     
     <!-- DOMPurify for Security -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
@@ -67,41 +67,104 @@
         <div class="loader-powered-text">POWERED BY SPIDYUNIVERSE</div>
     </div>
 
-    <!-- Login Overlay -->
+    <!-- NEW CURVED LUXURY CHARCOAL LOGIN OVERLAY -->
     <div id="loginOverlay" class="login-container" style="display: none; opacity: 0;">
-        <div class="close-login-btn" id="closeLoginBtn" style="position: absolute; top: 20px; right: 20px; z-index: 100000; cursor: pointer; color: #fff; font-size: 20px;"><i class="fas fa-times"></i></div>
-        <div class="login-dots dot-top-left"></div>
-        <div class="login-dots dot-bottom-right"></div>
-        
-        <div class="login-wrapper">
-            <div class="logo-container">
-                <img src="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png" alt="Logo" class="brand-logo">
-                <h1 class="brand-title">SPIDY BOOK HUB</h1>
-                <p class="brand-subtitle">Free Books | Premium Notes | Instant Access </p>
-            </div>
+        <div class="close-login-btn" id="closeLoginBtn" title="Close"><i class="fas fa-times"></i></div>
 
-            <div class="glass-card">
-                <h2 class="form-header"><i class="fas fa-graduation-cap"></i> 𝐒𝐩𝐢𝐝𝐲 𝐁𝐨𝐨𝐤 𝐇𝐮𝐛</h2>
-                <form id="loginForm">
-                    <div class="input-group">
-                        <i class="fas fa-envelope input-icon"></i>
-                        <input type="email" id="loginEmail" placeholder="Enter your email" required autocomplete="off">
-                    </div>
-                    <div class="input-group" style="margin-bottom: 35px;">
-                        <i class="fas fa-lock input-icon"></i>
-                        <input type="password" id="loginPassword" placeholder="Enter your password" required>
-                        <i class="fas fa-eye toggle-password" id="toggleEye"></i>
-                    </div>
-                    <button type="submit" id="loginBtn" class="btn-login"><span class="btn-text">Sign In</span></button>
-                </form>
-
-                <div class="social-login">
-                    <button type="button" id="googleSignInBtn" class="btn-google">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo"> Continue with Google
-                    </button>
+        <!-- Top Curved Charcoal Header -->
+        <header class="top-curved-header">
+            <div class="logo-frame">
+                <div class="logo-rotating-ring"></div>
+                <div class="logo-img-mask">
+                    <img 
+                        src="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png" 
+                        alt="SPIDY BOOK HUB Logo" 
+                        class="brand-logo-img"
+                        oncontextmenu="return false;"
+                        draggable="false"
+                    />
                 </div>
             </div>
-        </div>
+
+            <h1 class="brand-title">
+                <span class="brand-spidy">SPIDY BOOK</span> 
+                <span class="brand-hub">HUB</span>
+            </h1>
+        </header>
+
+        <!-- Form Section -->
+        <main class="form-wrapper">
+            <h2 class="card-title">Welcome Back..!</h2>
+            <p class="card-subtitle">Login to your learning account on Spidy Book Hub</p>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <div class="input-box-wrapper">
+                        <input 
+                            type="email" 
+                            id="loginEmail" 
+                            class="custom-input" 
+                            placeholder="Mobile or Email Address" 
+                            required 
+                            autocomplete="off"
+                        />
+                        <i class="fa-regular fa-envelope input-icon"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-box-wrapper">
+                        <input 
+                            type="password" 
+                            id="loginPassword" 
+                            class="custom-input" 
+                            placeholder="Password" 
+                            required 
+                        />
+                        <i class="fa-solid fa-lock input-icon"></i>
+                        <button 
+                            type="button" 
+                            class="password-toggle-btn" 
+                            id="toggleEye"
+                            title="Toggle password view"
+                        >
+                            <i id="toggleIcon" class="fa-solid fa-eye-slash"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <label class="remember-label">
+                        <input type="checkbox" id="rememberMe" checked />
+                        <span>Remember me</span>
+                    </label>
+                    <a href="javascript:void(0)" id="forgotPasswordLink" class="forgot-link">Forgot Password?</a>
+                </div>
+
+                <button type="submit" id="loginBtn" class="btn-login">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    <span>Login</span>
+                </button>
+            </form>
+
+            <div class="or-divider">
+                <span>Or</span>
+            </div>
+
+            <button type="button" id="googleSignInBtn" class="btn-google">
+                <svg viewBox="0 0 48 48">
+                    <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+                    <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+                    <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+                    <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+                </svg>
+                <span>Continue with Google</span>
+            </button>
+
+            <p class="register-prompt">
+                Don't have an account? <span class="register-link-static">Sign Up</span>
+            </p>
+        </main>
     </div>
 
     <!-- Main App Wrapper -->
@@ -258,9 +321,7 @@
                     <div class="menu-section">
                         <div class="section-title">MAIN MENU</div>
                         <a href="#" class="menu-item active" id="menu-home-side"><i class="fas fa-home"></i><span>Home</span></a>
-                        <!-- Updated Support Hub Link with Headset Icon -->
                         <a href="#" class="menu-item normal" id="menu-contact"><i class="fas fa-headset"></i><span>Support Hub</span></a>
-                        <!-- Updated to Saved Books -->
                         <a href="#" class="menu-item normal" id="menu-bookmarks"><i class="far fa-bookmark"></i><span>Saved Books</span></a>
                     </div>
                     <div class="menu-section">
@@ -886,11 +947,8 @@
                 </div>
             </div>
 
-            <!-- ========================================== -->
-            <!-- SUPPORT & CONTACT FULLSCREEN OVERLAY       -->
-            <!-- ========================================== -->
+            <!-- SUPPORT & CONTACT FULLSCREEN OVERLAY -->
             <div class="overlay-panel support-modal-fullscreen" id="supportModalOverlay">
-                <!-- Matching App Modal Header With Transparent Background -->
                 <div class="modal-header-fixed support-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
                         <button class="back-btn back-chevron-btn" id="closeSupportBtn" title="Back">
@@ -925,7 +983,6 @@
                             <div class="dotted-divider"></div>
                         </div>
 
-                        <!-- Backend API Connected Form -->
                         <form id="supportContactForm">
                             <div class="form-row">
                                 <div class="input-group">
