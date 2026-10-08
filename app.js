@@ -6,7 +6,7 @@ import {
     query, orderBy, setDoc, getDoc, getDocs, limit, startAfter, Timestamp, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { 
-    getAuth, signInWithEmailAndPassword, GoogleAuthProvider, 
+    getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, 
     signInWithPopup, onAuthStateChanged, signOut 
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
@@ -281,12 +281,17 @@ function initParticles(containerId) {
 // 5. PROMO & MODULE CAROUSEL
 // ==========================================
 let currentPromoIndex = 0;
-let promoAutoSlideInterval;
+let promoAutoSlideInterval = null;
 
 function renderDynamicBanners(banners) {
     const track = document.getElementById('promoCarouselTrack');
     const dotsWrap = document.getElementById('promoDotsWrapper');
     if (!track || !dotsWrap) return;
+
+    if (promoAutoSlideInterval) {
+        clearInterval(promoAutoSlideInterval);
+        promoAutoSlideInterval = null;
+    }
 
     if (!banners || banners.length === 0) {
         track.innerHTML = `
@@ -341,11 +346,11 @@ function initPromoCarousel() {
     }
 
     dots.forEach((dot, index) => {
-        dot.addEventListener('click', (e) => {
+        dot.onclick = (e) => {
             e.stopPropagation();
             goToSlide(index);
             startAutoSlide();
-        });
+        };
     });
 
     const pBtn = document.getElementById('promoPrevBtn');
@@ -372,15 +377,18 @@ function initPromoCarousel() {
     }
 
     let startX = 0;
+    let startY = 0;
     track.ontouchstart = (e) => {
         startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
         clearInterval(promoAutoSlideInterval);
     };
 
     track.ontouchend = (e) => {
-        let diff = startX - e.changedTouches[0].clientX;
-        if (Math.abs(diff) > 40) {
-            if (diff > 0) {
+        const diffX = startX - e.changedTouches[0].clientX;
+        const diffY = startY - e.changedTouches[0].clientY;
+        if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY)) {
+            if (diffX > 0) {
                 currentPromoIndex = (currentPromoIndex + 1) % totalSlides;
             } else {
                 currentPromoIndex = (currentPromoIndex - 1 + totalSlides) % totalSlides;
@@ -1020,226 +1028,8 @@ const postViewObserver = new IntersectionObserver((entries) => {
     });
 }, { threshold: 0.5 });
 
-function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
-    if (!chatBody) return;
-
-    if (!posts || posts.length === 0) {
-        chatBody.innerHTML = `
-            <div class="empty-loading">
-                <i class="fas fa-bullhorn" style="font-size:26px; color:var(--text-secondary); opacity:0.6;"></i>
-                No channel updates posted yet.
-            </div>`;
-        return;
-    }
-
-    const fragment = document.createDocumentFragment();
-    let lastDateStr = '';
-
-    posts.forEach(post => {
-        const dateObj = normalizeDate(post.createdAt);
-        const dateStr = formatDateDivider(dateObj);
-
-        if (dateStr !== lastDateStr) {
-            const divider = document.createElement('div');
-            divider.className = 'date-divider';
-            divider.innerText = dateStr;
-            fragment.appendChild(divider);
-            lastDateStr = dateStr;
-        }
-
-        const userSelectedEmoji = getUserReaction(post.id);
-        const bubble = document.createElement('div');
-        bubble.className = 'message-bubble';
-        bubble.id = `post_${post.id}`;
-        bubble.dataset.postId = post.id;
-
-        let imageHTML = post.imageUrl 
-            ? `<img src="${getSecureAssetUrl(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image">` 
-            : '';
-
-        let quoteHTML = '';
-        if (post.quote) {
-            const targetId = post.quote.targetPostId || '';
-            const cleanSnippet = sanitizeHTML(stripMarkdown(post.quote.text || ''));
-            quoteHTML = `
-            <div class="msg-quote" onclick="event.stopPropagation(); window.scrollToChannelPost('${targetId}')">
-                 <div class="quote-author">SPIDY BOOK HUB</div>
-                 <div class="quote-text">${cleanSnippet}</div>
-            </div>`;
-        }
-
-        const reactionPillsHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
-
-        bubble.innerHTML = `
-            ${quoteHTML}
-            ${imageHTML}
-            <div class="msg-text">${parseMarkdown(post.text)}</div>
-            <div class="post-footer">
-                <div class="inline-reactions">${reactionPillsHTML}</div>
-                <div class="msg-meta">
-                    <i class="fas fa-eye"></i> ${formatViewsCount(post.views || 1)} &nbsp; ${formatTime(dateObj)}
-                </div>
-            </div>
-        `;
-
-        bubble.querySelectorAll('.reaction-pill').forEach(pill => {
-            pill.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                applyReaction(post.id, pill.dataset.emoji);
-            });
-        });
-
-        bubble.addEventListener('click', (e) => {
-            if (
-                e.target.tagName === 'A' || 
-                e.target.closest('.tg-copy-action-btn') || 
-                e.target.closest('.telegram-copy-btn') ||
-                e.target.closest('.reaction-pill') ||
-                e.target.closest('.tg-copy-card')
-            ) {
-                return;
-            }
-            activePost = post;
-            if (contextOverlay) contextOverlay.classList.add('show');
-            if (navigator.vibrate) navigator.vibrate(20);
-        });
-
-        fragment.appendChild(bubble);
-        postViewObserver.observe(bubble);
-    });
-
-    if (isInitialOrPanelOpen) {
-        chatBody.style.visibility = 'hidden';
-        chatBody.innerHTML = '';
-        chatBody.appendChild(fragment);
-
-        requestAnimationFrame(() => {
-            chatBody.scrollTop = chatBody.scrollHeight + 1000;
-            requestAnimationFrame(() => {
-                chatBody.scrollTop = chatBody.scrollHeight + 1000;
-                chatBody.style.visibility = 'visible';
-            });
-        });
-    } else {
-        const prevScrollTop = chatBody.scrollTop;
-        chatBody.innerHTML = '';
-        chatBody.appendChild(fragment);
-        chatBody.scrollTop = prevScrollTop;
-    }
-}
-
-async function applyReaction(postId, newEmoji) {
-    if (!auth.currentUser) return;
-    
-    const existing = getUserReaction(postId);
-    if (existing === newEmoji) return;
-
-    setUserReaction(postId, newEmoji);
-    const pIdx = livePosts.findIndex(p => p.id === postId);
-    if (pIdx !== -1) {
-        livePosts[pIdx].reactions = livePosts[pIdx].reactions || {};
-        if (existing && livePosts[pIdx].reactions[existing]) {
-            livePosts[pIdx].reactions[existing] = Math.max(0, livePosts[pIdx].reactions[existing] - 1);
-        }
-        livePosts[pIdx].reactions[newEmoji] = (livePosts[pIdx].reactions[newEmoji] || 0) + 1;
-        updateReactionInDOM(postId);
-    }
-    if (navigator.vibrate) navigator.vibrate(15);
-
-    try {
-        const token = await auth.currentUser.getIdToken(false);
-        await fetch('/api/channel-action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'reaction', postId, emoji: newEmoji, userToken: token })
-        });
-    } catch (e) {}
-}
-
-if (contextOverlay) {
-    contextOverlay.addEventListener('click', (e) => {
-        if (e.target === contextOverlay) contextOverlay.classList.remove('show');
-    });
-
-    document.querySelectorAll('.cm-emoji').forEach(el => {
-        el.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const emoji = el.getAttribute('data-emoji');
-            if (activePost && emoji) {
-                applyReaction(activePost.id, emoji);
-                contextOverlay.classList.remove('show');
-                activePost = null;
-            }
-        });
-    });
-
-    document.getElementById('cmCopyText')?.addEventListener('click', () => {
-        if (!activePost) return;
-        navigator.clipboard.writeText(stripMarkdown(activePost.text));
-        contextOverlay.classList.remove('show');
-    });
-
-    document.getElementById('cmCopyLink')?.addEventListener('click', () => {
-        if (!activePost) return;
-        const cleanBase = window.location.origin + window.location.pathname;
-        const url = `${cleanBase}#/post/${activePost.id}`;
-        navigator.clipboard.writeText(url);
-        contextOverlay.classList.remove('show');
-    });
-
-    document.getElementById('cmForward')?.addEventListener('click', () => {
-        if (!activePost) return;
-        const cleanBase = window.location.origin + window.location.pathname;
-        const url = `${cleanBase}#/post/${activePost.id}`;
-        const cleanText = stripMarkdown(activePost.text);
-        if (navigator.share) {
-            navigator.share({ title: 'SPIDY BOOK HUB', text: cleanText, url: url }).catch(() => {});
-        } else {
-            navigator.clipboard.writeText(url);
-        }
-        contextOverlay.classList.remove('show');
-    });
-
-    document.getElementById('cmReport')?.addEventListener('click', () => {
-        contextOverlay.classList.remove('show');
-    });
-}
-
-document.addEventListener('click', (e) => {
-    const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
-    if (copyBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        let copyTargetText = "";
-        const rawData = copyBtn.getAttribute('data-clipboard');
-        if (rawData) copyTargetText = decodeURIComponent(rawData);
-
-        if (!copyTargetText) {
-            const card = copyBtn.closest('.tg-copy-card, .telegram-prompt-card');
-            if (card) {
-                const bodyEl = card.querySelector('.telegram-prompt-body, .tg-copy-body');
-                if (bodyEl) copyTargetText = bodyEl.textContent.trim();
-            }
-        }
-
-        if (copyTargetText) {
-            navigator.clipboard.writeText(copyTargetText).then(() => {
-                copyBtn.classList.add('copied-active');
-                const orig = copyBtn.innerHTML;
-                copyBtn.innerHTML = `<i class="fas fa-check"></i> COPIED!`;
-                setTimeout(() => {
-                    copyBtn.classList.remove('copied-active');
-                    copyBtn.innerHTML = orig;
-                }, 2000);
-            });
-        }
-    }
-}, true);
-
 // ==========================================
-// 9. AUTHENTICATION OBSERVER
+// 9. AUTHENTICATION OBSERVER & FORGOT PASSWORD
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (unsubBanners) { unsubBanners(); unsubBanners = null; }
@@ -1378,6 +1168,38 @@ onAuthStateChanged(auth, async (user) => {
     });
 });
 
+// FORGOT PASSWORD (ADMIN VERIFICATION HANDLER)
+document.getElementById('forgotPasswordBtn')?.addEventListener('click', async () => {
+    const emailInput = document.getElementById('loginEmail');
+    let targetEmail = emailInput ? emailInput.value.trim().toLowerCase() : "";
+
+    if (!targetEmail) {
+        targetEmail = prompt("Apna registered admin email address enter karein:");
+        if (targetEmail) targetEmail = targetEmail.trim().toLowerCase();
+    }
+
+    if (!targetEmail || !targetEmail.includes('@')) {
+        showToast("Kripya ek valid email address enter karein!", "error");
+        return;
+    }
+
+    try {
+        showToast("Checking admin permissions...", "success");
+        const adminDocRef = doc(db, "admins", targetEmail);
+        const adminDocSnap = await getDoc(adminDocRef);
+
+        if (!adminDocSnap.exists()) {
+            showToast("Access Denied: Yeh email admin list me nahi hai!", "error");
+            return;
+        }
+
+        await sendPasswordResetEmail(auth, targetEmail);
+        showToast("Password reset link aapke email par bhej diya gaya hai!", "success");
+    } catch (err) {
+        showToast(err.message || "Password reset link bhejne me samasya aayi.", "error");
+    }
+});
+
 // ==========================================
 // 10. REALTIME PAGINATION HANDLER
 // ==========================================
@@ -1480,15 +1302,20 @@ function closeLoginOverlayLocal() {
     }, 500);
 }
 document.getElementById('closeLoginBtn')?.addEventListener('click', closeLoginOverlayLocal);
+
 document.getElementById('toggleEye')?.addEventListener('click', () => {
     const passInput = document.getElementById('loginPassword'); 
-    const eyeIcon = document.getElementById('toggleEye');
+    const toggleIcon = document.getElementById('toggleIcon');
+    if (!passInput || !toggleIcon) return;
+
     if (passInput.type === 'password') { 
         passInput.type = 'text'; 
-        eyeIcon.classList.replace('fa-eye', 'fa-eye-slash'); 
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
     } else { 
         passInput.type = 'password'; 
-        eyeIcon.classList.replace('fa-eye-slash', 'fa-eye'); 
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
     }
 });
 
@@ -1510,6 +1337,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
         }
     } catch(err) { 
         btn.innerHTML = originalContent; 
+        showToast(err.message || "Invalid Email or Password", "error");
     } 
 });
 
@@ -1527,6 +1355,7 @@ document.getElementById('googleSignInBtn')?.addEventListener('click', async () =
         }
     } catch(err) { 
         btn.innerHTML = originalContent; 
+        showToast("Google sign in failed, please retry", "error");
     } 
 });
 
@@ -2096,9 +1925,6 @@ window.addEventListener('popstate', (e) => {
     if (bannerModal && bannerModal.classList.contains('active')) {
         const modulesView = document.getElementById('bannerModulesView');
         if (modulesView && !modulesView.classList.contains('hidden-view')) {
-            if (history.state && history.state.popup === 'moduleList') {
-                return;
-            }
             modulesView.classList.add('hidden-view');
             document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
             document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
@@ -2833,7 +2659,7 @@ document.getElementById('tokenInput')?.addEventListener('input', () => {
     document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
-// GET KEY HANDSHAKE (Generates client-side unique key & binds to target shortener)
+// GET KEY HANDSHAKE
 document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('getKeyBtn');
     const originalContent = btn.innerHTML;
@@ -2841,36 +2667,31 @@ document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     btn.style.pointerEvents = 'none';
 
     try {
-        // 1. Ek unique 16-character alphanumeric key generate karein
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let rawCode = 'SPIDY-';
         for (let i = 0; i < 16; i++) {
             rawCode += chars.charAt(Math.floor(Math.random() * chars.length));
         }
 
-        // 2. Token ko Firebase Firestore me register karein 10 din validity ke sath
         const now = Date.now();
-        const expiresAt = now + (10 * 24 * 60 * 60 * 1000); // 10 Din
+        const expiresAt = now + (10 * 24 * 60 * 60 * 1000);
         
         await setDoc(doc(db, "tokens", rawCode), {
             token: rawCode,
             used: false,
             createdAt: now,
             expiresAt: expiresAt,
-            deviceBound: null, // First verification par lock hoga
+            deviceBound: null,
             isActivated: true,
             source: 'shortlink_generated'
         });
 
-        // 3. User ke browser ke localStorage me key save karein
         localStorage.setItem('spidy_pending_generated_key', rawCode);
         localStorage.setItem('spidy_pending_key_time', now.toString());
 
-        // 4. Final Destination URL banayein jisme code shamil ho
         const destinationUrl = `https://multiverse-books.vercel.app/api/generate?code=${encodeURIComponent(rawCode)}`;
         const finalRedirect = encodeURIComponent(destinationUrl);
 
-        // 5. Arolinks shortener ke sath user ko redirect karein
         window.location.href = `https://arolinks.com/6RTf5?url=${finalRedirect}`;
 
     } catch (e) {
@@ -2912,7 +2733,6 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
             inputBox.classList.add('success-state');
             showToast('Access Granted! Valid for 10 Days.', 'success');
             
-            // Pending session key clear kar dein verify hote hi
             localStorage.removeItem('spidy_pending_generated_key');
             localStorage.removeItem('spidy_pending_key_time');
 
@@ -2940,6 +2760,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
         btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
     }
 });
+
 
 // ==========================================
 // 18. UPLOAD HUB & ZERO-FAILURE PIPELINE
@@ -3151,7 +2972,7 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
         } catch(err) {
             try {
                 const tailSlice = selectedPdfFile.slice(Math.max(0, selectedPdfFile.size - 262144), selectedPdfFile.size);
-                const fullBuffer = await selectedPdfFile.arrayBuffer();
+                const fullBuffer = await tailSlice.arrayBuffer();
                 const docRef = await window.pdfjsLib.getDocument({ data: new Uint8Array(fullBuffer) }).promise;
                 detectedTotalPages = docRef.numPages;
                 const fullLabel = `Selected: ${selectedPdfFile.name} (${detectedTotalPages} Pages)`;
@@ -3477,3 +3298,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         showToast(error.message || "Upload failed. Please try again.", "error");
     }
 });
+
+
+        
