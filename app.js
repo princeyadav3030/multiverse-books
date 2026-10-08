@@ -1127,23 +1127,26 @@ onAuthStateChanged(auth, async (user) => {
     });
     await loadInitialBooksBatch();
     
-    renderChannelLoader();
-    
-    const channelRef = collection(db, "channel_posts");
-    unsubChannel = onSnapshot(channelRef, (snapshot) => {
+        renderChannelLoader();
+
+    const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
+    unsubChannel = onSnapshot(channelQuery, (snapshot) => {
         const dataArr = [];
         snapshot.forEach(docSnap => {
             dataArr.push({ id: docSnap.id, ...docSnap.data() });
         });
 
-        dataArr.sort((a, b) => {
-            const timeA = a.createdAt ? (a.createdAt.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt).getTime()) : 0;
-            const timeB = b.createdAt ? (b.createdAt.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt).getTime()) : 0;
-            return timeA - timeB;
-        });
-
         const prevCount = livePosts.length;
         livePosts = dataArr;
+
+        if (chatBody && livePosts.length === 0) {
+            chatBody.innerHTML = `
+                <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
+                    <i class="fas fa-bullhorn" style="font-size: 28px; margin-bottom: 10px; color: #64748b;"></i>
+                    <p style="font-size: 14px; margin: 0;">No updates yet. Check back soon!</p>
+                </div>`;
+            return;
+        }
 
         const notiPanel = document.getElementById('noti-panel');
         const isNotiPanelOpen = notiPanel && notiPanel.classList.contains('active');
@@ -1174,12 +1177,12 @@ onAuthStateChanged(auth, async (user) => {
             livePosts.forEach(p => updateReactionInDOM(p.id));
         }
     }, (error) => {
-        console.error("Channel stream error:", error);
-                if (chatBody) {
+        console.error("Channel Error:", error);
+        if (chatBody) {
             chatBody.innerHTML = `
-                <div class="empty-loading">
-                    <i class="fas fa-exclamation-circle" style="font-size:24px; color:#ef4444;"></i>
-                    Updates load karne me samasya aayi.
+                <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
+                    <i class="fas fa-comments" style="font-size: 28px; margin-bottom: 10px; color: #64748b;"></i>
+                    <p style="font-size: 14px; margin: 0;">Spidy Official Channel is active.</p>
                 </div>`;
         }
     });
