@@ -1169,22 +1169,19 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // FORGOT PASSWORD (ADMIN VERIFICATION HANDLER)
+// FORGOT PASSWORD (DIRECT PILL TOAST - NO PROMPT POPUP)
 document.getElementById('forgotPasswordBtn')?.addEventListener('click', async () => {
     const emailInput = document.getElementById('loginEmail');
     let targetEmail = emailInput ? emailInput.value.trim().toLowerCase() : "";
 
-    if (!targetEmail) {
-        targetEmail = prompt("Apna registered admin email address enter karein:");
-        if (targetEmail) targetEmail = targetEmail.trim().toLowerCase();
-    }
-
     if (!targetEmail || !targetEmail.includes('@')) {
-        showToast("Kripya ek valid email address enter karein!", "error");
+        showToast("Kripya apna admin email address enter karein!", "error");
+        emailInput?.focus();
         return;
     }
 
     try {
-        showToast("Checking admin permissions...", "success");
+        showToast("Admin verification ho raha hai...", "success");
         const adminDocRef = doc(db, "admins", targetEmail);
         const adminDocSnap = await getDoc(adminDocRef);
 
@@ -1199,6 +1196,7 @@ document.getElementById('forgotPasswordBtn')?.addEventListener('click', async ()
         showToast(err.message || "Password reset link bhejne me samasya aayi.", "error");
     }
 });
+
 
 // ==========================================
 // 10. REALTIME PAGINATION HANDLER
@@ -1894,6 +1892,13 @@ document.getElementById('supportContactForm')?.addEventListener('submit', async 
 
 // POPSTATE LISTENER
 window.addEventListener('popstate', (e) => {
+    const loginOverlay = document.getElementById('loginOverlay');
+    if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
+        loginOverlay.style.opacity = '0';
+        setTimeout(() => { loginOverlay.style.display = 'none'; }, 400);
+        return;
+    }
+
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer && pdfViewer.style.display === 'flex') {
         pdfViewer.style.display = 'none';
