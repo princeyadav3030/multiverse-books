@@ -931,8 +931,8 @@ function renderChannelFeed(posts, shouldScrollToBottom = false) {
 
         if (dateStr !== lastDateStr) {
             finalHtml += `
-                <div class="chat-date-divider" style="display:flex; justify-content:center; margin:16px 0 10px 0;">
-                    <span style="background:rgba(30, 41, 59, 0.85); color:#94a3b8; font-size:11px; padding:4px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); font-weight:600;">${dateStr}</span>
+                <div class="chat-date-divider" style="display: flex; justify-content: center; align-items: center; margin: 16px 0 12px 0; width: 100%;">
+                    <span style="background: rgba(30, 41, 59, 0.9); color: #94a3b8; font-size: 11.5px; padding: 4px 14px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08); font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${dateStr}</span>
                 </div>`;
             lastDateStr = dateStr;
         }
@@ -947,22 +947,22 @@ function renderChannelFeed(posts, shouldScrollToBottom = false) {
         if (post.mediaUrl || post.image) {
             const secureMedia = getSecureAssetUrl(post.mediaUrl || post.image);
             mediaHtml = `
-                <div class="msg-media-wrap" style="margin-bottom:10px; border-radius:12px; overflow:hidden;">
-                    <img src="${secureMedia}" alt="Media" style="width:100%; max-height:360px; object-fit:cover; display:block;" onerror="this.style.display='none'" />
+                <div class="wa-media-wrap" style="width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 10px; background: #000;">
+                    <img src="${secureMedia}" alt="Media" style="width: 100%; max-height: 380px; object-fit: cover; display: block;" onerror="this.style.display='none'" />
                 </div>`;
         }
 
         finalHtml += `
-            <div class="channel-msg-row" id="post_${post.id}" data-post-id="${post.id}" style="display:flex; flex-direction:column; align-items:flex-start; margin-bottom:14px; width:100%; padding:0 4px;">
-                <div class="channel-msg-card" style="background:#181c24; border:1px solid rgba(255,255,255,0.09); border-radius:14px; padding:12px 14px; max-width:92%; width:fit-content; box-shadow:0 4px 15px rgba(0,0,0,0.45); word-break:break-word;">
+            <div class="wa-msg-wrapper" style="width: 100%; display: flex; justify-content: center; align-items: center; margin-bottom: 16px; padding: 0 10px; box-sizing: border-box;">
+                <div class="wa-channel-bubble" id="post_${post.id}" data-post-id="${post.id}" style="width: 100%; max-width: 520px; background: #181d24; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 14px 16px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55); box-sizing: border-box; position: relative;">
                     ${mediaHtml}
-                    <div class="channel-msg-content" style="color:#e2e8f0; font-size:13.5px; line-height:1.55;">
+                    <div class="wa-bubble-content" style="color: #f1f5f9; font-size: 14px; line-height: 1.6; word-break: break-word;">
                         ${parsedMessage}
                     </div>
-                    <div class="channel-msg-footer" style="display:flex; align-items:center; justify-content:flex-end; gap:6px; margin-top:6px; font-size:10.5px; color:#64748b;">
-                        <span class="channel-msg-time">${timeStr}</span>
+                    <div class="wa-bubble-meta" style="display: flex; align-items: center; justify-content: flex-end; margin-top: 8px; font-size: 11px; color: #64748b; font-weight: 500;">
+                        <span>${timeStr}</span>
                     </div>
-                    <div class="inline-reactions" style="display:flex; flex-wrap:wrap; gap:5px; margin-top:8px;">
+                    <div class="inline-reactions" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
                         ${reactionsHtml}
                     </div>
                 </div>
