@@ -67,9 +67,11 @@
         <div class="loader-powered-text">POWERED BY SPIDYUNIVERSE</div>
     </div>
 
-    <!-- NEW CURVED LUXURY CHARCOAL LOGIN OVERLAY -->
+    <!-- NEW LOGIN OVERLAY (CHARCOAL CURVED HEADER DESIGN) -->
     <div id="loginOverlay" class="login-container" style="display: none; opacity: 0;">
-        <div class="close-login-btn" id="closeLoginBtn" title="Close"><i class="fas fa-times"></i></div>
+        <div class="close-login-btn" id="closeLoginBtn" title="Close" style="position: absolute; top: 16px; right: 18px; z-index: 100000; cursor: pointer; color: #cbd5e1; font-size: 18px; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.15);">
+            <i class="fas fa-times"></i>
+        </div>
 
         <!-- Top Curved Charcoal Header -->
         <header class="top-curved-header">
@@ -79,9 +81,7 @@
                     <img 
                         src="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png" 
                         alt="SPIDY BOOK HUB Logo" 
-                        class="brand-logo-img"
-                        oncontextmenu="return false;"
-                        draggable="false"
+                        class="brand-logo-img" 
                     />
                 </div>
             </div>
@@ -92,12 +92,13 @@
             </h1>
         </header>
 
-        <!-- Form Section -->
+        <!-- Login Form Section -->
         <main class="form-wrapper">
             <h2 class="card-title">Welcome Back..!</h2>
             <p class="card-subtitle">Login to your learning account on Spidy Book Hub</p>
 
             <form id="loginForm">
+                <!-- Mobile / Email Field -->
                 <div class="form-group">
                     <div class="input-box-wrapper">
                         <input 
@@ -112,6 +113,7 @@
                     </div>
                 </div>
 
+                <!-- Password Field with Clean Border-less Eye Icon -->
                 <div class="form-group">
                     <div class="input-box-wrapper">
                         <input 
@@ -125,7 +127,7 @@
                         <button 
                             type="button" 
                             class="password-toggle-btn" 
-                            id="toggleEye"
+                            id="toggleEye" 
                             title="Toggle password view"
                         >
                             <i id="toggleIcon" class="fa-solid fa-eye-slash"></i>
@@ -138,7 +140,7 @@
                         <input type="checkbox" id="rememberMe" checked />
                         <span>Remember me</span>
                     </label>
-                    <a href="javascript:void(0)" id="forgotPasswordLink" class="forgot-link">Forgot Password?</a>
+                    <a href="javascript:void(0)" id="forgotPasswordBtn" class="forgot-link">Forgot Password?</a>
                 </div>
 
                 <button type="submit" id="loginBtn" class="btn-login">
@@ -162,7 +164,8 @@
             </button>
 
             <p class="register-prompt">
-                Don't have an account? <span class="register-link-static">Sign Up</span>
+                Don't have an account? 
+                <span class="register-link" style="cursor: default; text-decoration: none; opacity: 0.8; pointer-events: none;">Sign Up</span>
             </p>
         </main>
     </div>
@@ -311,7 +314,7 @@
             <div class="sidebar-overlay" id="sidebar-overlay"></div>
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-header-new" id="sidebarHeader">
-                    <img src="https://i.postimg.cc/D0BF1b77/file-000000000e847207a64f6711d825a859.png" alt="Profile" class="profile-img" id="sidebarProfileImg" oncontextmenu="return false;" draggable="false">
+                    <img src="https://i.postimg.cc/D0BF1b77/file-00000000e847207a64f6711d825a859.png" alt="Profile" class="profile-img" id="sidebarProfileImg" oncontextmenu="return false;" draggable="false">
                     <div class="profile-info">
                         <div class="profile-name" id="sidebarProfileName">SPIDY BOOK HUB</div>
                         <div style="font-size: 10px; color: #10b981; font-weight: bold; margin-top: 2px;" id="sidebarRoleText">Please Login</div>
@@ -321,7 +324,9 @@
                     <div class="menu-section">
                         <div class="section-title">MAIN MENU</div>
                         <a href="#" class="menu-item active" id="menu-home-side"><i class="fas fa-home"></i><span>Home</span></a>
+                        <!-- Updated Support Hub Link with Headset Icon -->
                         <a href="#" class="menu-item normal" id="menu-contact"><i class="fas fa-headset"></i><span>Support Hub</span></a>
+                        <!-- Saved Books -->
                         <a href="#" class="menu-item normal" id="menu-bookmarks"><i class="far fa-bookmark"></i><span>Saved Books</span></a>
                     </div>
                     <div class="menu-section">
@@ -983,6 +988,7 @@
                             <div class="dotted-divider"></div>
                         </div>
 
+                        <!-- Backend API Connected Form -->
                         <form id="supportContactForm">
                             <div class="form-row">
                                 <div class="input-group">
