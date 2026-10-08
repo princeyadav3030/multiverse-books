@@ -930,7 +930,10 @@ function renderChannelFeed(posts, shouldScrollToBottom = false) {
         const dateStr = formatDateDivider(postDate);
 
         if (dateStr !== lastDateStr) {
-            finalHtml += `<div class="chat-date-divider"><span>${dateStr}</span></div>`;
+            finalHtml += `
+                <div class="chat-date-divider" style="display:flex; justify-content:center; margin:16px 0 10px 0;">
+                    <span style="background:rgba(30, 41, 59, 0.85); color:#94a3b8; font-size:11px; padding:4px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); font-weight:600;">${dateStr}</span>
+                </div>`;
             lastDateStr = dateStr;
         }
 
@@ -944,20 +947,22 @@ function renderChannelFeed(posts, shouldScrollToBottom = false) {
         if (post.mediaUrl || post.image) {
             const secureMedia = getSecureAssetUrl(post.mediaUrl || post.image);
             mediaHtml = `
-                <div class="msg-media-wrap">
-                    <img src="${secureMedia}" alt="Channel Media" class="msg-media-img" loading="lazy" />
+                <div class="msg-media-wrap" style="margin-bottom:10px; border-radius:12px; overflow:hidden;">
+                    <img src="${secureMedia}" alt="Media" style="width:100%; max-height:360px; object-fit:cover; display:block;" onerror="this.style.display='none'" />
                 </div>`;
         }
 
         finalHtml += `
-            <div class="channel-msg-row" id="post_${post.id}" data-post-id="${post.id}">
-                <div class="channel-msg-card">
+            <div class="channel-msg-row" id="post_${post.id}" data-post-id="${post.id}" style="display:flex; flex-direction:column; align-items:flex-start; margin-bottom:14px; width:100%; padding:0 4px;">
+                <div class="channel-msg-card" style="background:#181c24; border:1px solid rgba(255,255,255,0.09); border-radius:14px; padding:12px 14px; max-width:92%; width:fit-content; box-shadow:0 4px 15px rgba(0,0,0,0.45); word-break:break-word;">
                     ${mediaHtml}
-                    <div class="channel-msg-content">${parsedMessage}</div>
-                    <div class="channel-msg-footer">
+                    <div class="channel-msg-content" style="color:#e2e8f0; font-size:13.5px; line-height:1.55;">
+                        ${parsedMessage}
+                    </div>
+                    <div class="channel-msg-footer" style="display:flex; align-items:center; justify-content:flex-end; gap:6px; margin-top:6px; font-size:10.5px; color:#64748b;">
                         <span class="channel-msg-time">${timeStr}</span>
                     </div>
-                    <div class="inline-reactions">
+                    <div class="inline-reactions" style="display:flex; flex-wrap:wrap; gap:5px; margin-top:8px;">
                         ${reactionsHtml}
                     </div>
                 </div>
@@ -976,6 +981,7 @@ function renderChannelFeed(posts, shouldScrollToBottom = false) {
         forceScrollChatToBottom();
     }
 }
+
 
 
 
