@@ -935,28 +935,29 @@ function renderChannelFeed(posts, shouldScrollToBottom = false) {
         }
 
         const userSelectedEmoji = getUserReaction(post.id);
-        const parsedMessage = parseMarkdown(post.message || '');
+        const postContent = post.text || post.message || '';
+        const parsedMessage = parseMarkdown(postContent);
         const timeStr = formatTime(postDate);
         const reactionsHtml = buildReactionsHTML(post.reactions, userSelectedEmoji);
 
         let mediaHtml = '';
-        if (post.mediaUrl) {
-            const secureMedia = getSecureAssetUrl(post.mediaUrl);
+        if (post.mediaUrl || post.image) {
+            const secureMedia = getSecureAssetUrl(post.mediaUrl || post.image);
             mediaHtml = `
-                <div class="post-media-container" style="margin-bottom: 8px; border-radius: 8px; overflow: hidden;">
-                    <img src="${secureMedia}" alt="Media" style="width: 100%; max-height: 320px; object-fit: cover; display: block;" onerror="this.style.display='none'" />
+                <div class="msg-media-wrap">
+                    <img src="${secureMedia}" alt="Channel Media" class="msg-media-img" loading="lazy" />
                 </div>`;
         }
 
         finalHtml += `
-            <div class="chat-bubble-row" id="post_${post.id}" data-post-id="${post.id}">
-                <div class="chat-bubble-card">
+            <div class="channel-msg-row" id="post_${post.id}" data-post-id="${post.id}">
+                <div class="channel-msg-card">
                     ${mediaHtml}
-                    <div class="post-text-body">${parsedMessage}</div>
-                    <div class="post-meta-footer" style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 11px; opacity: 0.6; margin-top: 4px;">
-                        <span class="post-time">${timeStr}</span>
+                    <div class="channel-msg-content">${parsedMessage}</div>
+                    <div class="channel-msg-footer">
+                        <span class="channel-msg-time">${timeStr}</span>
                     </div>
-                    <div class="inline-reactions" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
+                    <div class="inline-reactions">
                         ${reactionsHtml}
                     </div>
                 </div>
