@@ -1175,7 +1175,7 @@ onAuthStateChanged(auth, async (user) => {
         }
     }, (error) => {
         console.error("Channel stream error:", error);
-        if (chatBody) {
+                if (chatBody) {
             chatBody.innerHTML = `
                 <div class="empty-loading">
                     <i class="fas fa-exclamation-circle" style="font-size:24px; color:#ef4444;"></i>
@@ -1183,9 +1183,9 @@ onAuthStateChanged(auth, async (user) => {
                 </div>`;
         }
     });
+});
 
 
-// FORGOT PASSWORD (ADMIN VERIFICATION HANDLER)
 // FORGOT PASSWORD (DIRECT PILL TOAST - NO PROMPT POPUP)
 document.getElementById('forgotPasswordBtn')?.addEventListener('click', async () => {
     const emailInput = document.getElementById('loginEmail');
