@@ -890,6 +890,9 @@ function syncAndSanitizeBookmarks() {
 // ==========================================
 // 8. CHANNEL NOTIFICATIONS
 // ==========================================
+// ==========================================
+// 8. CHANNEL NOTIFICATIONS
+// ==========================================
 const chatBody = document.getElementById('chatBody');
 const contextOverlay = document.getElementById('contextOverlay');
 const scrollDownWrapper = document.getElementById('scrollDownWrapper');
@@ -909,81 +912,6 @@ function renderChannelLoader() {
             Connecting to live updates...
         </div>`;
 }
-
-function renderChannelFeed(posts, shouldScrollToBottom = false) {
-    if (!chatBody) return;
-
-    if (!posts || posts.length === 0) {
-        chatBody.innerHTML = `
-            <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
-                <i class="fas fa-bullhorn" style="font-size: 28px; margin-bottom: 10px; color: #64748b;"></i>
-                <p style="font-size: 14px; margin: 0;">No updates yet. Check back soon!</p>
-            </div>`;
-        return;
-    }
-
-    let finalHtml = '';
-    let lastDateStr = '';
-
-    posts.forEach(post => {
-        const postDate = normalizeDate(post.createdAt);
-        const dateStr = formatDateDivider(postDate);
-
-        if (dateStr !== lastDateStr) {
-            finalHtml += `
-                <div class="chat-date-divider" style="display: flex; justify-content: center; align-items: center; margin: 16px 0 12px 0; width: 100%;">
-                    <span style="background: rgba(30, 41, 59, 0.9); color: #94a3b8; font-size: 11.5px; padding: 4px 14px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08); font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">${dateStr}</span>
-                </div>`;
-            lastDateStr = dateStr;
-        }
-
-        const userSelectedEmoji = getUserReaction(post.id);
-        const postContent = post.text || post.message || '';
-        const parsedMessage = parseMarkdown(postContent);
-        const timeStr = formatTime(postDate);
-        const reactionsHtml = buildReactionsHTML(post.reactions, userSelectedEmoji);
-
-        let mediaHtml = '';
-        if (post.mediaUrl || post.image) {
-            const secureMedia = getSecureAssetUrl(post.mediaUrl || post.image);
-            mediaHtml = `
-                <div class="wa-media-wrap" style="width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 10px; background: #000;">
-                    <img src="${secureMedia}" alt="Media" style="width: 100%; max-height: 380px; object-fit: cover; display: block;" onerror="this.style.display='none'" />
-                </div>`;
-        }
-
-        finalHtml += `
-            <div class="wa-msg-wrapper" style="width: 100%; display: flex; justify-content: center; align-items: center; margin-bottom: 16px; padding: 0 10px; box-sizing: border-box;">
-                <div class="wa-channel-bubble" id="post_${post.id}" data-post-id="${post.id}" style="width: 100%; max-width: 520px; background: #181d24; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 14px 16px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55); box-sizing: border-box; position: relative;">
-                    ${mediaHtml}
-                    <div class="wa-bubble-content" style="color: #f1f5f9; font-size: 14px; line-height: 1.6; word-break: break-word;">
-                        ${parsedMessage}
-                    </div>
-                    <div class="wa-bubble-meta" style="display: flex; align-items: center; justify-content: flex-end; margin-top: 8px; font-size: 11px; color: #64748b; font-weight: 500;">
-                        <span>${timeStr}</span>
-                    </div>
-                    <div class="inline-reactions" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
-                        ${reactionsHtml}
-                    </div>
-                </div>
-            </div>`;
-    });
-
-    chatBody.innerHTML = finalHtml;
-
-    posts.forEach(p => {
-        updateReactionInDOM(p.id);
-        const elem = document.getElementById(`post_${p.id}`);
-        if (elem && postViewObserver) postViewObserver.observe(elem);
-    });
-
-    if (shouldScrollToBottom) {
-        forceScrollChatToBottom();
-    }
-}
-
-
-
 
 function getUserReaction(postId) { return localStorage.getItem(`reaction_${postId}`); }
 function setUserReaction(postId, emoji) {
@@ -1032,7 +960,6 @@ if (chatBody) {
         }
     }, { passive: true });
 }
-
 window.scrollToChannelPost = function(postId) {
     if (!postId) return;
     const target = document.getElementById(`post_${postId}`);
@@ -1103,6 +1030,224 @@ const postViewObserver = new IntersectionObserver((entries) => {
     });
 }, { threshold: 0.5 });
 
+function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
+    if (!chatBody) return;
+
+    if (!posts || posts.length === 0) {
+        chatBody.innerHTML = `
+            <div class="empty-loading">
+                <i class="fas fa-bullhorn" style="font-size:26px; color:var(--text-secondary); opacity:0.6;"></i>
+                No channel updates posted yet.
+            </div>`;
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    let lastDateStr = '';
+
+    posts.forEach(post => {
+        const dateObj = normalizeDate(post.createdAt);
+        const dateStr = formatDateDivider(dateObj);
+
+        if (dateStr !== lastDateStr) {
+            const divider = document.createElement('div');
+            divider.className = 'date-divider';
+            divider.innerText = dateStr;
+            fragment.appendChild(divider);
+            lastDateStr = dateStr;
+        }
+
+        const userSelectedEmoji = getUserReaction(post.id);
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        bubble.id = `post_${post.id}`;
+        bubble.dataset.postId = post.id;
+
+        let imageHTML = post.imageUrl 
+            ? `<img src="${getSecureAssetUrl(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image">` 
+            : '';
+
+        let quoteHTML = '';
+        if (post.quote) {
+            const targetId = post.quote.targetPostId || '';
+            const cleanSnippet = sanitizeHTML(stripMarkdown(post.quote.text || ''));
+            quoteHTML = `
+            <div class="msg-quote" onclick="event.stopPropagation(); window.scrollToChannelPost('${targetId}')">
+                 <div class="quote-author">SPIDY BOOK HUB</div>
+                 <div class="quote-text">${cleanSnippet}</div>
+            </div>`;
+}
+
+        const reactionPillsHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
+
+        bubble.innerHTML = `
+            ${quoteHTML}
+            ${imageHTML}
+            <div class="msg-text">${parseMarkdown(post.text)}</div>
+            <div class="post-footer">
+                <div class="inline-reactions">${reactionPillsHTML}</div>
+                <div class="msg-meta">
+                    <i class="fas fa-eye"></i> ${formatViewsCount(post.views || 1)} &nbsp; ${formatTime(dateObj)}
+                </div>
+            </div>
+        `;
+
+        bubble.querySelectorAll('.reaction-pill').forEach(pill => {
+            pill.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                applyReaction(post.id, pill.dataset.emoji);
+            });
+        });
+
+        bubble.addEventListener('click', (e) => {
+            if (
+                e.target.tagName === 'A' || 
+                e.target.closest('.tg-copy-action-btn') || 
+                e.target.closest('.telegram-copy-btn') ||
+                e.target.closest('.reaction-pill') ||
+                e.target.closest('.tg-copy-card')
+            ) {
+                return;
+            }
+            activePost = post;
+            if (contextOverlay) contextOverlay.classList.add('show');
+            if (navigator.vibrate) navigator.vibrate(20);
+        });
+
+        fragment.appendChild(bubble);
+        postViewObserver.observe(bubble);
+    });
+
+    if (isInitialOrPanelOpen) {
+        chatBody.style.visibility = 'hidden';
+        chatBody.innerHTML = '';
+        chatBody.appendChild(fragment);
+
+        requestAnimationFrame(() => {
+            chatBody.scrollTop = chatBody.scrollHeight + 1000;
+            requestAnimationFrame(() => {
+                chatBody.scrollTop = chatBody.scrollHeight + 1000;
+                chatBody.style.visibility = 'visible';
+            });
+        });
+    } else {
+        const prevScrollTop = chatBody.scrollTop;
+        chatBody.innerHTML = '';
+        chatBody.appendChild(fragment);
+        chatBody.scrollTop = prevScrollTop;
+    }
+}
+
+async function applyReaction(postId, newEmoji) {
+    if (!auth.currentUser) return;
+    
+    const existing = getUserReaction(postId);
+    if (existing === newEmoji) return;
+
+    setUserReaction(postId, newEmoji);
+    const pIdx = livePosts.findIndex(p => p.id === postId);
+    if (pIdx !== -1) {
+        livePosts[pIdx].reactions = livePosts[pIdx].reactions || {};
+        if (existing && livePosts[pIdx].reactions[existing]) {
+            livePosts[pIdx].reactions[existing] = Math.max(0, livePosts[pIdx].reactions[existing] - 1);
+        }
+        livePosts[pIdx].reactions[newEmoji] = (livePosts[pIdx].reactions[newEmoji] || 0) + 1;
+        updateReactionInDOM(postId);
+    }
+    if (navigator.vibrate) navigator.vibrate(15);
+
+    try {
+        const token = await auth.currentUser.getIdToken(false);
+        await fetch('/api/channel-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'reaction', postId, emoji: newEmoji, userToken: token })
+        });
+    } catch (e) {}
+                                  }
+
+if (contextOverlay) {
+    contextOverlay.addEventListener('click', (e) => {
+        if (e.target === contextOverlay) contextOverlay.classList.remove('show');
+    });
+
+    document.querySelectorAll('.cm-emoji').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const emoji = el.getAttribute('data-emoji');
+            if (activePost && emoji) {
+                applyReaction(activePost.id, emoji);
+                contextOverlay.classList.remove('show');
+                activePost = null;
+            }
+        });
+    });
+
+    document.getElementById('cmCopyText')?.addEventListener('click', () => {
+        if (!activePost) return;
+        navigator.clipboard.writeText(stripMarkdown(activePost.text));
+        contextOverlay.classList.remove('show');
+    });
+
+    document.getElementById('cmCopyLink')?.addEventListener('click', () => {
+        if (!activePost) return;
+        const cleanBase = window.location.origin + window.location.pathname;
+        const url = `${cleanBase}#/post/${activePost.id}`;
+        navigator.clipboard.writeText(url);
+        contextOverlay.classList.remove('show');
+    });
+
+    document.getElementById('cmForward')?.addEventListener('click', () => {
+        if (!activePost) return;
+        const cleanBase = window.location.origin + window.location.pathname;
+        const url = `${cleanBase}#/post/${activePost.id}`;
+        const cleanText = stripMarkdown(activePost.text);
+        if (navigator.share) {
+            navigator.share({ title: 'SPIDY BOOK HUB', text: cleanText, url: url }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(url);
+        }
+        contextOverlay.classList.remove('show');
+    });
+
+    document.getElementById('cmReport')?.addEventListener('click', () => {
+        contextOverlay.classList.remove('show');
+    });
+}
+
+document.addEventListener('click', (e) => {
+    const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
+    if (copyBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        let copyTargetText = "";
+        const rawData = copyBtn.getAttribute('data-clipboard');
+        if (rawData) copyTargetText = decodeURIComponent(rawData);
+
+        if (!copyTargetText) {
+            const card = copyBtn.closest('.tg-copy-card, .telegram-prompt-card');
+            if (card) {
+                const bodyEl = card.querySelector('.telegram-prompt-body, .tg-copy-body');
+                if (bodyEl) copyTargetText = bodyEl.textContent.trim();
+            }
+        }
+
+        if (copyTargetText) {
+            navigator.clipboard.writeText(copyTargetText).then(() => {
+                copyBtn.classList.add('copied-active');
+                const orig = copyBtn.innerHTML;
+                copyBtn.innerHTML = `<i class="fas fa-check"></i> COPIED!`;
+                setTimeout(() => {
+                    copyBtn.classList.remove('copied-active');
+                    copyBtn.innerHTML = orig;
+                }, 2000);
+            });
+        }
+    }
+}, true);
+        
 // ==========================================
 // 9. AUTHENTICATION OBSERVER & FORGOT PASSWORD
 // ==========================================
