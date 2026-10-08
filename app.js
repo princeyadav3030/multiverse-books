@@ -910,6 +910,74 @@ function renderChannelLoader() {
         </div>`;
 }
 
+function renderChannelFeed(posts, shouldScrollToBottom = false) {
+    if (!chatBody) return;
+
+    if (!posts || posts.length === 0) {
+        chatBody.innerHTML = `
+            <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
+                <i class="fas fa-bullhorn" style="font-size: 28px; margin-bottom: 10px; color: #64748b;"></i>
+                <p style="font-size: 14px; margin: 0;">No updates yet. Check back soon!</p>
+            </div>`;
+        return;
+    }
+
+    let finalHtml = '';
+    let lastDateStr = '';
+
+    posts.forEach(post => {
+        const postDate = normalizeDate(post.createdAt);
+        const dateStr = formatDateDivider(postDate);
+
+        if (dateStr !== lastDateStr) {
+            finalHtml += `<div class="chat-date-divider"><span>${dateStr}</span></div>`;
+            lastDateStr = dateStr;
+        }
+
+        const userSelectedEmoji = getUserReaction(post.id);
+        const parsedMessage = parseMarkdown(post.message || '');
+        const timeStr = formatTime(postDate);
+        const reactionsHtml = buildReactionsHTML(post.reactions, userSelectedEmoji);
+
+        let mediaHtml = '';
+        if (post.mediaUrl) {
+            const secureMedia = getSecureAssetUrl(post.mediaUrl);
+            mediaHtml = `
+                <div class="post-media-container" style="margin-bottom: 8px; border-radius: 8px; overflow: hidden;">
+                    <img src="${secureMedia}" alt="Media" style="width: 100%; max-height: 320px; object-fit: cover; display: block;" onerror="this.style.display='none'" />
+                </div>`;
+        }
+
+        finalHtml += `
+            <div class="chat-bubble-row" id="post_${post.id}" data-post-id="${post.id}">
+                <div class="chat-bubble-card">
+                    ${mediaHtml}
+                    <div class="post-text-body">${parsedMessage}</div>
+                    <div class="post-meta-footer" style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 11px; opacity: 0.6; margin-top: 4px;">
+                        <span class="post-time">${timeStr}</span>
+                    </div>
+                    <div class="inline-reactions" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
+                        ${reactionsHtml}
+                    </div>
+                </div>
+            </div>`;
+    });
+
+    chatBody.innerHTML = finalHtml;
+
+    posts.forEach(p => {
+        updateReactionInDOM(p.id);
+        const elem = document.getElementById(`post_${p.id}`);
+        if (elem && postViewObserver) postViewObserver.observe(elem);
+    });
+
+    if (shouldScrollToBottom) {
+        forceScrollChatToBottom();
+    }
+}
+
+
+
 function getUserReaction(postId) { return localStorage.getItem(`reaction_${postId}`); }
 function setUserReaction(postId, emoji) {
     if (emoji) localStorage.setItem(`reaction_${postId}`, emoji);
