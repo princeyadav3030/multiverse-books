@@ -1126,14 +1126,19 @@ onAuthStateChanged(auth, async (user) => {
         });
     });
 
-    await loadInitialBooksBatch();
-
     renderChannelLoader();
-    const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
-    unsubChannel = onSnapshot(channelQuery, (snapshot) => {
+    
+    const channelRef = collection(db, "channel_posts");
+    unsubChannel = onSnapshot(channelRef, (snapshot) => {
         const dataArr = [];
         snapshot.forEach(docSnap => {
             dataArr.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        dataArr.sort((a, b) => {
+            const timeA = a.createdAt ? (a.createdAt.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt).getTime()) : 0;
+            const timeB = b.createdAt ? (b.createdAt.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt).getTime()) : 0;
+            return timeA - timeB;
         });
 
         const prevCount = livePosts.length;
@@ -1155,9 +1160,11 @@ onAuthStateChanged(auth, async (user) => {
             const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
             if (distanceFromBottom > 140 && livePosts.length > prevCount) {
                 unreadPostsCount += (livePosts.length - prevCount);
-                unreadBadge.innerText = unreadPostsCount > 99 ? '99+' : unreadPostsCount;
-                unreadBadge.classList.add('active');
-                scrollDownWrapper.classList.add('show');
+                if (unreadBadge) {
+                    unreadBadge.innerText = unreadPostsCount > 99 ? '99+' : unreadPostsCount;
+                    unreadBadge.classList.add('active');
+                }
+                if (scrollDownWrapper) scrollDownWrapper.classList.add('show');
                 renderChannelFeed(livePosts, false);
             } else {
                 renderChannelFeed(livePosts, true);
@@ -1165,8 +1172,17 @@ onAuthStateChanged(auth, async (user) => {
         } else {
             livePosts.forEach(p => updateReactionInDOM(p.id));
         }
+    }, (error) => {
+        console.error("Channel stream error:", error);
+        if (chatBody) {
+            chatBody.innerHTML = `
+                <div class="empty-loading">
+                    <i class="fas fa-exclamation-circle" style="font-size:24px; color:#ef4444;"></i>
+                    Updates load karne me samasya aayi.
+                </div>`;
+        }
     });
-});
+
 
 // FORGOT PASSWORD (ADMIN VERIFICATION HANDLER)
 // FORGOT PASSWORD (DIRECT PILL TOAST - NO PROMPT POPUP)
