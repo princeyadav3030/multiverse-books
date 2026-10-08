@@ -1125,9 +1125,10 @@ onAuthStateChanged(auth, async (user) => {
             </div>`;
         });
     });
+
     await loadInitialBooksBatch();
     
-            renderChannelLoader();
+    renderChannelLoader();
     const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
     unsubChannel = onSnapshot(channelQuery, (snapshot) => {
         const dataArr = [];
@@ -1137,6 +1138,15 @@ onAuthStateChanged(auth, async (user) => {
 
         const prevCount = livePosts.length;
         livePosts = dataArr;
+
+        if (chatBody && livePosts.length === 0) {
+            chatBody.innerHTML = `
+                <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
+                    <i class="fas fa-bullhorn" style="font-size: 28px; margin-bottom: 10px; color: #64748b;"></i>
+                    <p style="font-size: 14px; margin: 0;">No updates yet. Check back soon!</p>
+                </div>`;
+            return;
+        }
 
         const notiPanel = document.getElementById('noti-panel');
         const isNotiPanelOpen = notiPanel && notiPanel.classList.contains('active');
@@ -1166,10 +1176,17 @@ onAuthStateChanged(auth, async (user) => {
         } else {
             livePosts.forEach(p => updateReactionInDOM(p.id));
         }
+    }, (error) => {
+        console.error("Channel Error:", error);
+        if (chatBody) {
+            chatBody.innerHTML = `
+                <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
+                    <i class="fas fa-circle-exclamation" style="font-size: 28px; margin-bottom: 10px; color: #ef4444;"></i>
+                    <p style="font-size: 14px; margin: 0;">Updates load nahi ho sake.</p>
+                </div>`;
+        }
     });
 });
-
-
 
 // FORGOT PASSWORD (DIRECT PILL TOAST - NO PROMPT POPUP)
 document.getElementById('forgotPasswordBtn')?.addEventListener('click', async () => {
@@ -1198,7 +1215,6 @@ document.getElementById('forgotPasswordBtn')?.addEventListener('click', async ()
         showToast(err.message || "Password reset link bhejne me samasya aayi.", "error");
     }
 });
-
 
 // ==========================================
 // 10. REALTIME PAGINATION HANDLER
@@ -1561,7 +1577,7 @@ document.getElementById('close-search')?.addEventListener('click', () => {
     if (history.state && history.state.popup === 'search') { history.back(); }
 });
 document.getElementById('openAuthorFilterBtn')?.addEventListener('click', () => { 
-    history.pushState({ popup: 'filter' }, '');
+    history.pushState({ popup: 'filter' }, ''); 
     document.getElementById('filterBottomOverlay').classList.add('active'); 
 });
 document.getElementById('closeAuthorFilterBtn')?.addEventListener('click', () => { 
@@ -2768,7 +2784,6 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
     }
 });
 
-
 // ==========================================
 // 18. UPLOAD HUB & ZERO-FAILURE PIPELINE
 // ==========================================
@@ -3305,6 +3320,3 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         showToast(error.message || "Upload failed. Please try again.", "error");
     }
 });
-
-
-        
