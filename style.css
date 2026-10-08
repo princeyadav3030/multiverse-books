@@ -2190,20 +2190,21 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 }
 
 .top-curved-header {
-    width: 100%;
-    background: linear-gradient(165deg, #2a2e37 0%, #1c1f26 60%, #13151b 100%);
-    border-bottom-right-radius: 65px;
-    padding: 24px 20px 24px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    position: relative;
-    z-index: 5;
-    border-bottom: 1.5px solid #282c35;
-    border-right: 1.5px solid #282c35;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.65);
+    width: 100% !important;
+    background: linear-gradient(165deg, #2a2e37 0%, #1c1f26 60%, #13151b 100%) !important;
+    border-bottom-right-radius: 65px !important;
+    padding: 24px 20px 24px 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    position: relative !important;
+    z-index: 5 !important;
+    border-bottom: 1.5px solid #282c35 !important;
+    border-right: 1.5px solid #282c35 !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.65) !important;
 }
+
 
 .logo-frame {
     position: relative;
