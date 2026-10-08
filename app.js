@@ -1127,8 +1127,7 @@ onAuthStateChanged(auth, async (user) => {
     });
     await loadInitialBooksBatch();
     
-        renderChannelLoader();
-
+            renderChannelLoader();
     const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
     unsubChannel = onSnapshot(channelQuery, (snapshot) => {
         const dataArr = [];
@@ -1138,15 +1137,6 @@ onAuthStateChanged(auth, async (user) => {
 
         const prevCount = livePosts.length;
         livePosts = dataArr;
-
-        if (chatBody && livePosts.length === 0) {
-            chatBody.innerHTML = `
-                <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
-                    <i class="fas fa-bullhorn" style="font-size: 28px; margin-bottom: 10px; color: #64748b;"></i>
-                    <p style="font-size: 14px; margin: 0;">No updates yet. Check back soon!</p>
-                </div>`;
-            return;
-        }
 
         const notiPanel = document.getElementById('noti-panel');
         const isNotiPanelOpen = notiPanel && notiPanel.classList.contains('active');
@@ -1176,17 +1166,9 @@ onAuthStateChanged(auth, async (user) => {
         } else {
             livePosts.forEach(p => updateReactionInDOM(p.id));
         }
-    }, (error) => {
-        console.error("Channel Error:", error);
-        if (chatBody) {
-            chatBody.innerHTML = `
-                <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
-                    <i class="fas fa-comments" style="font-size: 28px; margin-bottom: 10px; color: #64748b;"></i>
-                    <p style="font-size: 14px; margin: 0;">Spidy Official Channel is active.</p>
-                </div>`;
-        }
     });
 });
+
 
 
 // FORGOT PASSWORD (DIRECT PILL TOAST - NO PROMPT POPUP)
