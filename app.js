@@ -1125,7 +1125,8 @@ onAuthStateChanged(auth, async (user) => {
             </div>`;
         });
     });
-
+    await loadInitialBooksBatch();
+    
     renderChannelLoader();
     
     const channelRef = collection(db, "channel_posts");
