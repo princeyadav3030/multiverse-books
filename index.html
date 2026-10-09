@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Playfair+Display:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Playfair+Display:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;600&family=Merriweather:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
     
     <!-- DOMPurify for Security -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
@@ -321,9 +321,7 @@
                     <div class="menu-section">
                         <div class="section-title">MAIN MENU</div>
                         <a href="#" class="menu-item active" id="menu-home-side"><i class="fas fa-home"></i><span>Home</span></a>
-                        <!-- Updated Support Hub Link with Headset Icon -->
                         <a href="#" class="menu-item normal" id="menu-contact"><i class="fas fa-headset"></i><span>Support Hub</span></a>
-                        <!-- Saved Books -->
                         <a href="#" class="menu-item normal" id="menu-bookmarks"><i class="far fa-bookmark"></i><span>Saved Books</span></a>
                     </div>
                     <div class="menu-section">
@@ -370,11 +368,86 @@
                         </div>
                     </div>
 
+                    <!-- NEW 4-BOX MULTI-COLOR FILTER COMPONENT -->
+                    <div id="pageWrapper" style="width: 100%; margin-bottom: 20px;">
+                        <div class="filter-card-container">
+                            
+                            <!-- 1. LANGUAGE (BLUE) -->
+                            <div class="filter-item type-language" id="btnFilterLanguage">
+                                <div class="filter-label-row">
+                                    <svg class="label-icon" viewBox="0 0 24 24">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                    </svg>
+                                    <span class="filter-label">LANGUAGE</span>
+                                </div>
+                                <div class="filter-select-box" id="box-language">
+                                    <span id="label-language">All</span>
+                                    <svg class="arrow-icon" viewBox="0 0 24 24">
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- 2. CLASS / EXAM (GREEN) -->
+                            <div class="filter-item type-class" id="btnFilterClass">
+                                <div class="filter-label-row">
+                                    <svg class="label-icon" viewBox="0 0 24 24">
+                                        <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                                        <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
+                                    </svg>
+                                    <span class="filter-label">CLASS / EXAM</span>
+                                </div>
+                                <div class="filter-select-box" id="box-class">
+                                    <span id="label-class">All</span>
+                                    <svg class="arrow-icon" viewBox="0 0 24 24">
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- 3. AUTHOR (PURPLE) -->
+                            <div class="filter-item type-author" id="btnFilterAuthor">
+                                <div class="filter-label-row">
+                                    <svg class="label-icon" viewBox="0 0 24 24">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="12" cy="7" r="4"></circle>
+                                    </svg>
+                                    <span class="filter-label">AUTHOR</span>
+                                </div>
+                                <div class="filter-select-box" id="box-author">
+                                    <span id="label-author">All</span>
+                                    <svg class="arrow-icon" viewBox="0 0 24 24">
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- 4. YEAR (AMBER) -->
+                            <div class="filter-item type-year" id="btnFilterYear">
+                                <div class="filter-label-row">
+                                    <svg class="label-icon" viewBox="0 0 24 24">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                                    </svg>
+                                    <span class="filter-label">YEAR</span>
+                                </div>
+                                <div class="filter-select-box" id="box-year">
+                                    <span id="label-year">All</span>
+                                    <svg class="arrow-icon" viewBox="0 0 24 24">
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <div class="section-header-title" style="margin-bottom: 0;"><i class="fas fa-book-open" style="color: #10b981;"></i> Trending Books 🔥 </div>
-                        <div class="app-filter-icon" id="openAuthorFilterBtn">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-                        </div>
                     </div>
 
                     <div class="book-container" id="bookContainer"></div>
@@ -534,7 +607,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="uc-footer">PDF FILES • Maximum 250MB (Admins up to 1GB)</div>
+                                    <div class="uc-footer">PDF FILES • Maximum 250MB/div>
                                 </div>
                             </div>
                             
@@ -600,36 +673,45 @@
                 </main>
             </div>
 
-            <!-- Dual Filter Bottom Sheet -->
-            <div class="filter-bottom-overlay" id="filterBottomOverlay">
-                <div class="filter-bottom-sheet" id="filterBottomSheet">
-                    <div class="f-drag-handle"></div>
-                    <div class="f-header" style="margin-bottom: 15px; flex-shrink: 0;">
-                        <h3 style="display: flex; align-items: center; gap: 12px; margin: 0;">
-                            <div class="f-header-icon"><i class="fas fa-sliders-h"></i></div>
-                            Filter Content
-                        </h3>
-                        <div class="f-close" id="closeAuthorFilterBtn"><i class="fas fa-times"></i></div>
-                    </div>
-                    
-                    <div class="f-scroll-area">
-                        <div>
-                            <div style="font-size: 11px; font-weight: 800; color: #71717a; letter-spacing: 1px; margin-bottom: 12px; text-transform: uppercase;"><i class="fas fa-book" style="margin-right: 5px;"></i> Select Exam / Board</div>
-                            <div class="f-options-grid" id="categoryFilterGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding-bottom: 5px;"></div>
+            <!-- NEW CENTER POPUP MODAL OVERLAY (4-BOX FILTER PICKER) -->
+            <div class="modal-overlay" id="filterModalOverlay">
+                <div class="center-modal-card" id="centerFilterModalCard">
+                    <!-- Top Grab Bar Indicator -->
+                    <div class="sheet-pill-indicator"></div>
+
+                    <!-- Header with Dynamic Filter Title & Close Button -->
+                    <div class="modal-head">
+                        <div class="head-left">
+                            <svg class="slider-filter-logo" viewBox="0 0 24 24">
+                                <line x1="3" y1="6" x2="21" y2="6"></line>
+                                <circle cx="8" cy="6" r="2.5" fill="#111317"></circle>
+                                <line x1="3" y1="12" x2="21" y2="12"></line>
+                                <circle cx="16" cy="12" r="2.5" fill="#111317"></circle>
+                                <line x1="3" y1="18" x2="21" y2="18"></line>
+                                <circle cx="10" cy="18" r="2.5" fill="#111317"></circle>
+                            </svg>
+                            <span class="modal-title-text" id="filterModalTitleText">Filter Content</span>
                         </div>
-                        <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.08);"></div>
-                        <div>
-                            <div style="font-size: 11px; font-weight: 800; color: #71717a; letter-spacing: 1px; margin-bottom: 12px; text-transform: uppercase;"><i class="fas fa-globe" style="margin-right: 5px;"></i> Select Medium</div>
-                            <div class="f-options-grid" id="languageFilterGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding-bottom: 5px;">
-                                <div class="f-pill active" data-lang="All">All</div>
-                                <div class="f-pill" data-lang="Hindi">Hindi</div>
-                                <div class="f-pill" data-lang="English">English</div>
-                                <div class="f-pill" data-lang="Bilingual">Bilingual</div>
-                            </div>
-                        </div>
-                        <button id="applyFiltersBtn" style="width: 100%; background: #10b981; color: #fff; padding: 14px; border: none; border-radius: 16px; font-size: 1.05rem !important; font-weight: 800 !important; font-family: 'Times New Roman', Times, Georgia, serif !important; letter-spacing: 0.5px !important; cursor: pointer; margin-top: 10px; margin-bottom: 2px; transition: transform 0.15s ease, opacity 0.15s ease; flex-shrink: 0; outline: none;">
-                            Apply Filters
+                        <button class="modal-close-btn" id="closeFilterModalBtn" aria-label="Close Filter">
+                            <svg class="close-icon-svg" viewBox="0 0 24 24">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
                         </button>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="header-divider-container">
+                        <div class="header-divider-line"></div>
+                    </div>
+
+                    <!-- Options Grid Area -->
+                    <div class="modal-body-content">
+                        <div class="section-subtitle-row">
+                            <div id="filterModalSubtitleIcon"></div>
+                            <span class="section-subtitle" id="filterModalSubText">SELECT OPTION</span>
+                        </div>
+                        <div class="pills-grid" id="filterModalGridContainer"></div>
                     </div>
                 </div>
             </div>
@@ -1112,7 +1194,7 @@
         </div>
     </div>
 
-    <!-- Dynamic Auto-Rolling Year Picker Modal -->
+    <!-- Dynamic Auto-Rolling Year Picker Modal (For Upload Hub) -->
     <div class="center-popup-overlay" id="yearPopupOverlay">
         <div class="center-popup-box">
             <div class="popup-modal-header">
@@ -1126,7 +1208,7 @@
         </div>
     </div>
 
-    <!-- Center Modal: Language Picker -->
+    <!-- Center Modal: Language Picker (For Upload Hub) -->
     <div class="center-popup-overlay" id="langPopupOverlay">
         <div class="center-popup-box">
             <div class="popup-modal-header">
