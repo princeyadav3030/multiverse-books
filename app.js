@@ -1,4 +1,4 @@
-// File: app.js
+// File: app.js (Part 1/2)
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { 
@@ -38,7 +38,7 @@ let unsubChannel = null;
 // 2. ASSET RESOLUTION HELPER
 // ==========================================
 const WORKER_PROXY_URL = "https://spidy-proxy.spidybookhub-backend.workers.dev";
-const DEFAULT_AVATAR = "https://i.postimg.cc/D0BF1b77/file-000000000e847207a64f6711d825a859.png";
+const DEFAULT_AVATAR = "https://i.postimg.cc/D0BF1b77/file-00000000e847207a64f6711d825a859.png";
 
 function getSecureAssetUrl(fileKeyOrUrl) {
     if (!fileKeyOrUrl) return DEFAULT_AVATAR;
@@ -73,7 +73,7 @@ function generateCleanSlug(titleStr, fallbackId = "") {
 }
 
 // ==========================================
-// 3. GLOBAL STATE & PAGINATION
+// 3. GLOBAL STATE & FILTER STORAGE
 // ==========================================
 let booksData = [];
 let mainFilteredData = [];
@@ -118,8 +118,16 @@ let currentZoomScale = 1.0;
 let basePageWidth = 0;
 let basePageAspectRatio = 1.414;
 
+// 4-BOX FILTER STATE
+const activeFilters = {
+    language: 'All',
+    class: 'All',
+    author: 'All',
+    year: 'All'
+};
+
 // ==========================================
-// 4. SANITIZATION & HELPERS
+// 4. SANITIZATION & STRING HELPERS
 // ==========================================
 function sanitizeHTML(str) {
     if (typeof str !== 'string') return str;
@@ -754,7 +762,7 @@ document.getElementById('closeUploadPopupBtn')?.addEventListener('click', (e) =>
 });
 
 // ==========================================
-// 7. INITIAL LOADER, TOKEN CLAIM & DEEP LINK
+// 7. INITIAL LOADER & DEEP LINK
 // ==========================================
 const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
@@ -890,9 +898,6 @@ function syncAndSanitizeBookmarks() {
 // ==========================================
 // 8. CHANNEL NOTIFICATIONS
 // ==========================================
-// ==========================================
-// 8. CHANNEL NOTIFICATIONS
-// ==========================================
 const chatBody = document.getElementById('chatBody');
 const contextOverlay = document.getElementById('contextOverlay');
 const scrollDownWrapper = document.getElementById('scrollDownWrapper');
@@ -960,6 +965,7 @@ if (chatBody) {
         }
     }, { passive: true });
 }
+
 window.scrollToChannelPost = function(postId) {
     if (!postId) return;
     const target = document.getElementById(`post_${postId}`);
@@ -1076,7 +1082,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
                  <div class="quote-author">SPIDY BOOK HUB</div>
                  <div class="quote-text">${cleanSnippet}</div>
             </div>`;
-}
+        }
 
         const reactionPillsHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
 
@@ -1165,7 +1171,7 @@ async function applyReaction(postId, newEmoji) {
             body: JSON.stringify({ type: 'reaction', postId, emoji: newEmoji, userToken: token })
         });
     } catch (e) {}
-                                  }
+}
 
 if (contextOverlay) {
     contextOverlay.addEventListener('click', (e) => {
@@ -1247,9 +1253,290 @@ document.addEventListener('click', (e) => {
         }
     }
 }, true);
-        
+// File: app.js (Part 2/2)
+
 // ==========================================
-// 9. AUTHENTICATION OBSERVER & FORGOT PASSWORD
+// 9. COMPLETE EXAM LIST & MASTER KEYWORD MAP
+// ==========================================
+const FIXED_EXAM_LIST = [
+    "All", "9th", "10th", "11th", "12th", "SSC", "Railway", "Defence", 
+    "Banking", "Teaching", "UPSC", "Police", "State PSC / PCS", "State SSC", 
+    "JEE", "NEET", "CUET", "GATE", "CAT / MBA", "CLAT / Law", 
+    "UGC NET / JRF", "CA / CS / CMA", "Insurance", "General Reading"
+];
+
+const EXAM_CATEGORY_MAP = {
+    "9th": ["CLASS 9", "CLASS 9TH", "9TH", "NINTH", "CBSE 9", "ICSE 9", "BOARD 9"],
+    "10th": ["CLASS 10", "CLASS 10TH", "10TH", "MATRIC", "CBSE 10", "ICSE 10", "BOARD 10"],
+    "11th": ["CLASS 11", "CLASS 11TH", "11TH", "CBSE 11", "ISC 11"],
+    "12th": ["CLASS 12", "CLASS 12TH", "12TH", "INTER", "INTERMEDIATE", "CBSE 12", "ISC 12", "BOARD 12"],
+    "SSC": ["SSC", "CGL", "CHSL", "MTS", "CPO", "GD", "STENOGRAPHER", "SELECTION POST"],
+    "Railway": ["RAILWAY", "RRB", "NTPC", "GROUP D", "ALP", "TECHNICIAN", "RPF"],
+    "Defence": ["NDA", "CDS", "AFCAT", "NAVY", "ARMY", "AIRFORCE", "AGNIVEER", "DEFENCE"],
+    "Banking": ["BANK", "IBPS", "SBI", "PO", "CLERK", "RBI", "RRB SCALE", "NABARD"],
+    "Teaching": ["CTET", "STET", "UPTET", "KVS", "NVS", "BPSC TRE", "DSSSB", "TEACHING"],
+    "UPSC": ["UPSC", "IAS", "IPS", "IFS", "CIVIL SERVICES", "PRELIMS", "MAINS"],
+    "Police": ["POLICE", "UP POLICE", "DELHI POLICE", "BIHAR POLICE", "SI", "CONSTABLE", "DAROGA"],
+    "State PSC / PCS": ["BPSC", "UPPSC", "MPPSC", "STATE PSC", "PCS", "RAS", "JPSC", "WBPSC"],
+    "State SSC": ["BSSC", "UPSSSC", "HSSC", "UKSSSC", "STATE SSC", "PATWARI", "LEKHPAL"],
+    "JEE": ["JEE", "IIT", "MAINS", "ADVANCED", "BITSAT"],
+    "NEET": ["NEET", "MEDICAL", "AIIMS"],
+    "CUET": ["CUET", "COMMON UNIVERSITY ENTRANCE", "UG CUET", "PG CUET"],
+    "GATE": ["GATE", "ENGINEERING SERVICES", "ESE", "PSU"],
+    "CAT / MBA": ["CAT", "MBA", "XAT", "MAT", "SNAP", "CMAT"],
+    "CLAT / Law": ["CLAT", "LAW", "AILET", "JUDICIARY", "LLB"],
+    "UGC NET / JRF": ["UGC NET", "JRF", "CSIR NET", "NET JRF"],
+    "CA / CS / CMA": ["CA", "CS", "CMA", "FOUNDATION", "INTERMEDIATE CA"],
+    "Insurance": ["LIC", "NIACL", "GIC", "UIIC", "INSURANCE", "AAO", "ADO"],
+    "General Reading": ["GENERAL", "NOVEL", "STORY", "MAGAZINE", "SELF HELP", "READING", "HISTORY", "MOTIVATION"]
+};
+
+// Extract unique dynamic values from uploaded books
+function getDynamicFilterLists() {
+    const authorsMap = new Map();
+    const yearsSet = new Set();
+
+    booksData.forEach(b => {
+        const rawAuthor = (b.author || '').trim();
+        if (rawAuthor) {
+            const cleanKey = rawAuthor.toLowerCase();
+            if (!authorsMap.has(cleanKey)) {
+                authorsMap.set(cleanKey, rawAuthor);
+            }
+        }
+        const rawYear = (b.year || '').toString().trim();
+        if (rawYear) {
+            yearsSet.add(rawYear);
+        }
+    });
+
+    const uniqueAuthors = ["All", ...Array.from(authorsMap.values())];
+    const uniqueYears = ["All", ...Array.from(yearsSet).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))];
+
+    return {
+        authors: uniqueAuthors,
+        years: uniqueYears.length > 1 ? uniqueYears : ["All", "2026", "2025", "2024", "2023", "2022"]
+    };
+}
+
+// 4-Box Modal Configuration Setup
+function getModalConfig(type) {
+    const dynamicLists = getDynamicFilterLists();
+
+    const configs = {
+        class: {
+            title: "Filter Exam / Board",
+            sub: "SELECT EXAM / BOARD",
+            themeClass: "theme-green",
+            subIcon: `
+                <svg class="subtitle-icon" viewBox="0 0 24 24">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                    <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
+                </svg>`,
+            options: FIXED_EXAM_LIST
+        },
+        language: {
+            title: "Filter Language",
+            sub: "SELECT MEDIUM",
+            themeClass: "theme-blue",
+            subIcon: `
+                <svg class="subtitle-icon" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>`,
+            options: ["All", "Hindi", "English", "Bilingual"]
+        },
+        author: {
+            title: "Filter Author",
+            sub: "SELECT AUTHOR / FACULTY",
+            themeClass: "theme-purple",
+            subIcon: `
+                <svg class="subtitle-icon" viewBox="0 0 24 24">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>`,
+            options: dynamicLists.authors
+        },
+        year: {
+            title: "Filter by Year",
+            sub: "SELECT YEAR / EDITION",
+            themeClass: "theme-amber",
+            subIcon: `
+                <svg class="subtitle-icon" viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>`,
+            options: dynamicLists.years
+        }
+    };
+
+    return configs[type];
+}
+
+// Open Center Modal
+window.openCenterModal = function(type) {
+    const config = getModalConfig(type);
+    if (!config) return;
+
+    const modalOverlay = document.getElementById('filterModalOverlay');
+    const modalCard = document.getElementById('centerFilterModalCard');
+    if (!modalOverlay || !modalCard) return;
+
+    modalCard.className = 'center-modal-card ' + config.themeClass;
+    document.getElementById('filterModalTitleText').innerText = config.title;
+    document.getElementById('filterModalSubtitleIcon').innerHTML = config.subIcon;
+    document.getElementById('filterModalSubText').innerText = config.sub;
+
+    const grid = document.getElementById('filterModalGridContainer');
+    grid.innerHTML = '';
+
+    config.options.forEach(optText => {
+        const btn = document.createElement('button');
+        const isSelected = activeFilters[type].toLowerCase() === optText.toLowerCase();
+        btn.className = `pill-btn ${isSelected ? 'active-selected' : ''}`;
+        btn.innerText = optText;
+
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            activeFilters[type] = optText;
+
+            const labelEl = document.getElementById(`label-${type}`);
+            const boxEl = document.getElementById(`box-${type}`);
+
+            if (labelEl) labelEl.innerText = optText;
+            if (boxEl) {
+                if (optText !== 'All') boxEl.classList.add('has-val');
+                else boxEl.classList.remove('has-val');
+            }
+
+            closeCenterModal();
+            applyMasterFilter();
+        };
+
+        grid.appendChild(btn);
+    });
+
+    history.pushState({ popup: 'filterModal' }, '');
+    document.body.classList.add('modal-open');
+    modalOverlay.classList.add('active');
+};
+
+// Close Center Modal
+window.closeCenterModal = function() {
+    document.body.classList.remove('modal-open');
+    const modalOverlay = document.getElementById('filterModalOverlay');
+    if (modalOverlay) modalOverlay.classList.remove('active');
+};
+
+// Event Bindings for 4 Front Filter Boxes
+document.getElementById('btnFilterLanguage')?.addEventListener('click', () => openCenterModal('language'));
+document.getElementById('btnFilterClass')?.addEventListener('click', () => openCenterModal('class'));
+document.getElementById('btnFilterAuthor')?.addEventListener('click', () => openCenterModal('author'));
+document.getElementById('btnFilterYear')?.addEventListener('click', () => openCenterModal('year'));
+
+document.getElementById('closeFilterModalBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (history.state && history.state.popup === 'filterModal') history.back();
+    else closeCenterModal();
+});
+
+document.getElementById('filterModalOverlay')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('filterModalOverlay')) {
+        if (history.state && history.state.popup === 'filterModal') history.back();
+        else closeCenterModal();
+    }
+});
+
+// ==========================================
+// 10. REALTIME PAGINATION & DATA FETCHING
+// ==========================================
+async function loadInitialBooksBatch() {
+    try {
+        booksData = [];
+        lastVisibleBookDoc = null;
+        hasMoreBooksToFetch = true;
+
+        const booksRef = collection(db, "books");
+        const q = query(booksRef, orderBy("createdAt", "desc"), limit(BATCH_SIZE));
+        const snapshot = await getDocs(q);
+
+        snapshot.forEach((docSnap) => {
+            let data = docSnap.data();
+            data.id = docSnap.id;
+            if (!data.slug || data.slug.includes('%')) {
+                data.slug = generateCleanSlug(data.title, data.id);
+            }
+            booksData.push(data);
+        });
+
+        if (snapshot.docs.length > 0) {
+            lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
+            hasMoreBooksToFetch = snapshot.docs.length === BATCH_SIZE;
+        } else {
+            hasMoreBooksToFetch = false;
+        }
+
+        mainFilteredData = [...booksData];
+        syncAndSanitizeBookmarks();
+        applyMasterFilter();
+
+        isAppReady.data = true;
+        tryTransition();
+    } catch (e) {
+        isAppReady.data = true;
+        tryTransition();
+    }
+}
+
+async function loadNextBooksBatch() {
+    if (!hasMoreBooksToFetch || isFetchingBooksBatch || !lastVisibleBookDoc) return;
+    isFetchingBooksBatch = true;
+
+    const infiniteLoader = document.getElementById('infinite-loader');
+    if (infiniteLoader) infiniteLoader.style.display = 'flex';
+
+    try {
+        const booksRef = collection(db, "books");
+        const q = query(booksRef, orderBy("createdAt", "desc"), startAfter(lastVisibleBookDoc), limit(BATCH_SIZE));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+            hasMoreBooksToFetch = false;
+            if (infiniteLoader) infiniteLoader.style.display = 'none';
+            isFetchingBooksBatch = false;
+            return;
+        }
+
+        const newItems = [];
+        snapshot.forEach((docSnap) => {
+            let data = docSnap.data();
+            data.id = docSnap.id;
+            if (!data.slug || data.slug.includes('%')) {
+                data.slug = generateCleanSlug(data.title, data.id);
+            }
+            booksData.push(data);
+            newItems.push(data);
+        });
+
+        lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
+        hasMoreBooksToFetch = snapshot.docs.length === BATCH_SIZE;
+        applyMasterFilter(true, newItems);
+
+    } catch (err) {
+        if (infiniteLoader) infiniteLoader.style.display = 'none';
+    } finally {
+        isFetchingBooksBatch = false;
+        if (!hasMoreBooksToFetch && infiniteLoader) {
+            infiniteLoader.style.display = 'none';
+        }
+    }
+}
+
+// ==========================================
+// 11. AUTHENTICATION & OBSERVER
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (unsubBanners) { unsubBanners(); unsubBanners = null; }
@@ -1408,7 +1695,7 @@ onAuthStateChanged(auth, async (user) => {
     });
 });
 
-// FORGOT PASSWORD (DIRECT PILL TOAST - NO PROMPT POPUP)
+// FORGOT PASSWORD
 document.getElementById('forgotPasswordBtn')?.addEventListener('click', async () => {
     const emailInput = document.getElementById('loginEmail');
     let targetEmail = emailInput ? emailInput.value.trim().toLowerCase() : "";
@@ -1437,96 +1724,222 @@ document.getElementById('forgotPasswordBtn')?.addEventListener('click', async ()
 });
 
 // ==========================================
-// 10. REALTIME PAGINATION HANDLER
+// 12. MASTER 4-WAY MULTI-FILTER ALGORITHM
 // ==========================================
-async function loadInitialBooksBatch() {
-    try {
-        booksData = [];
-        lastVisibleBookDoc = null;
-        hasMoreBooksToFetch = true;
-
-        const booksRef = collection(db, "books");
-        const q = query(booksRef, orderBy("createdAt", "desc"), limit(BATCH_SIZE));
-        const snapshot = await getDocs(q);
-
-        snapshot.forEach((docSnap) => {
-            let data = docSnap.data();
-            data.id = docSnap.id;
-            if (!data.slug || data.slug.includes('%')) {
-                data.slug = generateCleanSlug(data.title, data.id);
-            }
-            booksData.push(data);
-        });
-
-        if (snapshot.docs.length > 0) {
-            lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
-            hasMoreBooksToFetch = snapshot.docs.length === BATCH_SIZE;
-        } else {
-            hasMoreBooksToFetch = false;
-        }
-
-        mainFilteredData = [...booksData];
-        syncAndSanitizeBookmarks();
-        renderStaticFilterPills();
-        applyMasterFilter();
-
-        isAppReady.data = true;
-        tryTransition();
-    } catch (e) {
-        isAppReady.data = true;
-        tryTransition();
-    }
+function normalizeTextForSearch(str) {
+    if (!str) return '';
+    return str.toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').trim();
 }
 
-async function loadNextBooksBatch() {
-    if (!hasMoreBooksToFetch || isFetchingBooksBatch || !lastVisibleBookDoc) return;
-    isFetchingBooksBatch = true;
+function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords) {
+    // 1. Language Filter
+    let matchesLanguage = activeFilters.language === "All" || 
+        (book.lang || "").toLowerCase().trim() === activeFilters.language.toLowerCase().trim();
+
+    // 2. Class / Exam Filter
+    let matchesCategory = true;
+    if (activeFilters.class !== "All") {
+        let bookExamsString = (book.exams || "").toUpperCase();
+        const targetKey = Object.keys(EXAM_CATEGORY_MAP).find(k => k.toLowerCase() === activeFilters.class.toLowerCase());
+        let keywordsToCheck = targetKey ? EXAM_CATEGORY_MAP[targetKey] : [activeFilters.class.toUpperCase()];
+        matchesCategory = keywordsToCheck.some(keyword => bookExamsString.includes(keyword));
+    }
+
+    // 3. Author Filter
+    let matchesAuthor = activeFilters.author === "All" || 
+        (book.author || "").toLowerCase().trim() === activeFilters.author.toLowerCase().trim();
+
+    // 4. Year Filter
+    let matchesYear = activeFilters.year === "All" || 
+        (book.year || "").toString().trim() === activeFilters.year.toString().trim();
+
+    // 5. Search Bar Input
+    let matchesSearch = true;
+    if (searchInputRaw.length > 0) {
+        const rawCombined = `${book.title || ''} ${book.author || ''} ${book.exams || ''}`.toLowerCase();
+        const normalizedTarget = normalizeTextForSearch(rawCombined);
+
+        const isNoSpaceMatch = normalizedTarget.includes(cleanSearchNoSpaces);
+        const isTokenMatch = searchWords.length > 0 && searchWords.every(word => rawCombined.includes(word));
+
+        matchesSearch = isNoSpaceMatch || isTokenMatch;
+    }
+
+    return matchesLanguage && matchesCategory && matchesAuthor && matchesYear && matchesSearch;
+}
+
+function applyMasterFilter(isAppending = false, newBatchData = []) {
+    const searchInputRaw = document.getElementById('app-search-input')?.value.trim() || '';
+    const rawLower = searchInputRaw.toLowerCase();
+    const cleanSearchNoSpaces = normalizeTextForSearch(searchInputRaw);
+    const searchWords = rawLower.split(/\s+/).filter(w => w.length > 0);
 
     const infiniteLoader = document.getElementById('infinite-loader');
-    if (infiniteLoader) infiniteLoader.style.display = 'flex';
 
-    try {
-        const booksRef = collection(db, "books");
-        const q = query(booksRef, orderBy("createdAt", "desc"), startAfter(lastVisibleBookDoc), limit(BATCH_SIZE));
-        const snapshot = await getDocs(q);
+    if (isAppending && newBatchData.length > 0) {
+        const filteredNewItems = newBatchData.filter(book => 
+            matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords)
+        );
+        mainFilteredData.push(...filteredNewItems);
+        renderBooksUI(filteredNewItems, true);
+        if (infiniteLoader) infiniteLoader.style.display = hasMoreBooksToFetch ? 'flex' : 'none';
+        return;
+    }
 
-        if (snapshot.empty) {
-            hasMoreBooksToFetch = false;
-            if (infiniteLoader) infiniteLoader.style.display = 'none';
-            isFetchingBooksBatch = false;
-            return;
-        }
-
-        const newItems = [];
-        snapshot.forEach((docSnap) => {
-            let data = docSnap.data();
-            data.id = docSnap.id;
-            if (!data.slug || data.slug.includes('%')) {
-                data.slug = generateCleanSlug(data.title, data.id);
-            }
-            booksData.push(data);
-            newItems.push(data);
-        });
-
-        lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
-        hasMoreBooksToFetch = snapshot.docs.length === BATCH_SIZE;
-        applyMasterFilter(true, newItems);
-
-    } catch (err) {
-        if (infiniteLoader) infiniteLoader.style.display = 'none';
-    } finally {
-        isFetchingBooksBatch = false;
-        if (!hasMoreBooksToFetch && infiniteLoader) {
-            infiniteLoader.style.display = 'none';
-        }
+    mainFilteredData = booksData.filter(book => 
+        matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords)
+    );
+    
+    if (mainFilteredData.length > 0) { 
+        document.getElementById('no-results-msg').style.display = 'none'; 
+        if(infiniteLoader) infiniteLoader.style.display = hasMoreBooksToFetch ? 'flex' : 'none';
+        renderBooksUI(mainFilteredData, false); 
+    } else { 
+        document.getElementById("bookContainer").innerHTML = ""; 
+        document.getElementById('no-results-msg').style.display = 'flex'; 
+        if(infiniteLoader) infiniteLoader.style.display = 'none';
     }
 }
 
+const searchInputEl = document.getElementById('app-search-input'); 
+let searchTimeout;
+searchInputEl?.addEventListener('input', () => { 
+    clearTimeout(searchTimeout); 
+    searchTimeout = setTimeout(() => { applyMasterFilter(); }, 250); 
+});
+
+document.getElementById('close-search')?.addEventListener('click', () => { 
+    if (searchInputEl) searchInputEl.value = ''; 
+    applyMasterFilter(); 
+    document.getElementById('search-box')?.classList.remove('active'); 
+    if (history.state && history.state.popup === 'search') { history.back(); }
+});
+
+const infiniteScrollObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting && hasMoreBooksToFetch && !isFetchingBooksBatch) {
+            loadNextBooksBatch();
+        }
+    });
+}, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 300px 0px', threshold: 0.1 });
+
+if (document.getElementById('scroll-sentinel')) {
+    infiniteScrollObserver.observe(document.getElementById('scroll-sentinel'));
+}
+
+function renderBooksUI(dataToRender, append = false) {
+    const container = document.getElementById("bookContainer");
+    if (!container) return;
+    let htmlChunk = "";
+
+    dataToRender.forEach(book => {
+        let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
+        let isSaved = savedBooks.includes(book.slug) || savedBooks.includes(book.id);
+        let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
+        const secureCoverUrl = getSecureAssetUrl(book.image);
+
+        htmlChunk += `
+        <div class="book-card" data-slug="${book.slug}" data-id="${book.id}">
+            <div class="card-img-wrapper">
+                <div class="badge-free">FREE</div>
+                <div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div>
+                <img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false">
+            </div>
+            <div class="book-details">
+                <div class="book-title">${sanitizeHTML(book.title)}</div>
+                <div class="book-author">${sanitizeHTML(book.author)}</div>
+                <div class="tags-container">
+                    <span class="book-tag tag-year">${sanitizeHTML(book.year)}</span>
+                    <span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span>
+                </div>
+            </div>
+        </div>`;
+    });
+
+    if (append) {
+        container.insertAdjacentHTML('beforeend', htmlChunk);
+    } else {
+        container.innerHTML = htmlChunk;
+    }
+}
+
+document.getElementById('bookContainer')?.addEventListener('click', (e) => {
+    const card = e.target.closest('.book-card');
+    if(card) {
+        const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
+        const bookmarkBtn = e.target.closest('.bookmark-btn');
+        if(bookmarkBtn) toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug); 
+        else openDownloadPageLocal(slug);
+    }
+});
+
+function toggleBookmarkLocal(iconElement, slug) {
+    const index = savedBooks.indexOf(slug);
+    if (index === -1) { 
+        savedBooks.push(slug); 
+        if(iconElement) iconElement.className = "fas fa-bookmark"; 
+    } else { 
+        savedBooks.splice(index, 1); 
+        if(iconElement) iconElement.className = "far fa-bookmark"; 
+    }
+    localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
+    syncAndSanitizeBookmarks();
+    if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
+}
+
+function renderSavedBooksUI() {
+    syncAndSanitizeBookmarks();
+    const container = document.getElementById("savedBooksContainer"); 
+    const noMsg = document.getElementById("no-saved-msg");
+    const savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
+    
+    if (savedBooksData.length === 0) { 
+        if (container) container.innerHTML = ""; 
+        if (noMsg) noMsg.style.display = "flex"; 
+        return; 
+    }
+    if (noMsg) noMsg.style.display = "none"; 
+    let htmlChunk = "";
+    savedBooksData.forEach(book => {
+        let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
+        const secureCoverUrl = getSecureAssetUrl(book.image);
+
+        htmlChunk += `
+        <div class="book-card" data-slug="${book.slug}" data-id="${book.id}">
+            <div class="card-img-wrapper">
+                <div class="badge-free">FREE</div>
+                <div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div>
+                <img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false">
+            </div>
+            <div class="book-details">
+                <div class="book-title">${sanitizeHTML(book.title)}</div>
+                <div class="book-author">${sanitizeHTML(book.author)}</div>
+                <div class="tags-container">
+                    <span class="book-tag tag-year">${sanitizeHTML(book.year)}</span>
+                    <span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span>
+                </div>
+            </div>
+        </div>`;
+    });
+    if (container) container.innerHTML = htmlChunk;
+}
+
+document.getElementById('savedBooksContainer')?.addEventListener('click', (e) => {
+    const card = e.target.closest('.book-card');
+    if(card) {
+        const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
+        const bookmarkBtn = e.target.closest('.bookmark-btn');
+        if(bookmarkBtn) toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug); 
+        else openDownloadPageLocal(slug); 
+    }
+});
+
 // ==========================================
-// 11. LOGIN & LOGOUT
+// 13. LOGIN & LOGOUT HANDLERS
 // ==========================================
 function closeLoginOverlayLocal() {
     const loginOverlay = document.getElementById('loginOverlay');
+    if (!loginOverlay) return;
     loginOverlay.style.opacity = '0';
     setTimeout(() => { 
         loginOverlay.style.display = 'none'; 
@@ -1537,6 +1950,7 @@ function closeLoginOverlayLocal() {
         }
     }, 500);
 }
+
 document.getElementById('closeLoginBtn')?.addEventListener('click', closeLoginOverlayLocal);
 
 document.getElementById('toggleEye')?.addEventListener('click', () => {
@@ -1659,252 +2073,17 @@ if (confirmLogoutBtn) {
 }
 
 // ==========================================
-// 12. MASTER FILTERS & SEARCH
-// ==========================================
-const FIXED_EXAM_LIST = [
-    "10th", "11th", "12th", "Ssc", "Railway", "Defence", 
-    "Banking", "Teaching", "Upsc", "Police", "Jee", "Neet", "General Reading"
-];
-
-const EXAM_CATEGORY_MAP = {
-    "10th": ["CLASS 10", "CLASS 10TH", "10TH", "MATRIC", "CBSE 10", "ICSE 10", "BOARD 10"],
-    "11th": ["CLASS 11", "CLASS 11TH", "11TH", "CBSE 11", "ISC 11"],
-    "12th": ["CLASS 12", "CLASS 12TH", "12TH", "INTER", "INTERMEDIATE", "CBSE 12", "ISC 12", "BOARD 12"],
-    "Ssc": ["SSC", "CGL", "CHSL", "MTS", "CPO", "GD", "STENOGRAPHER", "SELECTION POST"],
-    "Railway": ["RAILWAY", "RRB", "NTPC", "GROUP D", "ALP", "TECHNICIAN", "RPF"],
-    "Defence": ["NDA", "CDS", "AFCAT", "NAVY", "ARMY", "AIRFORCE", "AGNIVEER"],
-    "Banking": ["BANK", "IBPS", "SBI", "PO", "CLERK", "RBI", "LIC"],
-    "Teaching": ["CTET", "STET", "UPTET", "KVS", "NVS", "BPSC TRE", "DSSSB"],
-    "Upsc": ["UPSC", "BPSC", "UPPSC", "MPPSC", "STATE PSC", "PCS", "CIVIL SERVICES"],
-    "Police": ["POLICE", "UP POLICE", "DELHI POLICE", "BIHAR POLICE", "SI", "CONSTABLE", "DAROGA"],
-    "Jee": ["JEE", "IIT", "MAINS", "ADVANCED", "BITSAT"],
-    "Neet": ["NEET", "MEDICAL", "AIIMS"],
-    "General Reading": ["GENERAL", "NOVEL", "STORY", "MAGAZINE", "SELF HELP", "READING", "HISTORY", "MOTIVATION"]
-};
-
-let currentSelectedCategory = "All";
-let currentSelectedLanguage = "All";
-
-function renderStaticFilterPills() {
-    const catGrid = document.getElementById('categoryFilterGrid'); 
-    if(!catGrid) return;
-    
-    let html = `<div class="f-pill ${currentSelectedCategory === 'All' ? 'active' : ''}" data-category="All">All</div>`;
-    FIXED_EXAM_LIST.forEach(category => { 
-        html += `<div class="f-pill ${category === currentSelectedCategory ? 'active' : ''}" data-category="${category}">${category}</div>`; 
-    });
-    catGrid.innerHTML = html;
-}
-
-document.getElementById('categoryFilterGrid')?.addEventListener('click', (e) => {
-    if(e.target.classList.contains('f-pill')) {
-        document.querySelectorAll('#categoryFilterGrid .f-pill').forEach(el => el.classList.remove('active'));
-        e.target.classList.add('active'); 
-        currentSelectedCategory = e.target.getAttribute('data-category');
-    }
-});
-
-document.getElementById('languageFilterGrid')?.addEventListener('click', (e) => {
-    if(e.target.classList.contains('f-pill')) {
-        document.querySelectorAll('#languageFilterGrid .f-pill').forEach(el => el.classList.remove('active'));
-        e.target.classList.add('active'); 
-        currentSelectedLanguage = e.target.getAttribute('data-lang');
-    }
-});
-
-document.getElementById('applyFiltersBtn')?.addEventListener('click', () => { 
-    if (history.state && history.state.popup === 'filter') {
-        history.back();
-    } else {
-        document.getElementById('filterBottomOverlay').classList.remove('active'); 
-    }
-    applyMasterFilter(); 
-});
-
-function normalizeTextForSearch(str) {
-    if (!str) return '';
-    return str.toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').trim();
-}
-
-function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords) {
-    let matchesCategory = true;
-    if (currentSelectedCategory !== "All") {
-        let bookExamsString = (book.exams || "").toUpperCase();
-        const targetKey = Object.keys(EXAM_CATEGORY_MAP).find(k => k.toLowerCase() === currentSelectedCategory.toLowerCase());
-        let keywordsToCheck = targetKey ? EXAM_CATEGORY_MAP[targetKey] : [currentSelectedCategory.toUpperCase()];
-        matchesCategory = keywordsToCheck.some(keyword => bookExamsString.includes(keyword));
-    }
-
-    let matchesLanguage = currentSelectedLanguage === "All" || (book.lang || "").toLowerCase().trim() === currentSelectedLanguage.toLowerCase().trim();
-
-    let matchesSearch = true;
-    if (searchInputRaw.length > 0) {
-        const rawCombined = `${book.title || ''} ${book.author || ''} ${book.exams || ''}`.toLowerCase();
-        const normalizedTarget = normalizeTextForSearch(rawCombined);
-
-        const isNoSpaceMatch = normalizedTarget.includes(cleanSearchNoSpaces);
-        const isTokenMatch = searchWords.length > 0 && searchWords.every(word => rawCombined.includes(word));
-
-        matchesSearch = isNoSpaceMatch || isTokenMatch;
-    }
-
-    return matchesCategory && matchesLanguage && matchesSearch;
-}
-
-function applyMasterFilter(isAppending = false, newBatchData = []) {
-    const searchInputRaw = document.getElementById('app-search-input').value.trim();
-    const rawLower = searchInputRaw.toLowerCase();
-    const cleanSearchNoSpaces = normalizeTextForSearch(searchInputRaw);
-    const searchWords = rawLower.split(/\s+/).filter(w => w.length > 0);
-
-    const infiniteLoader = document.getElementById('infinite-loader');
-
-    if (isAppending && newBatchData.length > 0) {
-        const filteredNewItems = newBatchData.filter(book => 
-            matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords)
-        );
-        mainFilteredData.push(...filteredNewItems);
-        renderBooksUI(filteredNewItems, true);
-        if (infiniteLoader) infiniteLoader.style.display = hasMoreBooksToFetch ? 'flex' : 'none';
-        return;
-    }
-
-    mainFilteredData = booksData.filter(book => 
-        matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords)
-    );
-    
-    if (mainFilteredData.length > 0) { 
-        document.getElementById('no-results-msg').style.display = 'none'; 
-        if(infiniteLoader) infiniteLoader.style.display = hasMoreBooksToFetch ? 'flex' : 'none';
-        renderBooksUI(mainFilteredData, false); 
-    } else { 
-        document.getElementById("bookContainer").innerHTML = ""; 
-        document.getElementById('no-results-msg').style.display = 'flex'; 
-        if(infiniteLoader) infiniteLoader.style.display = 'none';
-    }
-}
-
-const searchInputEl = document.getElementById('app-search-input'); 
-let searchTimeout;
-searchInputEl?.addEventListener('input', () => { 
-    clearTimeout(searchTimeout); 
-    searchTimeout = setTimeout(() => { applyMasterFilter(); }, 250); 
-});
-document.getElementById('close-search')?.addEventListener('click', () => { 
-    searchInputEl.value = ''; 
-    applyMasterFilter(); 
-    document.getElementById('search-box').classList.remove('active'); 
-    if (history.state && history.state.popup === 'search') { history.back(); }
-});
-document.getElementById('openAuthorFilterBtn')?.addEventListener('click', () => { 
-    history.pushState({ popup: 'filter' }, ''); 
-    document.getElementById('filterBottomOverlay').classList.add('active'); 
-});
-document.getElementById('closeAuthorFilterBtn')?.addEventListener('click', () => { 
-    if (history.state && history.state.popup === 'filter') {
-        history.back();
-    } else {
-        document.getElementById('filterBottomOverlay').classList.remove('active'); 
-    }
-});
-
-const infiniteScrollObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting && hasMoreBooksToFetch && !isFetchingBooksBatch) {
-            loadNextBooksBatch();
-        }
-    });
-}, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 300px 0px', threshold: 0.1 });
-
-if (document.getElementById('scroll-sentinel')) infiniteScrollObserver.observe(document.getElementById('scroll-sentinel'));
-
-function renderBooksUI(dataToRender, append = false) {
-    const container = document.getElementById("bookContainer");
-    let htmlChunk = "";
-    dataToRender.forEach(book => {
-        let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
-        let isSaved = savedBooks.includes(book.slug) || savedBooks.includes(book.id);
-        let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
-        const secureCoverUrl = getSecureAssetUrl(book.image);
-
-        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
-    });
-
-    if (append) {
-        container.insertAdjacentHTML('beforeend', htmlChunk);
-    } else {
-        container.innerHTML = htmlChunk;
-    }
-}
-
-document.getElementById('bookContainer')?.addEventListener('click', (e) => {
-    const card = e.target.closest('.book-card');
-    if(card) {
-        const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
-        const bookmarkBtn = e.target.closest('.bookmark-btn');
-        if(bookmarkBtn) toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug); 
-        else openDownloadPageLocal(slug);
-    }
-});
-
-function toggleBookmarkLocal(iconElement, slug) {
-    const index = savedBooks.indexOf(slug);
-    if (index === -1) { 
-        savedBooks.push(slug); 
-        if(iconElement) iconElement.className = "fas fa-bookmark"; 
-    } else { 
-        savedBooks.splice(index, 1); 
-        if(iconElement) iconElement.className = "far fa-bookmark"; 
-    }
-    localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
-    syncAndSanitizeBookmarks();
-    if(document.getElementById('bookmarks-panel').classList.contains('active')) renderSavedBooksUI(); 
-}
-
-function renderSavedBooksUI() {
-    syncAndSanitizeBookmarks();
-    const container = document.getElementById("savedBooksContainer"); 
-    const noMsg = document.getElementById("no-saved-msg");
-    const savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
-    
-    if (savedBooksData.length === 0) { 
-        container.innerHTML = ""; 
-        noMsg.style.display = "flex"; 
-        return; 
-    }
-    noMsg.style.display = "none"; 
-    let htmlChunk = "";
-    savedBooksData.forEach(book => {
-        let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
-        const secureCoverUrl = getSecureAssetUrl(book.image);
-
-        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
-    });
-    container.innerHTML = htmlChunk;
-}
-
-document.getElementById('savedBooksContainer')?.addEventListener('click', (e) => {
-    const card = e.target.closest('.book-card');
-    if(card) {
-        const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
-        const bookmarkBtn = e.target.closest('.bookmark-btn');
-        if(bookmarkBtn) toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug); 
-        else openDownloadPageLocal(slug); 
-    }
-});
-
-// ==========================================
-// 13. PANELS & UPLOAD HUB MODAL
+// 14. PANELS, POPUPS & NAVIGATION
 // ==========================================
 document.getElementById('open-search')?.addEventListener('click', () => { 
     history.pushState({ popup: 'search' }, ''); 
-    document.getElementById('search-box').classList.add('active'); 
-    setTimeout(() => { searchInputEl.focus(); }, 300); 
+    document.getElementById('search-box')?.classList.add('active'); 
+    setTimeout(() => { searchInputEl?.focus(); }, 300); 
 });
 
 document.getElementById('open-noti')?.addEventListener('click', () => { 
     history.pushState({ popup: 'noti' }, ''); 
-    document.getElementById('noti-panel').classList.add('active'); 
+    document.getElementById('noti-panel')?.classList.add('active'); 
     
     const blinkDot = document.querySelector('.blink-dot');
     if (blinkDot) blinkDot.style.display = 'none'; 
@@ -1927,7 +2106,7 @@ if (closeNotiBtn) {
         if (history.state && history.state.popup === 'noti') {
             history.back();
         } else {
-            document.getElementById('noti-panel').classList.remove('active');
+            document.getElementById('noti-panel')?.classList.remove('active');
         }
         if (window.location.hash.includes('post/')) {
             history.replaceState(null, '', window.location.pathname);
@@ -1938,8 +2117,10 @@ if (closeNotiBtn) {
 document.getElementById('open-upload-btn')?.addEventListener('click', () => {
     if (!isUserLoggedIn) {
         const loginOverlay = document.getElementById('loginOverlay');
-        loginOverlay.style.display = 'flex';
-        setTimeout(() => loginOverlay.style.opacity = '1', 10);
+        if (loginOverlay) {
+            loginOverlay.style.display = 'flex';
+            setTimeout(() => loginOverlay.style.opacity = '1', 10);
+        }
         return;
     }
 
@@ -1963,25 +2144,24 @@ const sidebar = document.getElementById('sidebar');
 const sidebarOverlay = document.getElementById('sidebar-overlay');
 document.getElementById('open-menu')?.addEventListener('click', () => { 
     history.pushState({ popup: 'sidebar' }, ''); 
-    sidebar.classList.add('active'); 
-    sidebarOverlay.classList.add('active'); 
+    sidebar?.classList.add('active'); 
+    sidebarOverlay?.classList.add('active'); 
 });
 sidebarOverlay?.addEventListener('click', () => { history.back(); });
 
 document.getElementById('menu-home-side')?.addEventListener('click', (e) => {
     e.preventDefault();
-    sidebar.classList.remove('active');
-    sidebarOverlay.classList.remove('active');
+    sidebar?.classList.remove('active');
+    sidebarOverlay?.classList.remove('active');
     document.getElementById('mainContentArea')?.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
-document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => 
-{ 
+document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => { 
     e.preventDefault(); 
     history.pushState({ popup: 'bookmarks' }, ''); 
-    document.getElementById('bookmarks-panel').classList.add('active'); 
-    sidebar.classList.remove('active'); 
-    sidebarOverlay.classList.remove('active'); 
+    document.getElementById('bookmarks-panel')?.classList.add('active'); 
+    sidebar?.classList.remove('active'); 
+    sidebarOverlay?.classList.remove('active'); 
     renderSavedBooksUI(); 
 });
 document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => { history.back(); });
@@ -1989,7 +2169,8 @@ document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => 
 window.closePdfViewerDirectly = function() {
     const pdfViewer = document.getElementById('pdfViewerOverlay');
     if (pdfViewer) pdfViewer.style.display = 'none';
-    document.getElementById('pdfScrollContainer').innerHTML = ''; 
+    const scroller = document.getElementById('pdfScrollContainer');
+    if (scroller) scroller.innerHTML = ''; 
     const oldLoader = document.getElementById('pdfCenteredLoader');
     if (oldLoader) oldLoader.remove();
     cleanupPdfResources();
@@ -2005,9 +2186,7 @@ document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
     window.closePdfViewerDirectly();
 });
 
-// ==========================================
-// 13.5 SUPPORT MODAL LOGIC
-// ==========================================
+// Support Hub
 document.getElementById('menu-contact')?.addEventListener('click', (e) => {
     e.preventDefault();
     document.getElementById('sidebar')?.classList.remove('active');
@@ -2035,7 +2214,7 @@ document.getElementById('closeIssueModalBtn')?.addEventListener('click', () => {
 
 document.getElementById('issueModal')?.addEventListener('click', (e) => {
     if (e.target === document.getElementById('issueModal')) {
-        document.getElementById('issueModal').classList.remove('active');
+        document.getElementById('issueModal')?.classList.remove('active');
     }
 });
 
@@ -2050,7 +2229,7 @@ issueOptions.forEach(option => {
         document.getElementById('selectedSubjectDisplay').innerText = selectedValue;
         
         setTimeout(() => {
-            document.getElementById('issueModal').classList.remove('active');
+            document.getElementById('issueModal')?.classList.remove('active');
         }, 150);
     });
 });
@@ -2129,11 +2308,17 @@ document.getElementById('supportContactForm')?.addEventListener('submit', async 
 });
 
 // POPSTATE LISTENER
-window.addEventListener('popstate', (e) => {
+window.addEventListener('popstate', () => {
     const loginOverlay = document.getElementById('loginOverlay');
     if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
         loginOverlay.style.opacity = '0';
         setTimeout(() => { loginOverlay.style.display = 'none'; }, 400);
+        return;
+    }
+
+    const filterModal = document.getElementById('filterModalOverlay');
+    if (filterModal && filterModal.classList.contains('active')) {
+        closeCenterModal();
         return;
     }
 
@@ -2179,12 +2364,6 @@ window.addEventListener('popstate', (e) => {
         return;
     }
 
-    const filterOverlay = document.getElementById('filterBottomOverlay');
-    if (filterOverlay && filterOverlay.classList.contains('active')) {
-        filterOverlay.classList.remove('active');
-        return;
-    }
-
     const tokenModal = document.getElementById('tokenModalOverlay');
     if (tokenModal && tokenModal.style.display === 'flex') {
         tokenModal.style.display = 'none';
@@ -2206,6 +2385,9 @@ window.addEventListener('popstate', (e) => {
     }
 });
 
+// ==========================================
+// 15. ULTRA HD PDF ENGINE & CONTROLS
+// ==========================================
 function cleanupPdfResources() {
     if (pdfVirtualObserver) {
         pdfVirtualObserver.disconnect();
@@ -2255,33 +2437,31 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
         </div>
         <div class="pdf-loader-text">${message}</div>
     `;
-    container.appendChild(loaderDiv);
+    container?.appendChild(loaderDiv);
 }
 
-// =========================================================================
-// 14. ULTRA HD VECTOR PDF ENGINE
-// =========================================================================
 async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
-    const container = document.getElementById('pdfContainer');
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
     if (!keepExistingLoader) {
         showCenteredPdfLoader("Loading book in HD Quality...");
     }
     
-    scrollContainer.innerHTML = '';
+    if (scrollContainer) scrollContainer.innerHTML = '';
     cleanupPdfResources();
 
     if (!pdfUrl || pdfUrl.trim() === "" || pdfUrl === "undefined") {
         setTimeout(() => {
             const loaderToDel = document.getElementById('pdfCenteredLoader');
             if (loaderToDel) loaderToDel.remove();
-            scrollContainer.innerHTML = `
-                <div style="color: #ef4444; margin-top: 140px; text-align: center; padding: 25px;">
-                    <i class="fas fa-triangle-exclamation" style="font-size: 38px; margin-bottom: 14px; display: block;"></i>
-                    <strong style="font-size: 16px; font-weight: 800;">Failed to load book pages</strong>
-                    <p style="font-size: 12.5px; color: #a1a1aa; margin: 8px 0 0 0; font-weight: 500;">Network interrupted or document unavailable.</p>
-                </div>`;
+            if (scrollContainer) {
+                scrollContainer.innerHTML = `
+                    <div style="color: #ef4444; margin-top: 140px; text-align: center; padding: 25px;">
+                        <i class="fas fa-triangle-exclamation" style="font-size: 38px; margin-bottom: 14px; display: block;"></i>
+                        <strong style="font-size: 16px; font-weight: 800;">Failed to load book pages</strong>
+                        <p style="font-size: 12.5px; color: #a1a1aa; margin: 8px 0 0 0; font-weight: 500;">Network interrupted or document unavailable.</p>
+                    </div>`;
+            }
         }, 300);
         return;
     }
@@ -2303,7 +2483,7 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
         const loaderToDel = document.getElementById('pdfCenteredLoader');
         if (loaderToDel) loaderToDel.remove();
 
-        scrollContainer.innerHTML = '';
+        if (scrollContainer) scrollContainer.innerHTML = '';
         document.getElementById('pdfCurrentPageNum').innerText = `1`;
         document.getElementById('goToPageRange').innerText = `1 - ${pdfTotalPagesCount}`;
 
@@ -2328,7 +2508,7 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
                     <i class="fas fa-book-open" style="font-size:18px;"></i>
                     <span>Page ${pageNum}</span>
                 </div>`;
-            scrollContainer.appendChild(wrapper);
+            scrollContainer?.appendChild(wrapper);
         }
 
         const pageBadge = document.getElementById('pdfPageBadge');
@@ -2357,12 +2537,14 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
         const loaderToDel = document.getElementById('pdfCenteredLoader');
         if (loaderToDel) loaderToDel.remove();
 
-        scrollContainer.innerHTML = `
-            <div style="color: #ef4444; margin-top: 140px; text-align: center; padding: 25px;">
-                <i class="fas fa-triangle-exclamation" style="font-size: 38px; margin-bottom: 14px; display: block;"></i>
-                <strong style="font-size: 16px; font-weight: 800;">Failed to load book pages</strong>
-                <p style="font-size: 12.5px; color: #a1a1aa; margin: 8px 0 0 0; font-weight: 500;">Network interrupted or document unavailable.</p>
-            </div>`;
+        if (scrollContainer) {
+            scrollContainer.innerHTML = `
+                <div style="color: #ef4444; margin-top: 140px; text-align: center; padding: 25px;">
+                    <i class="fas fa-triangle-exclamation" style="font-size: 38px; margin-bottom: 14px; display: block;"></i>
+                    <strong style="font-size: 16px; font-weight: 800;">Failed to load book pages</strong>
+                    <p style="font-size: 12.5px; color: #a1a1aa; margin: 8px 0 0 0; font-weight: 500;">Network interrupted or document unavailable.</p>
+                </div>`;
+        }
     }
 }
 
@@ -2596,7 +2778,7 @@ function initPdfScrollTracker() {
     const badgeWrap = document.getElementById('pdfPageBadge');
 
     let scrollRafId = null;
-    container.addEventListener('scroll', () => {
+    container?.addEventListener('scroll', () => {
         if (scrollRafId) return;
 
         scrollRafId = requestAnimationFrame(() => {
@@ -2639,6 +2821,7 @@ const confirmGoToPageBtn = document.getElementById('confirmGoToPageBtn');
 const goToPageInput = document.getElementById('goToPageInput');
 
 pdfPageBadge?.addEventListener('click', () => {
+    if (!goToPageModal || !goToPageInput) return;
     goToPageInput.value = '';
     goToPageModal.style.display = 'flex';
     setTimeout(() => {
@@ -2646,10 +2829,15 @@ pdfPageBadge?.addEventListener('click', () => {
         goToPageModal.scrollTop = 0;
     }, 100);
 });
-cancelGoToPageBtn?.addEventListener('click', () => { goToPageModal.style.display = 'none'; });
+
+cancelGoToPageBtn?.addEventListener('click', () => { 
+    if (goToPageModal) goToPageModal.style.display = 'none'; 
+});
+
 goToPageModal?.addEventListener('click', (e) => {
     if (e.target === goToPageModal) goToPageModal.style.display = 'none';
 });
+
 confirmGoToPageBtn?.addEventListener('click', executeGoToPage);
 goToPageInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') executeGoToPage();
@@ -2678,19 +2866,22 @@ async function jumpToPdfPage(pageNum) {
 }
 
 // ==========================================
-// 15. BOOK DETAIL & READ ONLINE
+// 16. BOOK DETAIL & DOWNLOAD MODAL
 // ==========================================
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
         const loginOverlay = document.getElementById('loginOverlay');
-        loginOverlay.style.display = 'flex'; 
-        setTimeout(() => loginOverlay.style.opacity = '1', 10); 
+        if (loginOverlay) {
+            loginOverlay.style.display = 'flex'; 
+            setTimeout(() => loginOverlay.style.opacity = '1', 10); 
+        }
         return;
     }
     const book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
     if(!book) return;
     
     const downloadModal = document.getElementById("downloadModal");
+    if (!downloadModal) return;
     downloadModal.style.display = "flex";
 
     downloadModal.scrollTop = 0;
@@ -2698,8 +2889,10 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if (innerScrollWrapper) innerScrollWrapper.scrollTop = 0;
     
     const previewImg = document.getElementById("dlPreviewImage");
-    previewImg.src = getSecureAssetUrl(book.image); 
-    previewImg.onerror = () => { previewImg.src = DEFAULT_AVATAR; };
+    if (previewImg) {
+        previewImg.src = getSecureAssetUrl(book.image); 
+        previewImg.onerror = () => { previewImg.src = DEFAULT_AVATAR; };
+    }
 
     document.getElementById("dlBookTitle").innerText = sanitizeHTML(book.title); 
     document.getElementById("dlBookAuthor").innerText = sanitizeHTML(book.author);
@@ -2722,82 +2915,89 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     }
     
     const dlPdfBtn = document.getElementById("dlPdfLinkBtn");
-    dlPdfBtn.style.pointerEvents = "auto"; 
-    dlPdfBtn.onclick = function(e) { e.preventDefault(); };
+    if (dlPdfBtn) {
+        dlPdfBtn.style.pointerEvents = "auto"; 
+        dlPdfBtn.onclick = function(e) { e.preventDefault(); };
+    }
 
-    document.getElementById("dlReadOnlineBtn").onclick = async function() {
-        if(!isUserLoggedIn || !auth.currentUser) { 
-            const loginOverlay = document.getElementById('loginOverlay');
-            loginOverlay.style.display = 'flex'; 
-            setTimeout(() => loginOverlay.style.opacity = '1', 10); 
-            return; 
-        }
-        
-        const btn = document.getElementById("dlReadOnlineBtn"); 
-        const originalText = btn.innerHTML; 
-
-        const savedData = localStorage.getItem('spidy_secure_session');
-        let hasValidToken = false;
-        if (savedData) {
-            try {
-                const parsed = JSON.parse(savedData);
-                if (parsed.fp === generateDeviceFingerprint() && parsed.expiry > Date.now()) {
-                    hasValidToken = true;
+    const readOnlineBtn = document.getElementById("dlReadOnlineBtn");
+    if (readOnlineBtn) {
+        readOnlineBtn.onclick = async function() {
+            if(!isUserLoggedIn || !auth.currentUser) { 
+                const loginOverlay = document.getElementById('loginOverlay');
+                if (loginOverlay) {
+                    loginOverlay.style.display = 'flex'; 
+                    setTimeout(() => loginOverlay.style.opacity = '1', 10); 
                 }
-            } catch(e) {}
-        }
+                return; 
+            }
+            
+            const btn = document.getElementById("dlReadOnlineBtn"); 
+            const originalText = btn.innerHTML; 
 
-        if(!hasValidToken && !IS_SUPER_ADMIN) {
-             history.pushState({ popup: 'tokenModal' }, '');
-             document.getElementById('tokenModalOverlay').style.display = 'flex';
-             initParticles('particles');
-             return; 
-        }
-        
-        btn.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i> Ready..`; 
-        btn.disabled = true;
-
-        try {
-            const userToken = await auth.currentUser.getIdToken(true);
-            const response = await fetch('/api/get-book', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    bookId: book.id, 
-                    bookSlug: book.slug || book.id, 
-                    userToken: userToken 
-                })
-            });
-
-            const data = await response.json();
-            if (response.ok && data.success) {
-                const pdfViewer = document.getElementById('pdfViewerOverlay');
-                const title = document.getElementById('pdfViewerTitle');
-                
-                title.innerText = sanitizeHTML(book.title);
-                history.pushState({ popup: 'pdfViewer', from: 'book' }, '');
-                pdfViewer.style.display = 'flex';
-                renderPdfInModal(data.pdfLink);
-            } else {
-                if (response.status === 401 || (data.error && data.error.includes('Unauthorized'))) {
-                    localStorage.removeItem('spidy_secure_session');
-                    history.pushState({ popup: 'tokenModal' }, '');
-                    document.getElementById('tokenModalOverlay').style.display = 'flex';
-                    initParticles('particles');
-                } else {
-                    showToast(data.error || "Limit reached!", "error");
-                }
+            const savedData = localStorage.getItem('spidy_secure_session');
+            let hasValidToken = false;
+            if (savedData) {
+                try {
+                    const parsed = JSON.parse(savedData);
+                    if (parsed.fp === generateDeviceFingerprint() && parsed.expiry > Date.now()) {
+                        hasValidToken = true;
+                    }
+                } catch(e) {}
             }
 
-            btn.innerHTML = originalText; 
-            btn.disabled = false;
+            if(!hasValidToken && !IS_SUPER_ADMIN) {
+                 history.pushState({ popup: 'tokenModal' }, '');
+                 document.getElementById('tokenModalOverlay').style.display = 'flex';
+                 initParticles('particles');
+                 return; 
+            }
+            
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i> Ready..`; 
+            btn.disabled = true;
 
-        } catch (error) { 
-            showToast("Network Error: Could not load the book.", "error"); 
-            btn.innerHTML = originalText; 
-            btn.disabled = false; 
-        }
-    };
+            try {
+                const userToken = await auth.currentUser.getIdToken(true);
+                const response = await fetch('/api/get-book', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        bookId: book.id, 
+                        bookSlug: book.slug || book.id, 
+                        userToken: userToken 
+                    })
+                });
+
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    const pdfViewer = document.getElementById('pdfViewerOverlay');
+                    const title = document.getElementById('pdfViewerTitle');
+                    
+                    title.innerText = sanitizeHTML(book.title);
+                    history.pushState({ popup: 'pdfViewer', from: 'book' }, '');
+                    pdfViewer.style.display = 'flex';
+                    renderPdfInModal(data.pdfLink);
+                } else {
+                    if (response.status === 401 || (data.error && data.error.includes('Unauthorized'))) {
+                        localStorage.removeItem('spidy_secure_session');
+                        history.pushState({ popup: 'tokenModal' }, '');
+                        document.getElementById('tokenModalOverlay').style.display = 'flex';
+                        initParticles('particles');
+                    } else {
+                        showToast(data.error || "Limit reached!", "error");
+                    }
+                }
+
+                btn.innerHTML = originalText; 
+                btn.disabled = false;
+
+            } catch (error) { 
+                showToast("Network Error: Could not load the book.", "error"); 
+                btn.innerHTML = originalText; 
+                btn.disabled = false; 
+            }
+        };
+    }
 
     let examsArray = (book.exams || "General").split(',').map(item => sanitizeHTML(item.trim()));
     document.getElementById("dlModalTags").innerHTML = examsArray.map(exam => `<div class="dl-modal-tag">${exam}</div>`).join('');
@@ -2832,17 +3032,17 @@ document.getElementById('shareBookBtn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 16. REPORT BROKEN LINK
+// 17. REPORT ISSUE MODAL
 // ==========================================
 document.getElementById('reportLinkBtn')?.addEventListener('click', () => {
-    document.getElementById('reportModalOverlay').classList.add('active');
+    document.getElementById('reportModalOverlay')?.classList.add('active');
 });
 document.getElementById('closeReportBtn')?.addEventListener('click', () => {
-    document.getElementById('reportModalOverlay').classList.remove('active');
+    document.getElementById('reportModalOverlay')?.classList.remove('active');
 });
 document.getElementById('reportModalOverlay')?.addEventListener('click', (e) => {
     if (e.target === document.getElementById('reportModalOverlay')) {
-        document.getElementById('reportModalOverlay').classList.remove('active');
+        document.getElementById('reportModalOverlay')?.classList.remove('active');
     }
 });
 
@@ -2853,7 +3053,7 @@ reportOptions.forEach(opt => {
     opt.addEventListener('click', () => {
         reportOptions.forEach(o => o.classList.remove('selected'));
         opt.classList.add('selected');
-        submitReportBtn.classList.add('enabled');
+        submitReportBtn?.classList.add('enabled');
     });
 });
 
@@ -2876,7 +3076,7 @@ submitReportBtn?.addEventListener('click', async () => {
         submitReportBtn.style.background = '#10b981';
         
         setTimeout(() => {
-            document.getElementById('reportModalOverlay').classList.remove('active');
+            document.getElementById('reportModalOverlay')?.classList.remove('active');
             setTimeout(() => {
                 submitReportBtn.innerHTML = 'Submit Report';
                 submitReportBtn.style.background = '#ef4444';
@@ -2888,7 +3088,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 17. TOKEN VERIFICATION & GET KEY
+// 18. ACCESS KEY VALIDATION HANDSHAKE
 // ==========================================
 document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
     if (history.state && history.state.popup === 'tokenModal') {
@@ -2899,10 +3099,9 @@ document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
 });
 
 document.getElementById('tokenInput')?.addEventListener('input', () => {
-    document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
+    document.getElementById('inputBoxWrapperToken')?.classList.remove('error-state', 'success-state');
 });
 
-// GET KEY HANDSHAKE
 document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('getKeyBtn');
     const originalContent = btn.innerHTML;
@@ -2989,7 +3188,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
                 document.getElementById('tokenModalOverlay').style.display = 'none';
                 btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
                 if (document.getElementById("downloadModal").style.display === "flex") {
-                    document.getElementById("dlReadOnlineBtn").click();
+                    document.getElementById("dlReadOnlineBtn")?.click();
                 }
             }, 1000);
         } else {
@@ -3005,7 +3204,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 18. UPLOAD HUB & ZERO-FAILURE PIPELINE
+// 19. UPLOAD HUB & STORAGE PIPELINE
 // ==========================================
 function setupDynamicIconWatcher(inputId, wrapperId) {
     const input = document.getElementById(inputId);
@@ -3050,7 +3249,7 @@ function buildDynamicYearList() {
             const val = option.getAttribute('data-year');
             document.getElementById('inYear').value = val;
             document.getElementById('selectedYearText').innerText = val;
-            document.getElementById('yearPopupOverlay').classList.remove('active');
+            document.getElementById('yearPopupOverlay')?.classList.remove('active');
         });
     });
 }
@@ -3065,21 +3264,21 @@ const uploadContentArea = document.getElementById('admContentArea');
 
 admTabAdd?.addEventListener('click', (e) => {
     e.preventDefault();
-    switchTrack.classList.remove('show-prompt');
+    switchTrack?.classList.remove('show-prompt');
     admTabAdd.classList.add('active');
-    admTabPrompt.classList.remove('active');
-    sectionAddBook.classList.add('active');
-    sectionPrompt.classList.remove('active');
+    admTabPrompt?.classList.remove('active');
+    sectionAddBook?.classList.add('active');
+    sectionPrompt?.classList.remove('active');
     if (uploadContentArea) uploadContentArea.scrollTop = 0;
 });
 
 admTabPrompt?.addEventListener('click', (e) => {
     e.preventDefault();
-    switchTrack.classList.add('show-prompt');
+    switchTrack?.classList.add('show-prompt');
     admTabPrompt.classList.add('active');
-    admTabAdd.classList.remove('active');
-    sectionPrompt.classList.add('active');
-    sectionAddBook.classList.remove('active');
+    admTabAdd?.classList.remove('active');
+    sectionPrompt?.classList.add('active');
+    sectionAddBook?.classList.remove('active');
     if (uploadContentArea) uploadContentArea.scrollTop = 0;
 });
 
