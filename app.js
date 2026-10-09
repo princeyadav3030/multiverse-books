@@ -1,4 +1,6 @@
-// File: app.js (Part 1/2)
+// ========================================================
+// FILE: app.js — PART 1
+// ========================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { 
@@ -73,7 +75,7 @@ function generateCleanSlug(titleStr, fallbackId = "") {
 }
 
 // ==========================================
-// 3. GLOBAL STATE & FILTER STORAGE
+// 3. GLOBAL STATE & PAGINATION
 // ==========================================
 let booksData = [];
 let mainFilteredData = [];
@@ -118,16 +120,8 @@ let currentZoomScale = 1.0;
 let basePageWidth = 0;
 let basePageAspectRatio = 1.414;
 
-// 4-BOX FILTER STATE
-const activeFilters = {
-    language: 'All',
-    class: 'All',
-    author: 'All',
-    year: 'All'
-};
-
 // ==========================================
-// 4. SANITIZATION & STRING HELPERS
+// 4. SANITIZATION & HELPERS
 // ==========================================
 function sanitizeHTML(str) {
     if (typeof str !== 'string') return str;
@@ -520,71 +514,6 @@ window.openSubjectModulesList = function(subjectKey) {
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
-window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
-    if (!isUserLoggedIn || !auth.currentUser) {
-        document.getElementById('loginOverlay').style.display = 'flex';
-        setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10);
-        return;
-    }
-
-    const savedData = localStorage.getItem('spidy_secure_session');
-    let hasValidToken = false;
-    if (savedData) {
-        try {
-            const parsed = JSON.parse(savedData);
-            if (parsed.fp === generateDeviceFingerprint() && parsed.expiry > Date.now()) {
-                hasValidToken = true;
-            }
-        } catch(e) {}
-    }
-
-    if (!hasValidToken && !IS_SUPER_ADMIN) {
-        history.pushState({ popup: 'tokenModal' }, '');
-        document.getElementById('tokenModalOverlay').style.display = 'flex';
-        initParticles('particles');
-        return;
-    }
-
-    const pdfViewer = document.getElementById('pdfViewerOverlay');
-    const titleEl = document.getElementById('pdfViewerTitle');
-
-    if (titleEl) titleEl.innerText = title || "Reading Module...";
-    if (pdfViewer) {
-        history.pushState({ popup: 'pdfViewer', from: 'module' }, '');
-        pdfViewer.style.display = 'flex';
-    }
-
-    showCenteredPdfLoader("Fetching module manuscript...");
-
-    if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
-        renderPdfInModal("", true); 
-        return;
-    }
-
-    try {
-        const userToken = await auth.currentUser.getIdToken(true);
-        const response = await fetch('/api/get-book', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                pdfKey: pdfKeyOrUrl,
-                bookSlug: (activeBannerData ? activeBannerData.id : "module-pack"),
-                userToken: userToken,
-                fingerprint: generateDeviceFingerprint()
-            })
-        });
-
-        const data = await response.json();
-        if (response.ok && data.success) {
-            renderPdfInModal(data.pdfLink, true);
-        } else {
-            renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true);
-        }
-    } catch (err) {
-        renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true);
-    }
-};
-
 document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
     const modulesView = document.getElementById('bannerModulesView');
     if (modulesView && !modulesView.classList.contains('hidden-view')) {
@@ -762,7 +691,7 @@ document.getElementById('closeUploadPopupBtn')?.addEventListener('click', (e) =>
 });
 
 // ==========================================
-// 7. INITIAL LOADER & DEEP LINK
+// 7. INITIAL LOADER, TOKEN CLAIM & DEEP LINK
 // ==========================================
 const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
@@ -965,7 +894,6 @@ if (chatBody) {
         }
     }, { passive: true });
 }
-
 window.scrollToChannelPost = function(postId) {
     if (!postId) return;
     const target = document.getElementById(`post_${postId}`);
@@ -1253,290 +1181,9 @@ document.addEventListener('click', (e) => {
         }
     }
 }, true);
-// File: app.js (Part 2/2)
 
 // ==========================================
-// 9. COMPLETE EXAM LIST & MASTER KEYWORD MAP
-// ==========================================
-const FIXED_EXAM_LIST = [
-    "All", "9th", "10th", "11th", "12th", "SSC", "Railway", "Defence", 
-    "Banking", "Teaching", "UPSC", "Police", "State PSC / PCS", "State SSC", 
-    "JEE", "NEET", "CUET", "GATE", "CAT / MBA", "CLAT / Law", 
-    "UGC NET / JRF", "CA / CS / CMA", "Insurance", "General Reading"
-];
-
-const EXAM_CATEGORY_MAP = {
-    "9th": ["CLASS 9", "CLASS 9TH", "9TH", "NINTH", "CBSE 9", "ICSE 9", "BOARD 9"],
-    "10th": ["CLASS 10", "CLASS 10TH", "10TH", "MATRIC", "CBSE 10", "ICSE 10", "BOARD 10"],
-    "11th": ["CLASS 11", "CLASS 11TH", "11TH", "CBSE 11", "ISC 11"],
-    "12th": ["CLASS 12", "CLASS 12TH", "12TH", "INTER", "INTERMEDIATE", "CBSE 12", "ISC 12", "BOARD 12"],
-    "SSC": ["SSC", "CGL", "CHSL", "MTS", "CPO", "GD", "STENOGRAPHER", "SELECTION POST"],
-    "Railway": ["RAILWAY", "RRB", "NTPC", "GROUP D", "ALP", "TECHNICIAN", "RPF"],
-    "Defence": ["NDA", "CDS", "AFCAT", "NAVY", "ARMY", "AIRFORCE", "AGNIVEER", "DEFENCE"],
-    "Banking": ["BANK", "IBPS", "SBI", "PO", "CLERK", "RBI", "RRB SCALE", "NABARD"],
-    "Teaching": ["CTET", "STET", "UPTET", "KVS", "NVS", "BPSC TRE", "DSSSB", "TEACHING"],
-    "UPSC": ["UPSC", "IAS", "IPS", "IFS", "CIVIL SERVICES", "PRELIMS", "MAINS"],
-    "Police": ["POLICE", "UP POLICE", "DELHI POLICE", "BIHAR POLICE", "SI", "CONSTABLE", "DAROGA"],
-    "State PSC / PCS": ["BPSC", "UPPSC", "MPPSC", "STATE PSC", "PCS", "RAS", "JPSC", "WBPSC"],
-    "State SSC": ["BSSC", "UPSSSC", "HSSC", "UKSSSC", "STATE SSC", "PATWARI", "LEKHPAL"],
-    "JEE": ["JEE", "IIT", "MAINS", "ADVANCED", "BITSAT"],
-    "NEET": ["NEET", "MEDICAL", "AIIMS"],
-    "CUET": ["CUET", "COMMON UNIVERSITY ENTRANCE", "UG CUET", "PG CUET"],
-    "GATE": ["GATE", "ENGINEERING SERVICES", "ESE", "PSU"],
-    "CAT / MBA": ["CAT", "MBA", "XAT", "MAT", "SNAP", "CMAT"],
-    "CLAT / Law": ["CLAT", "LAW", "AILET", "JUDICIARY", "LLB"],
-    "UGC NET / JRF": ["UGC NET", "JRF", "CSIR NET", "NET JRF"],
-    "CA / CS / CMA": ["CA", "CS", "CMA", "FOUNDATION", "INTERMEDIATE CA"],
-    "Insurance": ["LIC", "NIACL", "GIC", "UIIC", "INSURANCE", "AAO", "ADO"],
-    "General Reading": ["GENERAL", "NOVEL", "STORY", "MAGAZINE", "SELF HELP", "READING", "HISTORY", "MOTIVATION"]
-};
-
-// Extract unique dynamic values from uploaded books
-function getDynamicFilterLists() {
-    const authorsMap = new Map();
-    const yearsSet = new Set();
-
-    booksData.forEach(b => {
-        const rawAuthor = (b.author || '').trim();
-        if (rawAuthor) {
-            const cleanKey = rawAuthor.toLowerCase();
-            if (!authorsMap.has(cleanKey)) {
-                authorsMap.set(cleanKey, rawAuthor);
-            }
-        }
-        const rawYear = (b.year || '').toString().trim();
-        if (rawYear) {
-            yearsSet.add(rawYear);
-        }
-    });
-
-    const uniqueAuthors = ["All", ...Array.from(authorsMap.values())];
-    const uniqueYears = ["All", ...Array.from(yearsSet).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))];
-
-    return {
-        authors: uniqueAuthors,
-        years: uniqueYears.length > 1 ? uniqueYears : ["All", "2026", "2025", "2024", "2023", "2022"]
-    };
-}
-
-// 4-Box Modal Configuration Setup
-function getModalConfig(type) {
-    const dynamicLists = getDynamicFilterLists();
-
-    const configs = {
-        class: {
-            title: "Filter Exam / Board",
-            sub: "SELECT EXAM / BOARD",
-            themeClass: "theme-green",
-            subIcon: `
-                <svg class="subtitle-icon" viewBox="0 0 24 24">
-                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-                    <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
-                </svg>`,
-            options: FIXED_EXAM_LIST
-        },
-        language: {
-            title: "Filter Language",
-            sub: "SELECT MEDIUM",
-            themeClass: "theme-blue",
-            subIcon: `
-                <svg class="subtitle-icon" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="2" y1="12" x2="22" y2="12"></line>
-                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-                </svg>`,
-            options: ["All", "Hindi", "English", "Bilingual"]
-        },
-        author: {
-            title: "Filter Author",
-            sub: "SELECT AUTHOR / FACULTY",
-            themeClass: "theme-purple",
-            subIcon: `
-                <svg class="subtitle-icon" viewBox="0 0 24 24">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                </svg>`,
-            options: dynamicLists.authors
-        },
-        year: {
-            title: "Filter by Year",
-            sub: "SELECT YEAR / EDITION",
-            themeClass: "theme-amber",
-            subIcon: `
-                <svg class="subtitle-icon" viewBox="0 0 24 24">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                    <line x1="3" y1="10" x2="21" y2="10"></line>
-                </svg>`,
-            options: dynamicLists.years
-        }
-    };
-
-    return configs[type];
-}
-
-// Open Center Modal
-window.openCenterModal = function(type) {
-    const config = getModalConfig(type);
-    if (!config) return;
-
-    const modalOverlay = document.getElementById('filterModalOverlay');
-    const modalCard = document.getElementById('centerFilterModalCard');
-    if (!modalOverlay || !modalCard) return;
-
-    modalCard.className = 'center-modal-card ' + config.themeClass;
-    document.getElementById('filterModalTitleText').innerText = config.title;
-    document.getElementById('filterModalSubtitleIcon').innerHTML = config.subIcon;
-    document.getElementById('filterModalSubText').innerText = config.sub;
-
-    const grid = document.getElementById('filterModalGridContainer');
-    grid.innerHTML = '';
-
-    config.options.forEach(optText => {
-        const btn = document.createElement('button');
-        const isSelected = activeFilters[type].toLowerCase() === optText.toLowerCase();
-        btn.className = `pill-btn ${isSelected ? 'active-selected' : ''}`;
-        btn.innerText = optText;
-
-        btn.onclick = (e) => {
-            e.stopPropagation();
-            activeFilters[type] = optText;
-
-            const labelEl = document.getElementById(`label-${type}`);
-            const boxEl = document.getElementById(`box-${type}`);
-
-            if (labelEl) labelEl.innerText = optText;
-            if (boxEl) {
-                if (optText !== 'All') boxEl.classList.add('has-val');
-                else boxEl.classList.remove('has-val');
-            }
-
-            closeCenterModal();
-            applyMasterFilter();
-        };
-
-        grid.appendChild(btn);
-    });
-
-    history.pushState({ popup: 'filterModal' }, '');
-    document.body.classList.add('modal-open');
-    modalOverlay.classList.add('active');
-};
-
-// Close Center Modal
-window.closeCenterModal = function() {
-    document.body.classList.remove('modal-open');
-    const modalOverlay = document.getElementById('filterModalOverlay');
-    if (modalOverlay) modalOverlay.classList.remove('active');
-};
-
-// Event Bindings for 4 Front Filter Boxes
-document.getElementById('btnFilterLanguage')?.addEventListener('click', () => openCenterModal('language'));
-document.getElementById('btnFilterClass')?.addEventListener('click', () => openCenterModal('class'));
-document.getElementById('btnFilterAuthor')?.addEventListener('click', () => openCenterModal('author'));
-document.getElementById('btnFilterYear')?.addEventListener('click', () => openCenterModal('year'));
-
-document.getElementById('closeFilterModalBtn')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (history.state && history.state.popup === 'filterModal') history.back();
-    else closeCenterModal();
-});
-
-document.getElementById('filterModalOverlay')?.addEventListener('click', (e) => {
-    if (e.target === document.getElementById('filterModalOverlay')) {
-        if (history.state && history.state.popup === 'filterModal') history.back();
-        else closeCenterModal();
-    }
-});
-
-// ==========================================
-// 10. REALTIME PAGINATION & DATA FETCHING
-// ==========================================
-async function loadInitialBooksBatch() {
-    try {
-        booksData = [];
-        lastVisibleBookDoc = null;
-        hasMoreBooksToFetch = true;
-
-        const booksRef = collection(db, "books");
-        const q = query(booksRef, orderBy("createdAt", "desc"), limit(BATCH_SIZE));
-        const snapshot = await getDocs(q);
-
-        snapshot.forEach((docSnap) => {
-            let data = docSnap.data();
-            data.id = docSnap.id;
-            if (!data.slug || data.slug.includes('%')) {
-                data.slug = generateCleanSlug(data.title, data.id);
-            }
-            booksData.push(data);
-        });
-
-        if (snapshot.docs.length > 0) {
-            lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
-            hasMoreBooksToFetch = snapshot.docs.length === BATCH_SIZE;
-        } else {
-            hasMoreBooksToFetch = false;
-        }
-
-        mainFilteredData = [...booksData];
-        syncAndSanitizeBookmarks();
-        applyMasterFilter();
-
-        isAppReady.data = true;
-        tryTransition();
-    } catch (e) {
-        isAppReady.data = true;
-        tryTransition();
-    }
-}
-
-async function loadNextBooksBatch() {
-    if (!hasMoreBooksToFetch || isFetchingBooksBatch || !lastVisibleBookDoc) return;
-    isFetchingBooksBatch = true;
-
-    const infiniteLoader = document.getElementById('infinite-loader');
-    if (infiniteLoader) infiniteLoader.style.display = 'flex';
-
-    try {
-        const booksRef = collection(db, "books");
-        const q = query(booksRef, orderBy("createdAt", "desc"), startAfter(lastVisibleBookDoc), limit(BATCH_SIZE));
-        const snapshot = await getDocs(q);
-
-        if (snapshot.empty) {
-            hasMoreBooksToFetch = false;
-            if (infiniteLoader) infiniteLoader.style.display = 'none';
-            isFetchingBooksBatch = false;
-            return;
-        }
-
-        const newItems = [];
-        snapshot.forEach((docSnap) => {
-            let data = docSnap.data();
-            data.id = docSnap.id;
-            if (!data.slug || data.slug.includes('%')) {
-                data.slug = generateCleanSlug(data.title, data.id);
-            }
-            booksData.push(data);
-            newItems.push(data);
-        });
-
-        lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
-        hasMoreBooksToFetch = snapshot.docs.length === BATCH_SIZE;
-        applyMasterFilter(true, newItems);
-
-    } catch (err) {
-        if (infiniteLoader) infiniteLoader.style.display = 'none';
-    } finally {
-        isFetchingBooksBatch = false;
-        if (!hasMoreBooksToFetch && infiniteLoader) {
-            infiniteLoader.style.display = 'none';
-        }
-    }
-}
-
-// ==========================================
-// 11. AUTHENTICATION & OBSERVER
+// 9. AUTHENTICATION OBSERVER
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (unsubBanners) { unsubBanners(); unsubBanners = null; }
@@ -1685,75 +1332,251 @@ onAuthStateChanged(auth, async (user) => {
         }
     }, (error) => {
         console.error("Channel Error:", error);
-        if (chatBody) {
-            chatBody.innerHTML = `
-                <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
-                    <i class="fas fa-circle-exclamation" style="font-size: 28px; margin-bottom: 10px; color: #ef4444;"></i>
-                    <p style="font-size: 14px; margin: 0;">Updates load nahi ho sake.</p>
-                </div>`;
-        }
     });
 });
 
-// FORGOT PASSWORD
-document.getElementById('forgotPasswordBtn')?.addEventListener('click', async () => {
-    const emailInput = document.getElementById('loginEmail');
-    let targetEmail = emailInput ? emailInput.value.trim().toLowerCase() : "";
+// ==========================================
+// 10. NEW MULTI-COLOR 4-BOX FILTER ENGINE
+// ==========================================
+const filterState = {
+    language: 'All',
+    class: 'All',
+    author: 'All',
+    year: 'All'
+};
 
-    if (!targetEmail || !targetEmail.includes('@')) {
-        showToast("Kripya apna admin email address enter karein!", "error");
-        emailInput?.focus();
-        return;
-    }
+// Aapke dwara provide kiya gaya 23-Exams list aur full mapping
+const COMPLETE_EXAM_LIST = [
+    "All", "9th", "10th", "11th", "12th", "SSC", "Railway", "Defence", 
+    "Banking", "Teaching", "UPSC", "Police", "State PSC / PCS", "State SSC", 
+    "JEE", "NEET", "CUET", "GATE", "CAT / MBA", "CLAT / Law", 
+    "UGC NET / JRF", "CA / CS / CMA", "Insurance", "General Reading"
+];
 
-    try {
-        showToast("Admin verification ho raha hai...", "success");
-        const adminDocRef = doc(db, "admins", targetEmail);
-        const adminDocSnap = await getDoc(adminDocRef);
+const EXAM_KEYWORD_MAP = {
+    "9th": ["CLASS 9", "CLASS 9TH", "9TH", "CBSE 9", "ICSE 9"],
+    "10th": ["CLASS 10", "CLASS 10TH", "10TH", "MATRIC", "CBSE 10", "ICSE 10", "BOARD 10"],
+    "11th": ["CLASS 11", "CLASS 11TH", "11TH", "CBSE 11", "ISC 11"],
+    "12th": ["CLASS 12", "CLASS 12TH", "12TH", "INTER", "INTERMEDIATE", "CBSE 12", "ISC 12", "BOARD 12"],
+    "SSC": ["SSC", "CGL", "CHSL", "MTS", "CPO", "GD", "STENOGRAPHER", "SELECTION POST"],
+    "Railway": ["RAILWAY", "RRB", "NTPC", "GROUP D", "ALP", "TECHNICIAN", "RPF"],
+    "Defence": ["NDA", "CDS", "AFCAT", "NAVY", "ARMY", "AIRFORCE", "AGNIVEER"],
+    "Banking": ["BANK", "IBPS", "SBI", "PO", "CLERK", "RBI", "LIC", "NABARD"],
+    "Teaching": ["CTET", "STET", "UPTET", "KVS", "NVS", "BPSC TRE", "DSSSB", "TGT", "PGT", "PRT"],
+    "UPSC": ["UPSC", "IAS", "IPS", "IFS", "CIVIL SERVICES", "PRELIMS", "MAINS"],
+    "Police": ["POLICE", "UP POLICE", "DELHI POLICE", "BIHAR POLICE", "SI", "CONSTABLE", "DAROGA"],
+    "State PSC / PCS": ["BPSC", "UPPSC", "MPPSC", "STATE PSC", "PCS", "RAS", "JPSC", "WBPSC", "MPSC", "UKPSC"],
+    "State SSC": ["BSSC", "UPSSSC", "HSSC", "UKSSSC", "OSSC", "STATE SSC", "PATWARI", "LEKHPAL", "VDO"],
+    "JEE": ["JEE", "IIT", "MAINS", "ADVANCED", "BITSAT"],
+    "NEET": ["NEET", "MEDICAL", "AIIMS"],
+    "CUET": ["CUET", "COMMON UNIVERSITY ENTRANCE"],
+    "GATE": ["GATE", "ENGINEERING SERVICES", "ESE"],
+    "CAT / MBA": ["CAT", "MBA", "XAT", "MAT", "CMAT", "SNAP"],
+    "CLAT / Law": ["CLAT", "LAW", "AILET", "JUDICIARY"],
+    "UGC NET / JRF": ["UGC NET", "CSIR NET", "JRF", "SET"],
+    "CA / CS / CMA": ["CA", "CS", "CMA", "FOUNDATION", "INTERMEDIATE", "FINAL"],
+    "Insurance": ["LIC", "NIACL", "OICL", "UIIC", "GIC", "AAO", "ADO"],
+    "General Reading": ["GENERAL", "NOVEL", "STORY", "MAGAZINE", "SELF HELP", "READING", "HISTORY", "MOTIVATION"]
+};
 
-        if (!adminDocSnap.exists()) {
-            showToast("Access Denied: Yeh email admin list me nahi hai!", "error");
-            return;
+function getDynamicAuthorList() {
+    const authors = new Set();
+    booksData.forEach(b => {
+        if (b.author && b.author.trim().length > 0) {
+            authors.add(b.author.trim());
         }
+    });
+    return ["All", ...Array.from(authors)];
+}
 
-        await sendPasswordResetEmail(auth, targetEmail);
-        showToast("Password reset link aapke email par bhej diya gaya hai!", "success");
-    } catch (err) {
-        showToast(err.message || "Password reset link bhejne me samasya aayi.", "error");
+function getDynamicYearList() {
+    const years = new Set();
+    booksData.forEach(b => {
+        if (b.year && b.year.trim().length > 0) {
+            years.add(b.year.trim());
+        }
+    });
+    const sortedYears = Array.from(years).sort((a,b) => b.localeCompare(a));
+    return ["All", ...sortedYears];
+}
+
+const FILTER_CONFIG = {
+    class: {
+        title: "Filter Exam / Board",
+        sub: "SELECT EXAM / BOARD",
+        themeClass: "theme-green",
+        subIcon: `<svg class="subtitle-icon" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path></svg>`,
+        getOptions: () => COMPLETE_EXAM_LIST
+    },
+    language: {
+        title: "Filter Language",
+        sub: "SELECT MEDIUM",
+        themeClass: "theme-blue",
+        subIcon: `<svg class="subtitle-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`,
+        getOptions: () => ["All", "Hindi", "English", "Bilingual"]
+    },
+    author: {
+        title: "Filter Author",
+        sub: "SELECT AUTHOR / FACULTY",
+        themeClass: "theme-purple",
+        subIcon: `<svg class="subtitle-icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`,
+        getOptions: () => getDynamicAuthorList()
+    },
+    year: {
+        title: "Filter by Year",
+        sub: "SELECT YEAR / EDITION",
+        themeClass: "theme-amber",
+        subIcon: `<svg class="subtitle-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`,
+        getOptions: () => getDynamicYearList()
+    }
+};
+
+window.openCenterOptionsModal = function(type) {
+    const config = FILTER_CONFIG[type];
+    if (!config) return;
+
+    const modalCard = document.getElementById('centerModalCard');
+    if (!modalCard) return;
+    
+    modalCard.className = 'center-modal-card ' + config.themeClass;
+    document.getElementById('modalTitleText').innerText = config.title;
+    document.getElementById('modalSubtitleIcon').innerHTML = config.subIcon;
+    document.getElementById('modalSubText').innerText = config.sub;
+
+    const grid = document.getElementById('modalGridContainer');
+    grid.innerHTML = '';
+
+    const options = config.getOptions();
+    options.forEach(optText => {
+        const btn = document.createElement('button');
+        const isSelected = filterState[type] === optText;
+        btn.className = `pill-btn ${isSelected ? 'active-selected' : ''}`;
+        btn.innerText = optText;
+
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            filterState[type] = optText;
+
+            const labelEl = document.getElementById(`label-${type}`);
+            const boxEl = document.getElementById(`box-${type}`);
+
+            if (labelEl) labelEl.innerText = optText;
+            if (boxEl) {
+                if (optText !== 'All') boxEl.classList.add('has-val');
+                else boxEl.classList.remove('has-val');
+            }
+
+            window.closeCenterOptionsModal();
+            applyMasterFilter();
+        };
+
+        grid.appendChild(btn);
+    });
+
+    const optOverlay = document.getElementById('filterOptionsModalOverlay');
+    if (optOverlay) {
+        history.pushState({ popup: 'filterOptions' }, '');
+        optOverlay.classList.add('active');
+    }
+};
+
+window.closeCenterOptionsModal = function() {
+    const optOverlay = document.getElementById('filterOptionsModalOverlay');
+    if (optOverlay && optOverlay.classList.contains('active')) {
+        if (history.state && history.state.popup === 'filterOptions') {
+            history.back();
+        } else {
+            optOverlay.classList.remove('active');
+        }
+    }
+};
+
+window.openMainFilterPopup = function() {
+    const mainOverlay = document.getElementById('filterMainPopupOverlay');
+    if (mainOverlay) {
+        history.pushState({ popup: 'filterMain' }, '');
+        mainOverlay.classList.add('active');
+        document.body.classList.add('filter-modal-active');
+    }
+};
+
+window.closeMainFilterPopup = function() {
+    const mainOverlay = document.getElementById('filterMainPopupOverlay');
+    if (mainOverlay && mainOverlay.classList.contains('active')) {
+        if (history.state && history.state.popup === 'filterMain') {
+            history.back();
+        } else {
+            mainOverlay.classList.remove('active');
+            document.body.classList.remove('filter-modal-active');
+        }
+    }
+};
+
+// Filter event bindings
+document.getElementById('openAuthorFilterBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.openMainFilterPopup();
+});
+
+document.getElementById('closeMainFilterPopupBtn')?.addEventListener('click', () => {
+    window.closeMainFilterPopup();
+});
+
+document.getElementById('filterMainPopupOverlay')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('filterMainPopupOverlay')) {
+        window.closeMainFilterPopup();
     }
 });
 
-// ==========================================
-// 12. MASTER 4-WAY MULTI-FILTER ALGORITHM
-// ==========================================
+document.getElementById('closeFilterOptionsModalBtn')?.addEventListener('click', () => {
+    window.closeCenterOptionsModal();
+});
+
+document.getElementById('filterOptionsModalOverlay')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('filterOptionsModalOverlay')) {
+        window.closeCenterOptionsModal();
+    }
+});
+
+document.getElementById('btnFilterTriggerLanguage')?.addEventListener('click', () => window.openCenterOptionsModal('language'));
+document.getElementById('btnFilterTriggerClass')?.addEventListener('click', () => window.openCenterOptionsModal('class'));
+document.getElementById('btnFilterTriggerAuthor')?.addEventListener('click', () => window.openCenterOptionsModal('author'));
+document.getElementById('btnFilterTriggerYear')?.addEventListener('click', () => window.openCenterOptionsModal('year'));
+
 function normalizeTextForSearch(str) {
     if (!str) return '';
     return str.toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').trim();
 }
 
 function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords) {
-    // 1. Language Filter
-    let matchesLanguage = activeFilters.language === "All" || 
-        (book.lang || "").toLowerCase().trim() === activeFilters.language.toLowerCase().trim();
-
-    // 2. Class / Exam Filter
+    // 1. Exam Match
     let matchesCategory = true;
-    if (activeFilters.class !== "All") {
+    if (filterState.class !== "All") {
         let bookExamsString = (book.exams || "").toUpperCase();
-        const targetKey = Object.keys(EXAM_CATEGORY_MAP).find(k => k.toLowerCase() === activeFilters.class.toLowerCase());
-        let keywordsToCheck = targetKey ? EXAM_CATEGORY_MAP[targetKey] : [activeFilters.class.toUpperCase()];
-        matchesCategory = keywordsToCheck.some(keyword => bookExamsString.includes(keyword));
+        let targetKeywords = EXAM_KEYWORD_MAP[filterState.class] || [filterState.class.toUpperCase()];
+        matchesCategory = targetKeywords.some(keyword => bookExamsString.includes(keyword));
     }
 
-    // 3. Author Filter
-    let matchesAuthor = activeFilters.author === "All" || 
-        (book.author || "").toLowerCase().trim() === activeFilters.author.toLowerCase().trim();
+    // 2. Language Match
+    let matchesLanguage = true;
+    if (filterState.language !== "All") {
+        matchesLanguage = (book.lang || "").toLowerCase().trim() === filterState.language.toLowerCase().trim();
+    }
 
-    // 4. Year Filter
-    let matchesYear = activeFilters.year === "All" || 
-        (book.year || "").toString().trim() === activeFilters.year.toString().trim();
+    // 3. Author Match
+    let matchesAuthor = true;
+    if (filterState.author !== "All") {
+        matchesAuthor = (book.author || "").toLowerCase().trim() === filterState.author.toLowerCase().trim();
+    }
 
-    // 5. Search Bar Input
+    // 4. Year Match
+    let matchesYear = true;
+    if (filterState.year !== "All") {
+        matchesYear = (book.year || "").toString().trim() === filterState.year.toString().trim();
+    }
+
+    // 5. Search Match
     let matchesSearch = true;
     if (searchInputRaw.length > 0) {
         const rawCombined = `${book.title || ''} ${book.author || ''} ${book.exams || ''}`.toLowerCase();
@@ -1765,11 +1588,11 @@ function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords
         matchesSearch = isNoSpaceMatch || isTokenMatch;
     }
 
-    return matchesLanguage && matchesCategory && matchesAuthor && matchesYear && matchesSearch;
+    return matchesCategory && matchesLanguage && matchesAuthor && matchesYear && matchesSearch;
 }
 
 function applyMasterFilter(isAppending = false, newBatchData = []) {
-    const searchInputRaw = document.getElementById('app-search-input')?.value.trim() || '';
+    const searchInputRaw = document.getElementById('app-search-input')?.value.trim() || "";
     const rawLower = searchInputRaw.toLowerCase();
     const cleanSearchNoSpaces = normalizeTextForSearch(searchInputRaw);
     const searchWords = rawLower.split(/\s+/).filter(w => w.length > 0);
@@ -1800,20 +1623,94 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
         if(infiniteLoader) infiniteLoader.style.display = 'none';
     }
 }
+// ========================================================
+// FILE: app.js — PART 2 (Continuation from Part 1)
+// ========================================================
 
-const searchInputEl = document.getElementById('app-search-input'); 
-let searchTimeout;
-searchInputEl?.addEventListener('input', () => { 
-    clearTimeout(searchTimeout); 
-    searchTimeout = setTimeout(() => { applyMasterFilter(); }, 250); 
-});
+// ==========================================
+// 11. REALTIME PAGINATION HANDLER
+// ==========================================
+async function loadInitialBooksBatch() {
+    try {
+        booksData = [];
+        lastVisibleBookDoc = null;
+        hasMoreBooksToFetch = true;
 
-document.getElementById('close-search')?.addEventListener('click', () => { 
-    if (searchInputEl) searchInputEl.value = ''; 
-    applyMasterFilter(); 
-    document.getElementById('search-box')?.classList.remove('active'); 
-    if (history.state && history.state.popup === 'search') { history.back(); }
-});
+        const booksRef = collection(db, "books");
+        const q = query(booksRef, orderBy("createdAt", "desc"), limit(BATCH_SIZE));
+        const snapshot = await getDocs(q);
+
+        snapshot.forEach((docSnap) => {
+            let data = docSnap.data();
+            data.id = docSnap.id;
+            if (!data.slug || data.slug.includes('%')) {
+                data.slug = generateCleanSlug(data.title, data.id);
+            }
+            booksData.push(data);
+        });
+
+        if (snapshot.docs.length > 0) {
+            lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
+            hasMoreBooksToFetch = snapshot.docs.length === BATCH_SIZE;
+        } else {
+            hasMoreBooksToFetch = false;
+        }
+
+        mainFilteredData = [...booksData];
+        syncAndSanitizeBookmarks();
+        applyMasterFilter();
+
+        isAppReady.data = true;
+        tryTransition();
+    } catch (e) {
+        isAppReady.data = true;
+        tryTransition();
+    }
+}
+
+async function loadNextBooksBatch() {
+    if (!hasMoreBooksToFetch || isFetchingBooksBatch || !lastVisibleBookDoc) return;
+    isFetchingBooksBatch = true;
+
+    const infiniteLoader = document.getElementById('infinite-loader');
+    if (infiniteLoader) infiniteLoader.style.display = 'flex';
+
+    try {
+        const booksRef = collection(db, "books");
+        const q = query(booksRef, orderBy("createdAt", "desc"), startAfter(lastVisibleBookDoc), limit(BATCH_SIZE));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+            hasMoreBooksToFetch = false;
+            if (infiniteLoader) infiniteLoader.style.display = 'none';
+            isFetchingBooksBatch = false;
+            return;
+        }
+
+        const newItems = [];
+        snapshot.forEach((docSnap) => {
+            let data = docSnap.data();
+            data.id = docSnap.id;
+            if (!data.slug || data.slug.includes('%')) {
+                data.slug = generateCleanSlug(data.title, data.id);
+            }
+            booksData.push(data);
+            newItems.push(data);
+        });
+
+        lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
+        hasMoreBooksToFetch = snapshot.docs.length === BATCH_SIZE;
+        applyMasterFilter(true, newItems);
+
+    } catch (err) {
+        if (infiniteLoader) infiniteLoader.style.display = 'none';
+    } finally {
+        isFetchingBooksBatch = false;
+        if (!hasMoreBooksToFetch && infiniteLoader) {
+            infiniteLoader.style.display = 'none';
+        }
+    }
+}
 
 const infiniteScrollObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -1823,37 +1720,18 @@ const infiniteScrollObserver = new IntersectionObserver((entries) => {
     });
 }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 300px 0px', threshold: 0.1 });
 
-if (document.getElementById('scroll-sentinel')) {
-    infiniteScrollObserver.observe(document.getElementById('scroll-sentinel'));
-}
+if (document.getElementById('scroll-sentinel')) infiniteScrollObserver.observe(document.getElementById('scroll-sentinel'));
 
 function renderBooksUI(dataToRender, append = false) {
     const container = document.getElementById("bookContainer");
-    if (!container) return;
     let htmlChunk = "";
-
     dataToRender.forEach(book => {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         let isSaved = savedBooks.includes(book.slug) || savedBooks.includes(book.id);
         let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `
-        <div class="book-card" data-slug="${book.slug}" data-id="${book.id}">
-            <div class="card-img-wrapper">
-                <div class="badge-free">FREE</div>
-                <div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div>
-                <img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false">
-            </div>
-            <div class="book-details">
-                <div class="book-title">${sanitizeHTML(book.title)}</div>
-                <div class="book-author">${sanitizeHTML(book.author)}</div>
-                <div class="tags-container">
-                    <span class="book-tag tag-year">${sanitizeHTML(book.year)}</span>
-                    <span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span>
-                </div>
-            </div>
-        </div>`;
+        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
 
     if (append) {
@@ -1884,7 +1762,7 @@ function toggleBookmarkLocal(iconElement, slug) {
     }
     localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
     syncAndSanitizeBookmarks();
-    if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
+    if(document.getElementById('bookmarks-panel').classList.contains('active')) renderSavedBooksUI(); 
 }
 
 function renderSavedBooksUI() {
@@ -1894,34 +1772,19 @@ function renderSavedBooksUI() {
     const savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
     
     if (savedBooksData.length === 0) { 
-        if (container) container.innerHTML = ""; 
-        if (noMsg) noMsg.style.display = "flex"; 
+        container.innerHTML = ""; 
+        noMsg.style.display = "flex"; 
         return; 
     }
-    if (noMsg) noMsg.style.display = "none"; 
+    noMsg.style.display = "none"; 
     let htmlChunk = "";
     savedBooksData.forEach(book => {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `
-        <div class="book-card" data-slug="${book.slug}" data-id="${book.id}">
-            <div class="card-img-wrapper">
-                <div class="badge-free">FREE</div>
-                <div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div>
-                <img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false">
-            </div>
-            <div class="book-details">
-                <div class="book-title">${sanitizeHTML(book.title)}</div>
-                <div class="book-author">${sanitizeHTML(book.author)}</div>
-                <div class="tags-container">
-                    <span class="book-tag tag-year">${sanitizeHTML(book.year)}</span>
-                    <span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span>
-                </div>
-            </div>
-        </div>`;
+        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
-    if (container) container.innerHTML = htmlChunk;
+    container.innerHTML = htmlChunk;
 }
 
 document.getElementById('savedBooksContainer')?.addEventListener('click', (e) => {
@@ -1935,11 +1798,27 @@ document.getElementById('savedBooksContainer')?.addEventListener('click', (e) =>
 });
 
 // ==========================================
-// 13. LOGIN & LOGOUT HANDLERS
+// 12. SEARCH INPUT TIMEOUT & EVENT
+// ==========================================
+const searchInputEl = document.getElementById('app-search-input'); 
+let searchTimeout;
+searchInputEl?.addEventListener('input', () => { 
+    clearTimeout(searchTimeout); 
+    searchTimeout = setTimeout(() => { applyMasterFilter(); }, 250); 
+});
+
+document.getElementById('close-search')?.addEventListener('click', () => { 
+    searchInputEl.value = ''; 
+    applyMasterFilter(); 
+    document.getElementById('search-box').classList.remove('active'); 
+    if (history.state && history.state.popup === 'search') { history.back(); }
+});
+
+// ==========================================
+// 13. LOGIN & LOGOUT DIALOGS
 // ==========================================
 function closeLoginOverlayLocal() {
     const loginOverlay = document.getElementById('loginOverlay');
-    if (!loginOverlay) return;
     loginOverlay.style.opacity = '0';
     setTimeout(() => { 
         loginOverlay.style.display = 'none'; 
@@ -1950,7 +1829,6 @@ function closeLoginOverlayLocal() {
         }
     }, 500);
 }
-
 document.getElementById('closeLoginBtn')?.addEventListener('click', closeLoginOverlayLocal);
 
 document.getElementById('toggleEye')?.addEventListener('click', () => {
@@ -2009,6 +1887,33 @@ document.getElementById('googleSignInBtn')?.addEventListener('click', async () =
     } 
 });
 
+document.getElementById('forgotPasswordBtn')?.addEventListener('click', async () => {
+    const emailInput = document.getElementById('loginEmail');
+    let targetEmail = emailInput ? emailInput.value.trim().toLowerCase() : "";
+
+    if (!targetEmail || !targetEmail.includes('@')) {
+        showToast("Kripya apna admin email address enter karein!", "error");
+        emailInput?.focus();
+        return;
+    }
+
+    try {
+        showToast("Admin verification ho raha hai...", "success");
+        const adminDocRef = doc(db, "admins", targetEmail);
+        const adminDocSnap = await getDoc(adminDocRef);
+
+        if (!adminDocSnap.exists()) {
+            showToast("Access Denied: Yeh email admin list me nahi hai!", "error");
+            return;
+        }
+
+        await sendPasswordResetEmail(auth, targetEmail);
+        showToast("Password reset link aapke email par bhej diya gaya hai!", "success");
+    } catch (err) {
+        showToast(err.message || "Password reset link bhejne me samasya aayi.", "error");
+    }
+});
+
 const logoutOverlay = document.getElementById('customLogoutOverlay');
 const cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
 const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
@@ -2041,13 +1946,11 @@ document.getElementById('menu-logout-btn')?.addEventListener('click', (e) => {
     openLogoutDialog();
 });
 
-if (cancelLogoutBtn) {
-    cancelLogoutBtn.addEventListener('click', (e) => { 
-        e.preventDefault();
-        e.stopPropagation();
-        closeLogoutDialog();
-    });
-}
+cancelLogoutBtn?.addEventListener('click', (e) => { 
+    e.preventDefault();
+    e.stopPropagation();
+    closeLogoutDialog();
+});
 
 logoutOverlay?.addEventListener('click', (e) => {
     if (e.target === logoutOverlay) {
@@ -2055,35 +1958,33 @@ logoutOverlay?.addEventListener('click', (e) => {
     }
 });
 
-if (confirmLogoutBtn) {
-    confirmLogoutBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        confirmLogoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        confirmLogoutBtn.style.pointerEvents = 'none';
-        try {
-            await signOut(auth);
-            localStorage.removeItem('isUserLoggedIn');
-            window.location.reload();
-        } catch (error) {
-            confirmLogoutBtn.innerHTML = 'Yes, Log Out';
-            confirmLogoutBtn.style.pointerEvents = 'auto';
-            showToast("Logout failed, please retry", "error");
-        }
-    });
-}
+confirmLogoutBtn?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    confirmLogoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    confirmLogoutBtn.style.pointerEvents = 'none';
+    try {
+        await signOut(auth);
+        localStorage.removeItem('isUserLoggedIn');
+        window.location.reload();
+    } catch (error) {
+        confirmLogoutBtn.innerHTML = 'Yes, Log Out';
+        confirmLogoutBtn.style.pointerEvents = 'auto';
+        showToast("Logout failed, please retry", "error");
+    }
+});
 
 // ==========================================
-// 14. PANELS, POPUPS & NAVIGATION
+// 14. PANELS, SIDEBAR & DOWNLOAD MODAL
 // ==========================================
 document.getElementById('open-search')?.addEventListener('click', () => { 
     history.pushState({ popup: 'search' }, ''); 
-    document.getElementById('search-box')?.classList.add('active'); 
-    setTimeout(() => { searchInputEl?.focus(); }, 300); 
+    document.getElementById('search-box').classList.add('active'); 
+    setTimeout(() => { searchInputEl.focus(); }, 300); 
 });
 
 document.getElementById('open-noti')?.addEventListener('click', () => { 
     history.pushState({ popup: 'noti' }, ''); 
-    document.getElementById('noti-panel')?.classList.add('active'); 
+    document.getElementById('noti-panel').classList.add('active'); 
     
     const blinkDot = document.querySelector('.blink-dot');
     if (blinkDot) blinkDot.style.display = 'none'; 
@@ -2101,26 +2002,22 @@ document.getElementById('open-noti')?.addEventListener('click', () => {
     }
 });
 
-if (closeNotiBtn) {
-    closeNotiBtn.addEventListener('click', () => {
-        if (history.state && history.state.popup === 'noti') {
-            history.back();
-        } else {
-            document.getElementById('noti-panel')?.classList.remove('active');
-        }
-        if (window.location.hash.includes('post/')) {
-            history.replaceState(null, '', window.location.pathname);
-        }
-    });
-}
+closeNotiBtn?.addEventListener('click', () => {
+    if (history.state && history.state.popup === 'noti') {
+        history.back();
+    } else {
+        document.getElementById('noti-panel').classList.remove('active');
+    }
+    if (window.location.hash.includes('post/')) {
+        history.replaceState(null, '', window.location.pathname);
+    }
+});
 
 document.getElementById('open-upload-btn')?.addEventListener('click', () => {
     if (!isUserLoggedIn) {
         const loginOverlay = document.getElementById('loginOverlay');
-        if (loginOverlay) {
-            loginOverlay.style.display = 'flex';
-            setTimeout(() => loginOverlay.style.opacity = '1', 10);
-        }
+        loginOverlay.style.display = 'flex';
+        setTimeout(() => loginOverlay.style.opacity = '1', 10);
         return;
     }
 
@@ -2144,249 +2041,181 @@ const sidebar = document.getElementById('sidebar');
 const sidebarOverlay = document.getElementById('sidebar-overlay');
 document.getElementById('open-menu')?.addEventListener('click', () => { 
     history.pushState({ popup: 'sidebar' }, ''); 
-    sidebar?.classList.add('active'); 
-    sidebarOverlay?.classList.add('active'); 
+    sidebar.classList.add('active'); 
+    sidebarOverlay.classList.add('active'); 
 });
 sidebarOverlay?.addEventListener('click', () => { history.back(); });
 
 document.getElementById('menu-home-side')?.addEventListener('click', (e) => {
     e.preventDefault();
-    sidebar?.classList.remove('active');
-    sidebarOverlay?.classList.remove('active');
+    sidebar.classList.remove('active');
+    sidebarOverlay.classList.remove('active');
     document.getElementById('mainContentArea')?.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
 document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => { 
     e.preventDefault(); 
     history.pushState({ popup: 'bookmarks' }, ''); 
-    document.getElementById('bookmarks-panel')?.classList.add('active'); 
-    sidebar?.classList.remove('active'); 
-    sidebarOverlay?.classList.remove('active'); 
+    document.getElementById('bookmarks-panel').classList.add('active'); 
+    sidebar.classList.remove('active'); 
+    sidebarOverlay.classList.remove('active'); 
     renderSavedBooksUI(); 
 });
 document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => { history.back(); });
 
-window.closePdfViewerDirectly = function() {
-    const pdfViewer = document.getElementById('pdfViewerOverlay');
-    if (pdfViewer) pdfViewer.style.display = 'none';
-    const scroller = document.getElementById('pdfScrollContainer');
-    if (scroller) scroller.innerHTML = ''; 
-    const oldLoader = document.getElementById('pdfCenteredLoader');
-    if (oldLoader) oldLoader.remove();
-    cleanupPdfResources();
+function openDownloadPageLocal(slugOrId, skipPushState = false) {
+    if(!isUserLoggedIn) {
+        const loginOverlay = document.getElementById('loginOverlay');
+        loginOverlay.style.display = 'flex'; 
+        setTimeout(() => loginOverlay.style.opacity = '1', 10); 
+        return;
+    }
+    const book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
+    if(!book) return;
     
-    if (history.state && history.state.popup === 'pdfViewer') {
-        history.back();
-    }
-};
+    const downloadModal = document.getElementById("downloadModal");
+    downloadModal.style.display = "flex";
 
-document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    window.closePdfViewerDirectly();
-});
-
-// Support Hub
-document.getElementById('menu-contact')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    document.getElementById('sidebar')?.classList.remove('active');
-    document.getElementById('sidebar-overlay')?.classList.remove('active');
+    downloadModal.scrollTop = 0;
+    const innerScrollWrapper = downloadModal.querySelector('.download-content-wrapper') || downloadModal.firstElementChild;
+    if (innerScrollWrapper) innerScrollWrapper.scrollTop = 0;
     
-    history.pushState({ popup: 'support' }, '');
-    document.getElementById('supportModalOverlay')?.classList.add('active');
-});
+    const previewImg = document.getElementById("dlPreviewImage");
+    previewImg.src = getSecureAssetUrl(book.image); 
+    previewImg.onerror = () => { previewImg.src = DEFAULT_AVATAR; };
 
-document.getElementById('closeSupportBtn')?.addEventListener('click', () => {
-    if (history.state && history.state.popup === 'support') {
-        history.back();
-    } else {
-        document.getElementById('supportModalOverlay')?.classList.remove('active');
+    document.getElementById("dlBookTitle").innerText = sanitizeHTML(book.title); 
+    document.getElementById("dlBookAuthor").innerText = sanitizeHTML(book.author);
+
+    const fileSizeSub = document.getElementById('dlFileSize');
+    if (fileSizeSub) {
+        const formatText = book.fileFormat || "PDF";
+        const sizeText = book.fileSize ? `${book.fileSize} • ` : "";
+        fileSizeSub.innerText = `${sizeText}${formatText} Document`;
     }
-});
 
-document.getElementById('openIssueModalBtn')?.addEventListener('click', () => {
-    document.getElementById('issueModal')?.classList.add('active');
-});
-
-document.getElementById('closeIssueModalBtn')?.addEventListener('click', () => {
-    document.getElementById('issueModal')?.classList.remove('active');
-});
-
-document.getElementById('issueModal')?.addEventListener('click', (e) => {
-    if (e.target === document.getElementById('issueModal')) {
-        document.getElementById('issueModal')?.classList.remove('active');
+    const totalPagesSub = document.getElementById('dlTotalPages');
+    if (totalPagesSub) {
+        const pNum = parseInt(book.totalPages, 10);
+        if (!isNaN(pNum) && pNum > 0) {
+            totalPagesSub.innerText = `${pNum} Pages Included`;
+        } else {
+            totalPagesSub.innerText = `${book.totalPages || "1"} Pages Included`;
+        }
     }
-});
+    
+    const dlPdfBtn = document.getElementById("dlPdfLinkBtn");
+    dlPdfBtn.style.pointerEvents = "auto"; 
+    dlPdfBtn.onclick = function(e) { e.preventDefault(); };
 
-const issueOptions = document.querySelectorAll('#issueModal .modal-option-btn');
-issueOptions.forEach(option => {
-    option.addEventListener('click', () => {
-        issueOptions.forEach(btn => btn.classList.remove('selected'));
-        option.classList.add('selected');
+    document.getElementById("dlReadOnlineBtn").onclick = async function() {
+        if(!isUserLoggedIn || !auth.currentUser) { 
+            const loginOverlay = document.getElementById('loginOverlay');
+            loginOverlay.style.display = 'flex'; 
+            setTimeout(() => loginOverlay.style.opacity = '1', 10); 
+            return; 
+        }
         
-        const selectedValue = option.getAttribute('data-value');
-        document.getElementById('selectedSubjectInput').value = selectedValue;
-        document.getElementById('selectedSubjectDisplay').innerText = selectedValue;
+        const btn = document.getElementById("dlReadOnlineBtn"); 
+        const originalText = btn.innerHTML; 
+
+        const savedData = localStorage.getItem('spidy_secure_session');
+        let hasValidToken = false;
+        if (savedData) {
+            try {
+                const parsed = JSON.parse(savedData);
+                if (parsed.fp === generateDeviceFingerprint() && parsed.expiry > Date.now()) {
+                    hasValidToken = true;
+                }
+            } catch(e) {}
+        }
+
+        if(!hasValidToken && !IS_SUPER_ADMIN) {
+             history.pushState({ popup: 'tokenModal' }, '');
+             document.getElementById('tokenModalOverlay').style.display = 'flex';
+             initParticles('particles');
+             return; 
+        }
         
-        setTimeout(() => {
-            document.getElementById('issueModal')?.classList.remove('active');
-        }, 150);
-    });
-});
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i> Ready..`; 
+        btn.disabled = true;
 
-document.getElementById('supportContactForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const btn = document.getElementById('supSubmitBtn');
-    const btnText = document.getElementById('supBtnText');
-    const btnIcon = document.getElementById('supBtnIcon');
-    
-    const originalText = btnText.innerText;
-    const originalIcon = btnIcon.innerHTML;
-
-    btnText.innerText = "Sending...";
-    btnIcon.innerHTML = `<circle cx="12" cy="12" r="10" stroke-width="3" stroke="currentColor" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="1s" values="0 12 12;360 12 12"/></circle>`;
-    btn.style.pointerEvents = "none";
-
-    const formData = {
-        firstName: document.getElementById('supFirstName').value.trim(),
-        lastName: document.getElementById('supLastName').value.trim(),
-        email: document.getElementById('supEmail').value.trim(),
-        subject: document.getElementById('selectedSubjectInput').value.trim(),
-        message: document.getElementById('supMessage').value.trim()
-    };
-
-    try {
-        const response = await fetch('/api/contact', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ...formData,
-                timestamp: Date.now()
-            })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-            btn.classList.add('btn-success-active');
-            btnText.innerText = "Successfully Sent";
-            btnIcon.innerHTML = `<polyline points="20 6 9 17 4 12"></polyline>`;
-            
-            e.target.reset();
-            document.getElementById('selectedSubjectInput').value = "⚠️ Report Broken Download Link";
-            document.getElementById('selectedSubjectDisplay').innerText = "⚠️ Report Broken Download Link";
-            issueOptions.forEach((btn, idx) => {
-                if (idx === 0) btn.classList.add('selected');
-                else btn.classList.remove('selected');
+        try {
+            const userToken = await auth.currentUser.getIdToken(true);
+            const response = await fetch('/api/get-book', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    bookId: book.id, 
+                    bookSlug: book.slug || book.id, 
+                    userToken: userToken 
+                })
             });
 
-            showToast("Message sent successfully!", "success");
-
-            setTimeout(() => {
-                btn.classList.remove('btn-success-active');
-                btnText.innerText = originalText;
-                btnIcon.innerHTML = originalIcon;
-                btn.style.pointerEvents = "auto";
+            const data = await response.json();
+            if (response.ok && data.success) {
+                const pdfViewer = document.getElementById('pdfViewerOverlay');
+                const title = document.getElementById('pdfViewerTitle');
                 
-                if (history.state && history.state.popup === 'support') {
-                    history.back();
+                title.innerText = sanitizeHTML(book.title);
+                history.pushState({ popup: 'pdfViewer', from: 'book' }, '');
+                pdfViewer.style.display = 'flex';
+                renderPdfInModal(data.pdfLink);
+            } else {
+                if (response.status === 401 || (data.error && data.error.includes('Unauthorized'))) {
+                    localStorage.removeItem('spidy_secure_session');
+                    history.pushState({ popup: 'tokenModal' }, '');
+                    document.getElementById('tokenModalOverlay').style.display = 'flex';
+                    initParticles('particles');
                 } else {
-                    document.getElementById('supportModalOverlay')?.classList.remove('active');
+                    showToast(data.error || "Limit reached!", "error");
                 }
-            }, 2500);
+            }
 
-        } else {
-            throw new Error(data.error || "Failed to send message.");
+            btn.innerHTML = originalText; 
+            btn.disabled = false;
+
+        } catch (error) { 
+            showToast("Network Error: Could not load the book.", "error"); 
+            btn.innerHTML = originalText; 
+            btn.disabled = false; 
         }
-    } catch (error) {
-        showToast(error.message || "Network error. Please try again.", "error");
-        btnText.innerText = originalText;
-        btnIcon.innerHTML = originalIcon;
-        btn.style.pointerEvents = "auto";
+    };
+
+    let examsArray = (book.exams || "General").split(',').map(item => sanitizeHTML(item.trim()));
+    document.getElementById("dlModalTags").innerHTML = examsArray.map(exam => `<div class="dl-modal-tag">${exam}</div>`).join('');
+    
+    activeBookSlug = book.slug || book.id; 
+    activeBookId = book.id;
+    activeBookTitle = book.title; 
+    
+    if (!skipPushState) { 
+        history.pushState({ popup: 'book' }, '', '?book=' + (book.slug || book.id)); 
     }
-});
+}
 
-// POPSTATE LISTENER
-window.addEventListener('popstate', () => {
-    const loginOverlay = document.getElementById('loginOverlay');
-    if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
-        loginOverlay.style.opacity = '0';
-        setTimeout(() => { loginOverlay.style.display = 'none'; }, 400);
-        return;
-    }
-
-    const filterModal = document.getElementById('filterModalOverlay');
-    if (filterModal && filterModal.classList.contains('active')) {
-        closeCenterModal();
-        return;
-    }
-
-    const pdfViewer = document.getElementById('pdfViewerOverlay');
-    if (pdfViewer && pdfViewer.style.display === 'flex') {
-        pdfViewer.style.display = 'none';
-        document.getElementById('pdfScrollContainer').innerHTML = '';
-        const oldLoader = document.getElementById('pdfCenteredLoader');
-        if (oldLoader) oldLoader.remove();
-        cleanupPdfResources();
-        return;
-    }
-
-    const supportModal = document.getElementById('supportModalOverlay');
-    if (supportModal && supportModal.classList.contains('active')) {
-        const issueModal = document.getElementById('issueModal');
-        if (issueModal && issueModal.classList.contains('active')) {
-            issueModal.classList.remove('active');
-            return;
-        }
-        supportModal.classList.remove('active');
-        return;
-    }
-
-    const uploadModal = document.getElementById('uploadModalOverlay');
-    if (uploadModal && uploadModal.classList.contains('active')) {
-        uploadModal.classList.remove('active');
-        return;
-    }
-
-    const bannerModal = document.getElementById('moduleBannerModal');
-    if (bannerModal && bannerModal.classList.contains('active')) {
-        const modulesView = document.getElementById('bannerModulesView');
-        if (modulesView && !modulesView.classList.contains('hidden-view')) {
-            modulesView.classList.add('hidden-view');
-            document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
-            document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
-        } else {
-            bannerModal.classList.remove('active');
-            activeBannerData = null;
-            activeSubjectKey = null;
-        }
-        return;
-    }
-
-    const tokenModal = document.getElementById('tokenModalOverlay');
-    if (tokenModal && tokenModal.style.display === 'flex') {
-        tokenModal.style.display = 'none';
-        return;
-    }
-
-    document.getElementById('noti-panel')?.classList.remove('active'); 
-    document.getElementById('sidebar')?.classList.remove('active'); 
-    document.getElementById('sidebar-overlay')?.classList.remove('active'); 
-    document.getElementById('bookmarks-panel')?.classList.remove('active'); 
-    document.getElementById('search-box')?.classList.remove('active'); 
-
-    applyMasterFilter();
-    const sBook = new URLSearchParams(window.location.search).get('book');
-    if(sBook) { 
-        openDownloadPageLocal(sBook, true); 
+document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
+function closeDownloadPageLocal() {
+    if (history.state && history.state.popup === 'book') { 
+        history.back(); 
     } else { 
-        document.getElementById("downloadModal").style.display = "none";
+        document.getElementById("downloadModal").style.display = "none"; 
+        window.history.replaceState({}, '', window.location.pathname); 
+    }
+}
+
+document.getElementById('shareBookBtn')?.addEventListener('click', () => {
+    const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
+    if (navigator.share) {
+        navigator.share({ title: activeBookTitle, text: "Read this book online", url: shareUrl });
+    } else { 
+        navigator.clipboard.writeText(shareUrl); 
+        showToast("Link Copied!", "success"); 
     }
 });
 
 // ==========================================
-// 15. ULTRA HD PDF ENGINE & CONTROLS
+// 15. ULTRA HD VECTOR PDF ENGINE
 // ==========================================
 function cleanupPdfResources() {
     if (pdfVirtualObserver) {
@@ -2437,8 +2266,27 @@ function showCenteredPdfLoader(message = "Loading book securely...") {
         </div>
         <div class="pdf-loader-text">${message}</div>
     `;
-    container?.appendChild(loaderDiv);
+    container.appendChild(loaderDiv);
 }
+
+window.closePdfViewerDirectly = function() {
+    const pdfViewer = document.getElementById('pdfViewerOverlay');
+    if (pdfViewer) pdfViewer.style.display = 'none';
+    document.getElementById('pdfScrollContainer').innerHTML = ''; 
+    const oldLoader = document.getElementById('pdfCenteredLoader');
+    if (oldLoader) oldLoader.remove();
+    cleanupPdfResources();
+    
+    if (history.state && history.state.popup === 'pdfViewer') {
+        history.back();
+    }
+};
+
+document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.closePdfViewerDirectly();
+});
 
 async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -2447,21 +2295,19 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
         showCenteredPdfLoader("Loading book in HD Quality...");
     }
     
-    if (scrollContainer) scrollContainer.innerHTML = '';
+    scrollContainer.innerHTML = '';
     cleanupPdfResources();
 
     if (!pdfUrl || pdfUrl.trim() === "" || pdfUrl === "undefined") {
         setTimeout(() => {
             const loaderToDel = document.getElementById('pdfCenteredLoader');
             if (loaderToDel) loaderToDel.remove();
-            if (scrollContainer) {
-                scrollContainer.innerHTML = `
-                    <div style="color: #ef4444; margin-top: 140px; text-align: center; padding: 25px;">
-                        <i class="fas fa-triangle-exclamation" style="font-size: 38px; margin-bottom: 14px; display: block;"></i>
-                        <strong style="font-size: 16px; font-weight: 800;">Failed to load book pages</strong>
-                        <p style="font-size: 12.5px; color: #a1a1aa; margin: 8px 0 0 0; font-weight: 500;">Network interrupted or document unavailable.</p>
-                    </div>`;
-            }
+            scrollContainer.innerHTML = `
+                <div style="color: #ef4444; margin-top: 140px; text-align: center; padding: 25px;">
+                    <i class="fas fa-triangle-exclamation" style="font-size: 38px; margin-bottom: 14px; display: block;"></i>
+                    <strong style="font-size: 16px; font-weight: 800;">Failed to load book pages</strong>
+                    <p style="font-size: 12.5px; color: #a1a1aa; margin: 8px 0 0 0; font-weight: 500;">Network interrupted or document unavailable.</p>
+                </div>`;
         }, 300);
         return;
     }
@@ -2483,7 +2329,7 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
         const loaderToDel = document.getElementById('pdfCenteredLoader');
         if (loaderToDel) loaderToDel.remove();
 
-        if (scrollContainer) scrollContainer.innerHTML = '';
+        scrollContainer.innerHTML = '';
         document.getElementById('pdfCurrentPageNum').innerText = `1`;
         document.getElementById('goToPageRange').innerText = `1 - ${pdfTotalPagesCount}`;
 
@@ -2508,7 +2354,7 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
                     <i class="fas fa-book-open" style="font-size:18px;"></i>
                     <span>Page ${pageNum}</span>
                 </div>`;
-            scrollContainer?.appendChild(wrapper);
+            scrollContainer.appendChild(wrapper);
         }
 
         const pageBadge = document.getElementById('pdfPageBadge');
@@ -2537,14 +2383,12 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
         const loaderToDel = document.getElementById('pdfCenteredLoader');
         if (loaderToDel) loaderToDel.remove();
 
-        if (scrollContainer) {
-            scrollContainer.innerHTML = `
-                <div style="color: #ef4444; margin-top: 140px; text-align: center; padding: 25px;">
-                    <i class="fas fa-triangle-exclamation" style="font-size: 38px; margin-bottom: 14px; display: block;"></i>
-                    <strong style="font-size: 16px; font-weight: 800;">Failed to load book pages</strong>
-                    <p style="font-size: 12.5px; color: #a1a1aa; margin: 8px 0 0 0; font-weight: 500;">Network interrupted or document unavailable.</p>
-                </div>`;
-        }
+        scrollContainer.innerHTML = `
+            <div style="color: #ef4444; margin-top: 140px; text-align: center; padding: 25px;">
+                <i class="fas fa-triangle-exclamation" style="font-size: 38px; margin-bottom: 14px; display: block;"></i>
+                <strong style="font-size: 16px; font-weight: 800;">Failed to load book pages</strong>
+                <p style="font-size: 12.5px; color: #a1a1aa; margin: 8px 0 0 0; font-weight: 500;">Network interrupted or document unavailable.</p>
+            </div>`;
     }
 }
 
@@ -2778,7 +2622,7 @@ function initPdfScrollTracker() {
     const badgeWrap = document.getElementById('pdfPageBadge');
 
     let scrollRafId = null;
-    container?.addEventListener('scroll', () => {
+    container.addEventListener('scroll', () => {
         if (scrollRafId) return;
 
         scrollRafId = requestAnimationFrame(() => {
@@ -2821,7 +2665,6 @@ const confirmGoToPageBtn = document.getElementById('confirmGoToPageBtn');
 const goToPageInput = document.getElementById('goToPageInput');
 
 pdfPageBadge?.addEventListener('click', () => {
-    if (!goToPageModal || !goToPageInput) return;
     goToPageInput.value = '';
     goToPageModal.style.display = 'flex';
     setTimeout(() => {
@@ -2829,15 +2672,10 @@ pdfPageBadge?.addEventListener('click', () => {
         goToPageModal.scrollTop = 0;
     }, 100);
 });
-
-cancelGoToPageBtn?.addEventListener('click', () => { 
-    if (goToPageModal) goToPageModal.style.display = 'none'; 
-});
-
+cancelGoToPageBtn?.addEventListener('click', () => { goToPageModal.style.display = 'none'; });
 goToPageModal?.addEventListener('click', (e) => {
     if (e.target === goToPageModal) goToPageModal.style.display = 'none';
 });
-
 confirmGoToPageBtn?.addEventListener('click', executeGoToPage);
 goToPageInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') executeGoToPage();
@@ -2866,183 +2704,17 @@ async function jumpToPdfPage(pageNum) {
 }
 
 // ==========================================
-// 16. BOOK DETAIL & DOWNLOAD MODAL
-// ==========================================
-function openDownloadPageLocal(slugOrId, skipPushState = false) {
-    if(!isUserLoggedIn) {
-        const loginOverlay = document.getElementById('loginOverlay');
-        if (loginOverlay) {
-            loginOverlay.style.display = 'flex'; 
-            setTimeout(() => loginOverlay.style.opacity = '1', 10); 
-        }
-        return;
-    }
-    const book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
-    if(!book) return;
-    
-    const downloadModal = document.getElementById("downloadModal");
-    if (!downloadModal) return;
-    downloadModal.style.display = "flex";
-
-    downloadModal.scrollTop = 0;
-    const innerScrollWrapper = downloadModal.querySelector('.download-content-wrapper') || downloadModal.firstElementChild;
-    if (innerScrollWrapper) innerScrollWrapper.scrollTop = 0;
-    
-    const previewImg = document.getElementById("dlPreviewImage");
-    if (previewImg) {
-        previewImg.src = getSecureAssetUrl(book.image); 
-        previewImg.onerror = () => { previewImg.src = DEFAULT_AVATAR; };
-    }
-
-    document.getElementById("dlBookTitle").innerText = sanitizeHTML(book.title); 
-    document.getElementById("dlBookAuthor").innerText = sanitizeHTML(book.author);
-
-    const fileSizeSub = document.getElementById('dlFileSize');
-    if (fileSizeSub) {
-        const formatText = book.fileFormat || "PDF";
-        const sizeText = book.fileSize ? `${book.fileSize} • ` : "";
-        fileSizeSub.innerText = `${sizeText}${formatText} Document`;
-    }
-
-    const totalPagesSub = document.getElementById('dlTotalPages');
-    if (totalPagesSub) {
-        const pNum = parseInt(book.totalPages, 10);
-        if (!isNaN(pNum) && pNum > 0) {
-            totalPagesSub.innerText = `${pNum} Pages Included`;
-        } else {
-            totalPagesSub.innerText = `${book.totalPages || "1"} Pages Included`;
-        }
-    }
-    
-    const dlPdfBtn = document.getElementById("dlPdfLinkBtn");
-    if (dlPdfBtn) {
-        dlPdfBtn.style.pointerEvents = "auto"; 
-        dlPdfBtn.onclick = function(e) { e.preventDefault(); };
-    }
-
-    const readOnlineBtn = document.getElementById("dlReadOnlineBtn");
-    if (readOnlineBtn) {
-        readOnlineBtn.onclick = async function() {
-            if(!isUserLoggedIn || !auth.currentUser) { 
-                const loginOverlay = document.getElementById('loginOverlay');
-                if (loginOverlay) {
-                    loginOverlay.style.display = 'flex'; 
-                    setTimeout(() => loginOverlay.style.opacity = '1', 10); 
-                }
-                return; 
-            }
-            
-            const btn = document.getElementById("dlReadOnlineBtn"); 
-            const originalText = btn.innerHTML; 
-
-            const savedData = localStorage.getItem('spidy_secure_session');
-            let hasValidToken = false;
-            if (savedData) {
-                try {
-                    const parsed = JSON.parse(savedData);
-                    if (parsed.fp === generateDeviceFingerprint() && parsed.expiry > Date.now()) {
-                        hasValidToken = true;
-                    }
-                } catch(e) {}
-            }
-
-            if(!hasValidToken && !IS_SUPER_ADMIN) {
-                 history.pushState({ popup: 'tokenModal' }, '');
-                 document.getElementById('tokenModalOverlay').style.display = 'flex';
-                 initParticles('particles');
-                 return; 
-            }
-            
-            btn.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i> Ready..`; 
-            btn.disabled = true;
-
-            try {
-                const userToken = await auth.currentUser.getIdToken(true);
-                const response = await fetch('/api/get-book', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        bookId: book.id, 
-                        bookSlug: book.slug || book.id, 
-                        userToken: userToken 
-                    })
-                });
-
-                const data = await response.json();
-                if (response.ok && data.success) {
-                    const pdfViewer = document.getElementById('pdfViewerOverlay');
-                    const title = document.getElementById('pdfViewerTitle');
-                    
-                    title.innerText = sanitizeHTML(book.title);
-                    history.pushState({ popup: 'pdfViewer', from: 'book' }, '');
-                    pdfViewer.style.display = 'flex';
-                    renderPdfInModal(data.pdfLink);
-                } else {
-                    if (response.status === 401 || (data.error && data.error.includes('Unauthorized'))) {
-                        localStorage.removeItem('spidy_secure_session');
-                        history.pushState({ popup: 'tokenModal' }, '');
-                        document.getElementById('tokenModalOverlay').style.display = 'flex';
-                        initParticles('particles');
-                    } else {
-                        showToast(data.error || "Limit reached!", "error");
-                    }
-                }
-
-                btn.innerHTML = originalText; 
-                btn.disabled = false;
-
-            } catch (error) { 
-                showToast("Network Error: Could not load the book.", "error"); 
-                btn.innerHTML = originalText; 
-                btn.disabled = false; 
-            }
-        };
-    }
-
-    let examsArray = (book.exams || "General").split(',').map(item => sanitizeHTML(item.trim()));
-    document.getElementById("dlModalTags").innerHTML = examsArray.map(exam => `<div class="dl-modal-tag">${exam}</div>`).join('');
-    
-    activeBookSlug = book.slug || book.id; 
-    activeBookId = book.id;
-    activeBookTitle = book.title; 
-    
-    if (!skipPushState) { 
-        history.pushState({ popup: 'book' }, '', '?book=' + (book.slug || book.id)); 
-    }
-}
-
-document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
-function closeDownloadPageLocal() {
-    if (history.state && history.state.popup === 'book') { 
-        history.back(); 
-    } else { 
-        document.getElementById("downloadModal").style.display = "none"; 
-        window.history.replaceState({}, '', window.location.pathname); 
-    }
-}
-
-document.getElementById('shareBookBtn')?.addEventListener('click', () => {
-    const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
-    if (navigator.share) {
-        navigator.share({ title: activeBookTitle, text: "Read this book online", url: shareUrl });
-    } else { 
-        navigator.clipboard.writeText(shareUrl); 
-        showToast("Link Copied!", "success"); 
-    }
-});
-
-// ==========================================
-// 17. REPORT ISSUE MODAL
+// 16. REPORT BROKEN LINK
 // ==========================================
 document.getElementById('reportLinkBtn')?.addEventListener('click', () => {
-    document.getElementById('reportModalOverlay')?.classList.add('active');
+    document.getElementById('reportModalOverlay').classList.add('active');
 });
 document.getElementById('closeReportBtn')?.addEventListener('click', () => {
-    document.getElementById('reportModalOverlay')?.classList.remove('active');
+    document.getElementById('reportModalOverlay').classList.remove('active');
 });
 document.getElementById('reportModalOverlay')?.addEventListener('click', (e) => {
     if (e.target === document.getElementById('reportModalOverlay')) {
-        document.getElementById('reportModalOverlay')?.classList.remove('active');
+        document.getElementById('reportModalOverlay').classList.remove('active');
     }
 });
 
@@ -3053,7 +2725,7 @@ reportOptions.forEach(opt => {
     opt.addEventListener('click', () => {
         reportOptions.forEach(o => o.classList.remove('selected'));
         opt.classList.add('selected');
-        submitReportBtn?.classList.add('enabled');
+        submitReportBtn.classList.add('enabled');
     });
 });
 
@@ -3076,7 +2748,7 @@ submitReportBtn?.addEventListener('click', async () => {
         submitReportBtn.style.background = '#10b981';
         
         setTimeout(() => {
-            document.getElementById('reportModalOverlay')?.classList.remove('active');
+            document.getElementById('reportModalOverlay').classList.remove('active');
             setTimeout(() => {
                 submitReportBtn.innerHTML = 'Submit Report';
                 submitReportBtn.style.background = '#ef4444';
@@ -3088,7 +2760,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 18. ACCESS KEY VALIDATION HANDSHAKE
+// 17. TOKEN VERIFICATION & GET KEY
 // ==========================================
 document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
     if (history.state && history.state.popup === 'tokenModal') {
@@ -3099,7 +2771,7 @@ document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
 });
 
 document.getElementById('tokenInput')?.addEventListener('input', () => {
-    document.getElementById('inputBoxWrapperToken')?.classList.remove('error-state', 'success-state');
+    document.getElementById('inputBoxWrapperToken').classList.remove('error-state', 'success-state');
 });
 
 document.getElementById('getKeyBtn')?.addEventListener('click', async () => {
@@ -3188,7 +2860,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
                 document.getElementById('tokenModalOverlay').style.display = 'none';
                 btn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
                 if (document.getElementById("downloadModal").style.display === "flex") {
-                    document.getElementById("dlReadOnlineBtn")?.click();
+                    document.getElementById("dlReadOnlineBtn").click();
                 }
             }, 1000);
         } else {
@@ -3204,7 +2876,7 @@ document.getElementById('verifyBtn')?.addEventListener('click', async () => {
 });
 
 // ==========================================
-// 19. UPLOAD HUB & STORAGE PIPELINE
+// 18. UPLOAD HUB & STORAGE PIPELINE
 // ==========================================
 function setupDynamicIconWatcher(inputId, wrapperId) {
     const input = document.getElementById(inputId);
@@ -3249,7 +2921,7 @@ function buildDynamicYearList() {
             const val = option.getAttribute('data-year');
             document.getElementById('inYear').value = val;
             document.getElementById('selectedYearText').innerText = val;
-            document.getElementById('yearPopupOverlay')?.classList.remove('active');
+            document.getElementById('yearPopupOverlay').classList.remove('active');
         });
     });
 }
@@ -3264,21 +2936,21 @@ const uploadContentArea = document.getElementById('admContentArea');
 
 admTabAdd?.addEventListener('click', (e) => {
     e.preventDefault();
-    switchTrack?.classList.remove('show-prompt');
+    switchTrack.classList.remove('show-prompt');
     admTabAdd.classList.add('active');
-    admTabPrompt?.classList.remove('active');
-    sectionAddBook?.classList.add('active');
-    sectionPrompt?.classList.remove('active');
+    admTabPrompt.classList.remove('active');
+    sectionAddBook.classList.add('active');
+    sectionPrompt.classList.remove('active');
     if (uploadContentArea) uploadContentArea.scrollTop = 0;
 });
 
 admTabPrompt?.addEventListener('click', (e) => {
     e.preventDefault();
-    switchTrack?.classList.add('show-prompt');
+    switchTrack.classList.add('show-prompt');
     admTabPrompt.classList.add('active');
-    admTabAdd?.classList.remove('active');
-    sectionPrompt?.classList.add('active');
-    sectionAddBook?.classList.remove('active');
+    admTabAdd.classList.remove('active');
+    sectionPrompt.classList.add('active');
+    sectionAddBook.classList.remove('active');
     if (uploadContentArea) uploadContentArea.scrollTop = 0;
 });
 
@@ -3737,5 +3409,215 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     } catch (error) {
         pipeline.style.display = 'none';
         showToast(error.message || "Upload failed. Please try again.", "error");
+    }
+});
+
+// ==========================================
+// 19. SUPPORT HUB MODAL
+// ==========================================
+document.getElementById('menu-contact')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('sidebar')?.classList.remove('active');
+    document.getElementById('sidebar-overlay')?.classList.remove('active');
+    
+    history.pushState({ popup: 'support' }, '');
+    document.getElementById('supportModalOverlay')?.classList.add('active');
+});
+
+document.getElementById('closeSupportBtn')?.addEventListener('click', () => {
+    if (history.state && history.state.popup === 'support') {
+        history.back();
+    } else {
+        document.getElementById('supportModalOverlay')?.classList.remove('active');
+    }
+});
+
+document.getElementById('openIssueModalBtn')?.addEventListener('click', () => {
+    document.getElementById('issueModal')?.classList.add('active');
+});
+
+document.getElementById('closeIssueModalBtn')?.addEventListener('click', () => {
+    document.getElementById('issueModal')?.classList.remove('active');
+});
+
+document.getElementById('issueModal')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('issueModal')) {
+        document.getElementById('issueModal').classList.remove('active');
+    }
+});
+
+const issueOptions = document.querySelectorAll('#issueModal .modal-option-btn');
+issueOptions.forEach(option => {
+    option.addEventListener('click', () => {
+        issueOptions.forEach(btn => btn.classList.remove('selected'));
+        option.classList.add('selected');
+        
+        const selectedValue = option.getAttribute('data-value');
+        document.getElementById('selectedSubjectInput').value = selectedValue;
+        document.getElementById('selectedSubjectDisplay').innerText = selectedValue;
+        
+        setTimeout(() => {
+            document.getElementById('issueModal').classList.remove('active');
+        }, 150);
+    });
+});
+
+document.getElementById('supportContactForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const btn = document.getElementById('supSubmitBtn');
+    const btnText = document.getElementById('supBtnText');
+    const btnIcon = document.getElementById('supBtnIcon');
+    
+    const originalText = btnText.innerText;
+    const originalIcon = btnIcon.innerHTML;
+
+    btnText.innerText = "Sending...";
+    btnIcon.innerHTML = `<circle cx="12" cy="12" r="10" stroke-width="3" stroke="currentColor" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="1s" values="0 12 12;360 12 12"/></circle>`;
+    btn.style.pointerEvents = "none";
+
+    const formData = {
+        firstName: document.getElementById('supFirstName').value.trim(),
+        lastName: document.getElementById('supLastName').value.trim(),
+        email: document.getElementById('supEmail').value.trim(),
+        subject: document.getElementById('selectedSubjectInput').value.trim(),
+        message: document.getElementById('supMessage').value.trim()
+    };
+
+    try {
+        const response = await fetch('/api/contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ...formData,
+                timestamp: Date.now()
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            btn.classList.add('btn-success-active');
+            btnText.innerText = "Successfully Sent";
+            btnIcon.innerHTML = `<polyline points="20 6 9 17 4 12"></polyline>`;
+            
+            e.target.reset();
+            document.getElementById('selectedSubjectInput').value = "⚠️ Report Broken Download Link";
+            document.getElementById('selectedSubjectDisplay').innerText = "⚠️ Report Broken Download Link";
+            issueOptions.forEach((btn, idx) => {
+                if (idx === 0) btn.classList.add('selected');
+                else btn.classList.remove('selected');
+            });
+
+            showToast("Message sent successfully!", "success");
+
+            setTimeout(() => {
+                btn.classList.remove('btn-success-active');
+                btnText.innerText = originalText;
+                btnIcon.innerHTML = originalIcon;
+                btn.style.pointerEvents = "auto";
+                
+                if (history.state && history.state.popup === 'support') {
+                    history.back();
+                } else {
+                    document.getElementById('supportModalOverlay')?.classList.remove('active');
+                }
+            }, 2500);
+
+        } else {
+            throw new Error(data.error || "Failed to send message.");
+        }
+    } catch (error) {
+        showToast(error.message || "Network error. Please try again.", "error");
+        btnText.innerText = originalText;
+        btnIcon.innerHTML = originalIcon;
+        btn.style.pointerEvents = "auto";
+    }
+});
+
+// ==========================================
+// 20. POPSTATE HISTORY LISTENER
+// ==========================================
+window.addEventListener('popstate', (e) => {
+    const loginOverlay = document.getElementById('loginOverlay');
+    if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
+        loginOverlay.style.opacity = '0';
+        setTimeout(() => { loginOverlay.style.display = 'none'; }, 400);
+        return;
+    }
+
+    const pdfViewer = document.getElementById('pdfViewerOverlay');
+    if (pdfViewer && pdfViewer.style.display === 'flex') {
+        pdfViewer.style.display = 'none';
+        document.getElementById('pdfScrollContainer').innerHTML = '';
+        const oldLoader = document.getElementById('pdfCenteredLoader');
+        if (oldLoader) oldLoader.remove();
+        cleanupPdfResources();
+        return;
+    }
+
+    const optOverlay = document.getElementById('filterOptionsModalOverlay');
+    if (optOverlay && optOverlay.classList.contains('active')) {
+        optOverlay.classList.remove('active');
+        return;
+    }
+
+    const mainFilterOverlay = document.getElementById('filterMainPopupOverlay');
+    if (mainFilterOverlay && mainFilterOverlay.classList.contains('active')) {
+        mainFilterOverlay.classList.remove('active');
+        document.body.classList.remove('filter-modal-active');
+        return;
+    }
+
+    const supportModal = document.getElementById('supportModalOverlay');
+    if (supportModal && supportModal.classList.contains('active')) {
+        const issueModal = document.getElementById('issueModal');
+        if (issueModal && issueModal.classList.contains('active')) {
+            issueModal.classList.remove('active');
+            return;
+        }
+        supportModal.classList.remove('active');
+        return;
+    }
+
+    const uploadModal = document.getElementById('uploadModalOverlay');
+    if (uploadModal && uploadModal.classList.contains('active')) {
+        uploadModal.classList.remove('active');
+        return;
+    }
+
+    const bannerModal = document.getElementById('moduleBannerModal');
+    if (bannerModal && bannerModal.classList.contains('active')) {
+        const modulesView = document.getElementById('bannerModulesView');
+        if (modulesView && !modulesView.classList.contains('hidden-view')) {
+            modulesView.classList.add('hidden-view');
+            document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
+            document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
+        } else {
+            bannerModal.classList.remove('active');
+            activeBannerData = null;
+            activeSubjectKey = null;
+        }
+        return;
+    }
+
+    const tokenModal = document.getElementById('tokenModalOverlay');
+    if (tokenModal && tokenModal.style.display === 'flex') {
+        tokenModal.style.display = 'none';
+        return;
+    }
+
+    document.getElementById('noti-panel')?.classList.remove('active'); 
+    document.getElementById('sidebar')?.classList.remove('active'); 
+    document.getElementById('sidebar-overlay')?.classList.remove('active'); 
+    document.getElementById('bookmarks-panel')?.classList.remove('active'); 
+    document.getElementById('search-box')?.classList.remove('active'); 
+
+    applyMasterFilter();
+    const sBook = new URLSearchParams(window.location.search).get('book');
+    if(sBook) { 
+        openDownloadPageLocal(sBook, true); 
+    } else { 
+        document.getElementById("downloadModal").style.display = "none";
     }
 });
