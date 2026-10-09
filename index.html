@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -67,10 +67,8 @@
         <div class="loader-powered-text">POWERED BY SPIDYUNIVERSE</div>
     </div>
 
-    <!-- NEW LOGIN OVERLAY (CHARCOAL CURVED HEADER DESIGN) -->
+    <!-- LOGIN OVERLAY -->
     <div id="loginOverlay" class="login-container" style="display: none; opacity: 0;">
-
-        <!-- Top Curved Charcoal Header -->
         <header class="top-curved-header">
             <div class="logo-frame">
                 <div class="logo-rotating-ring"></div>
@@ -89,13 +87,11 @@
             </h1>
         </header>
 
-        <!-- Login Form Section -->
         <main class="form-wrapper">
             <h2 class="card-title">Welcome Back..!</h2>
             <p class="card-subtitle">Login to your learning account on Spidy Book Hub</p>
 
             <form id="loginForm">
-                <!-- Mobile / Email Field -->
                 <div class="form-group">
                     <div class="input-box-wrapper">
                         <input 
@@ -110,7 +106,6 @@
                     </div>
                 </div>
 
-                <!-- Password Field with Clean Border-less Eye Icon -->
                 <div class="form-group">
                     <div class="input-box-wrapper">
                         <input 
@@ -170,7 +165,7 @@
     <!-- Main App Wrapper -->
     <div id="mainAppWrapper" style="display: none; width: 100%; height: 100%;">
         
-        <!-- UNIFIED COMMUNITY POPUP -->
+        <!-- COMMUNITY POPUP -->
         <div class="community-popup-overlay" id="communityPopup">
             <div class="community-popup-wrapper">
                 <div class="community-ambient-glow"></div>
@@ -190,7 +185,6 @@
                     </p>
 
                     <div class="community-channel-list">
-                        <!-- Official WhatsApp Card -->
                         <div class="community-channel-card" id="btnJoinWhatsApp">
                             <div class="community-channel-left">
                                 <div class="community-icon-box-3d community-wa-shadow">
@@ -214,7 +208,6 @@
                             </button>
                         </div>
 
-                        <!-- Official Telegram Card -->
                         <div class="community-channel-card" id="btnJoinTelegram">
                             <div class="community-channel-left">
                                 <div class="community-icon-box-3d community-tg-shadow">
@@ -238,7 +231,6 @@
                             </button>
                         </div>
 
-                        <!-- Official Instagram Card -->
                         <div class="community-channel-card" id="btnJoinInstagram">
                             <div class="community-channel-left">
                                 <div class="community-icon-box-3d community-ig-shadow">
@@ -284,7 +276,7 @@
         </div>
 
         <div class="app-container">
-            <!-- Persistent Header with Clean Luxury Design -->
+            <!-- Header -->
             <header id="main-header" class="modern-glow-header">
                 <div class="header-left">
                     <div class="icon-box modern-menu-box" id="open-menu" title="Menu">
@@ -345,10 +337,10 @@
                 </div>
             </div>
 
-            <!-- Main Content Area: Single Page Home Flow -->
+            <!-- Main Content Area -->
             <main id="mainContentArea">
                 <div id="tab-home" class="app-tab active" style="padding-bottom: 25px;">
-                    <!-- Dynamic Module & Promo Banner Carousel -->
+                    <!-- Promo Banner Carousel -->
                     <div class="promo-carousel-container" id="promoCarouselContainer">
                         <button class="promo-arrow-btn arrow-prev" id="promoPrevBtn" aria-label="Previous Slide">
                             <i class="fas fa-chevron-left"></i>
@@ -368,88 +360,15 @@
                         </div>
                     </div>
 
-                    <!-- NEW 4-BOX MULTI-COLOR FILTER COMPONENT -->
-                    <div id="pageWrapper" style="width: 100%; margin-bottom: 20px;">
-                        <div class="filter-card-container">
-                            
-                            <!-- 1. LANGUAGE (BLUE) -->
-                            <div class="filter-item type-language" id="btnFilterLanguage">
-                                <div class="filter-label-row">
-                                    <svg class="label-icon" viewBox="0 0 24 24">
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <line x1="2" y1="12" x2="22" y2="12"></line>
-                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-                                    </svg>
-                                    <span class="filter-label">LANGUAGE</span>
-                                </div>
-                                <div class="filter-select-box" id="box-language">
-                                    <span id="label-language">All</span>
-                                    <svg class="arrow-icon" viewBox="0 0 24 24">
-                                        <polyline points="6 9 12 15 18 9"></polyline>
-                                    </svg>
-                                </div>
-                            </div>
-
-                            <!-- 2. CLASS / EXAM (GREEN) -->
-                            <div class="filter-item type-class" id="btnFilterClass">
-                                <div class="filter-label-row">
-                                    <svg class="label-icon" viewBox="0 0 24 24">
-                                        <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-                                        <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
-                                    </svg>
-                                    <span class="filter-label">CLASS / EXAM</span>
-                                </div>
-                                <div class="filter-select-box" id="box-class">
-                                    <span id="label-class">All</span>
-                                    <svg class="arrow-icon" viewBox="0 0 24 24">
-                                        <polyline points="6 9 12 15 18 9"></polyline>
-                                    </svg>
-                                </div>
-                            </div>
-
-                            <!-- 3. AUTHOR (PURPLE) -->
-                            <div class="filter-item type-author" id="btnFilterAuthor">
-                                <div class="filter-label-row">
-                                    <svg class="label-icon" viewBox="0 0 24 24">
-                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                        <circle cx="12" cy="7" r="4"></circle>
-                                    </svg>
-                                    <span class="filter-label">AUTHOR</span>
-                                </div>
-                                <div class="filter-select-box" id="box-author">
-                                    <span id="label-author">All</span>
-                                    <svg class="arrow-icon" viewBox="0 0 24 24">
-                                        <polyline points="6 9 12 15 18 9"></polyline>
-                                    </svg>
-                                </div>
-                            </div>
-
-                            <!-- 4. YEAR (AMBER) -->
-                            <div class="filter-item type-year" id="btnFilterYear">
-                                <div class="filter-label-row">
-                                    <svg class="label-icon" viewBox="0 0 24 24">
-                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                        <line x1="16" y1="2" x2="16" y2="6"></line>
-                                        <line x1="8" y1="2" x2="8" y2="6"></line>
-                                        <line x1="3" y1="10" x2="21" y2="10"></line>
-                                    </svg>
-                                    <span class="filter-label">YEAR</span>
-                                </div>
-                                <div class="filter-select-box" id="box-year">
-                                    <span id="label-year">All</span>
-                                    <svg class="arrow-icon" viewBox="0 0 24 24">
-                                        <polyline points="6 9 12 15 18 9"></polyline>
-                                    </svg>
-                                </div>
-                            </div>
-
+                    <!-- Heading & Filter Trigger Button -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <div class="section-header-title" style="margin-bottom: 0;"><i class="fas fa-book-open" style="color: #10b981;"></i> Trending Books 🔥 </div>
+                        <div class="app-filter-icon" id="openAuthorFilterBtn" title="Filter Books">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
                         </div>
                     </div>
 
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <div class="section-header-title" style="margin-bottom: 0;"><i class="fas fa-book-open" style="color: #10b981;"></i> Trending Books 🔥 </div>
-                    </div>
-
+                    <!-- Books Container -->
                     <div class="book-container" id="bookContainer"></div>
 
                     <div id="no-results-msg" style="display: none; padding-bottom: 20px;">
@@ -461,21 +380,21 @@
                         </div>
                     </div>
                     
-                    <!-- Infinite Pagination Loader & Sentinel -->
+                    <!-- Infinite Pagination Loader -->
                     <div id="infinite-loader" style="display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 20px 0; margin-bottom: 20px;">
                         <i class="fas fa-spinner fa-spin" style="font-size: 26px; color: #10b981;"></i>
                         <span style="color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-top: 10px;">LOADING MORE BOOKS...</span>
                     </div>
                     <div id="scroll-sentinel" style="height: 2px; width: 100%;"></div>
 
-                    <!-- Main Home Page Copyright Footer -->
+                    <!-- Footer -->
                     <div style="margin-top: auto; width: 100%; padding: 22px 10px 10px; background: transparent; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: center; align-items: center; font-size: clamp(8px, 2.5vw, 10px); font-weight: 800; color: #a1a1aa; letter-spacing: 0.5px; flex-shrink: 0; box-sizing: border-box; text-align: center;">
                         © 2026 SPIDY BOOK HUB <span style="color: #3f3f46; margin: 0 6px;">|</span> MADE WITH <i class="fas fa-heart" style="color: #ff4757; margin: 0 3px;"></i> BY PRINCE YADAV
                     </div>
                 </div>
             </main>
 
-            <!-- FULLSCREEN UPLOAD HUB OVERLAY -->
+            <!-- UPLOAD HUB OVERLAY -->
             <div class="overlay-panel upload-modal-fullscreen" id="uploadModalOverlay" style="z-index: 10000; background: #0a0c10;">
                 <header class="upload-modal-header" id="uploadHubHeader">
                     <div class="back-icon-box" id="closeUploadHubBtn" title="Back">
@@ -607,7 +526,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="uc-footer">PDF FILES • Maximum 250MB/div>
+                                    <div class="uc-footer">PDF FILES • Maximum 250MB (Admins up to 1GB)</div>
                                 </div>
                             </div>
                             
@@ -673,26 +592,115 @@
                 </main>
             </div>
 
-            <!-- NEW CENTER POPUP MODAL OVERLAY (4-BOX FILTER PICKER) -->
-            <div class="modal-overlay" id="filterModalOverlay">
-                <div class="center-modal-card" id="centerFilterModalCard">
+            <!-- ======================================================== -->
+            <!-- NEW 4-BOX FILTER MAIN CENTER MODAL OVERLAY               -->
+            <!-- ======================================================== -->
+            <div class="filter-main-popup-overlay" id="filterMainPopupOverlay">
+                <div class="filter-main-popup-card" id="filterMainPopupCard">
+                    <!-- Close button on top-right of the 4-box card -->
+                    <div class="filter-main-close-btn" id="closeMainFilterPopupBtn" title="Close Filter">
+                        <i class="fas fa-times"></i>
+                    </div>
+
+                    <div class="filter-card-container">
+                        <!-- 1. LANGUAGE -->
+                        <div class="filter-item type-language" id="btnFilterTriggerLanguage">
+                            <div class="filter-label-row">
+                                <svg class="label-icon" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                </svg>
+                                <span class="filter-label">LANGUAGE</span>
+                            </div>
+                            <div class="filter-select-box" id="box-language">
+                                <span id="label-language">All</span>
+                                <svg class="arrow-icon" viewBox="0 0 24 24">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- 2. CLASS / EXAM -->
+                        <div class="filter-item type-class" id="btnFilterTriggerClass">
+                            <div class="filter-label-row">
+                                <svg class="label-icon" viewBox="0 0 24 24">
+                                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                                    <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
+                                </svg>
+                                <span class="filter-label">CLASS / EXAM</span>
+                            </div>
+                            <div class="filter-select-box" id="box-class">
+                                <span id="label-class">All</span>
+                                <svg class="arrow-icon" viewBox="0 0 24 24">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- 3. AUTHOR -->
+                        <div class="filter-item type-author" id="btnFilterTriggerAuthor">
+                            <div class="filter-label-row">
+                                <svg class="label-icon" viewBox="0 0 24 24">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                <span class="filter-label">AUTHOR</span>
+                            </div>
+                            <div class="filter-select-box" id="box-author">
+                                <span id="label-author">All</span>
+                                <svg class="arrow-icon" viewBox="0 0 24 24">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- 4. YEAR -->
+                        <div class="filter-item type-year" id="btnFilterTriggerYear">
+                            <div class="filter-label-row">
+                                <svg class="label-icon" viewBox="0 0 24 24">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                </svg>
+                                <span class="filter-label">YEAR</span>
+                            </div>
+                            <div class="filter-select-box" id="box-year">
+                                <span id="label-year">All</span>
+                                <svg class="arrow-icon" viewBox="0 0 24 24">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================================================== -->
+            <!-- DYNAMIC COLOR THEMED OPTIONS MODAL OVERLAY               -->
+            <!-- ======================================================== -->
+            <div class="filter-options-modal-overlay" id="filterOptionsModalOverlay">
+                <div class="center-modal-card" id="centerModalCard">
                     <!-- Top Grab Bar Indicator -->
                     <div class="sheet-pill-indicator"></div>
 
-                    <!-- Header with Dynamic Filter Title & Close Button -->
+                    <!-- Header -->
                     <div class="modal-head">
                         <div class="head-left">
                             <svg class="slider-filter-logo" viewBox="0 0 24 24">
                                 <line x1="3" y1="6" x2="21" y2="6"></line>
                                 <circle cx="8" cy="6" r="2.5" fill="#111317"></circle>
+
                                 <line x1="3" y1="12" x2="21" y2="12"></line>
                                 <circle cx="16" cy="12" r="2.5" fill="#111317"></circle>
+
                                 <line x1="3" y1="18" x2="21" y2="18"></line>
                                 <circle cx="10" cy="18" r="2.5" fill="#111317"></circle>
                             </svg>
-                            <span class="modal-title-text" id="filterModalTitleText">Filter Content</span>
+                            <span class="modal-title-text" id="modalTitleText">Filter Content</span>
                         </div>
-                        <button class="modal-close-btn" id="closeFilterModalBtn" aria-label="Close Filter">
+                        <button class="modal-close-btn" id="closeFilterOptionsModalBtn">
                             <svg class="close-icon-svg" viewBox="0 0 24 24">
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -705,18 +713,18 @@
                         <div class="header-divider-line"></div>
                     </div>
 
-                    <!-- Options Grid Area -->
+                    <!-- Options Body -->
                     <div class="modal-body-content">
                         <div class="section-subtitle-row">
-                            <div id="filterModalSubtitleIcon"></div>
-                            <span class="section-subtitle" id="filterModalSubText">SELECT OPTION</span>
+                            <div id="modalSubtitleIcon"></div>
+                            <span class="section-subtitle" id="modalSubText">SELECT OPTION</span>
                         </div>
-                        <div class="pills-grid" id="filterModalGridContainer"></div>
+                        <div class="pills-grid" id="modalGridContainer"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Download Modal with Chevron Left Back Button -->
+            <!-- Download Modal -->
             <div class="download-modal" id="downloadModal" style="display: none;">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
@@ -815,7 +823,7 @@
                 </div>
             </div>
             
-            <!-- Bookmarks Panel with Chevron Left Back Button -->
+            <!-- Bookmarks Panel -->
             <div class="overlay-panel" id="bookmarks-panel">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
@@ -845,7 +853,7 @@
                 </div>
             </div>
 
-            <!-- Notifications Channel Panel with Chevron Right Close Button -->
+            <!-- Notifications Channel Panel -->
             <div class="notifications-panel" id="noti-panel">
                 <div class="noti-header-premium">
                     <div class="noti-header-left">
@@ -1031,7 +1039,7 @@
                 </div>
             </div>
 
-            <!-- SUPPORT & CONTACT FULLSCREEN OVERLAY -->
+            <!-- SUPPORT & CONTACT OVERLAY -->
             <div class="overlay-panel support-modal-fullscreen" id="supportModalOverlay">
                 <div class="modal-header-fixed support-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
@@ -1067,7 +1075,6 @@
                             <div class="dotted-divider"></div>
                         </div>
 
-                        <!-- Backend API Connected Form -->
                         <form id="supportContactForm">
                             <div class="form-row">
                                 <div class="input-group">
@@ -1123,7 +1130,7 @@
                 </div>
             </div>
 
-            <!-- Issues Select Modal Dialog -->
+            <!-- Issues Select Modal -->
             <div class="modal-overlay" id="issueModal">
                 <div class="modal-card">
                     <div class="modal-header">
@@ -1344,7 +1351,7 @@
       </div>
     </div>
     
-    <!-- Custom Logout Modal -->
+    <!-- Logout Modal -->
     <div class="custom-logout-overlay" id="customLogoutOverlay">
         <div class="custom-logout-card">
             <div class="logout-icon-wrapper"><i class="fas fa-sign-out-alt"></i></div>
