@@ -372,7 +372,7 @@
 
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <div class="section-header-title" style="margin-bottom: 0;"><i class="fas fa-book-open" style="color: #10b981;"></i> Trending Books 🔥 </div>
-                        <!-- Filter Open Icon (Triggers New 4-Box Modal) -->
+                        <!-- Filter Open Icon (Triggers 4-Box Modal) -->
                         <div class="app-filter-icon" id="openAuthorFilterBtn">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
                         </div>
@@ -553,16 +553,15 @@
                 </div>
             </div>
 
-            <!-- MODULE BANNER FULLSCREEN OVERLAY -->
+            <!-- MODULE BANNER FULLSCREEN OVERLAY (MATCHED TO DOWNLOAD PAGE HEADER DESIGN) -->
             <div class="overlay-panel" id="moduleBannerModal" style="z-index: 99999; background: #07090e;">
-                <header class="app-header-module">
-                    <button class="back-btn-capsule" id="moduleBackBtn" aria-label="Go Back">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="15 18 9 12 15 6"></polyline>
-                        </svg>
-                    </button>
-                    <h1 class="header-text-module" id="moduleHeaderTitle">MODULES</h1>
-                </header>
+                <div class="modal-header-fixed">
+                    <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
+                        <button class="back-btn back-chevron-btn" id="moduleBackBtn" title="Back"><i class="fas fa-chevron-left"></i></button>
+                        <h1 class="modal-title" id="moduleHeaderTitle">MODULE PACK</h1>
+                    </div>
+                    <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
+                </div>
 
                 <main class="module-view-screen" id="bannerSubjectsView">
                     <div class="category-header-module">
@@ -601,7 +600,7 @@
                 </main>
             </div>
 
-            <!-- NEW 4-BOX MAIN FILTER OVERLAY (IMAGE 1) -->
+            <!-- 4-BOX MAIN FILTER OVERLAY (IMAGE 2) -->
             <div class="modal-overlay" id="mainFilterOverlay">
                 <div class="filter-card-container" id="mainFilterCard" onclick="event.stopPropagation()">
                     
@@ -679,13 +678,13 @@
                 </div>
             </div>
 
-            <!-- NEW SUB-OPTIONS POPUP MODAL (IMAGE 2 - NO 'X' BUTTON) -->
+            <!-- SUB-OPTIONS POPUP MODAL (IMAGE 1 - WITH PROPER 'X' CLOSE BUTTON) -->
             <div class="modal-overlay" id="subFilterModalOverlay">
                 <div class="center-modal-card" id="centerModalCard" onclick="event.stopPropagation()">
                     <!-- Top Grab Bar Indicator -->
                     <div class="sheet-pill-indicator"></div>
 
-                    <!-- Header with Filter Icon & Title (No Close Button) -->
+                    <!-- Header with Filter Icon, Title & 'X' Close Button -->
                     <div class="modal-head">
                         <div class="head-left">
                             <svg class="slider-filter-logo" viewBox="0 0 24 24">
@@ -698,6 +697,13 @@
                             </svg>
                             <span class="modal-title-text" id="modalTitleText">Filter Exam / Board</span>
                         </div>
+                        <!-- Proper 'X' Close Button for Sub-Options Modal -->
+                        <button type="button" class="modal-close-btn" id="closeSubFilterBtn" title="Close">
+                            <svg class="close-icon-svg" viewBox="0 0 24 24">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
                     </div>
 
                     <!-- Gray Divider Line -->
@@ -965,7 +971,7 @@
                 </div>
             </div>
 
-            <!-- PDF Viewer -->
+            <!-- PDF Viewer (Chevron Right '》' Close Button) -->
             <div id="pdfViewerOverlay" class="pdf-viewer-overlay" style="display:none;">
                 <div class="pdf-viewer-header">
                     <div class="pdf-viewer-header-left">
@@ -973,8 +979,9 @@
                         <h3 id="pdfViewerTitle" class="pdf-viewer-title">Reading Book...</h3>
                     </div>
                     <div class="pdf-viewer-header-right">
+                        <!-- Updated from 'X' to '》' (chevron-right) button -->
                         <button id="closePdfViewerBtn" class="pdf-viewer-close-circle" title="Close Viewer">
-                            <i class="fas fa-times"></i>
+                            <i class="fas fa-chevron-right"></i>
                         </button>
                     </div>
                 </div>
@@ -1124,7 +1131,7 @@
             </div>
 
             <!-- Issues Select Modal Dialog -->
-            <div class="modal-overlay" id="issueModal">
+            <div class="modal-overlay-issue" id="issueModal">
                 <div class="modal-card">
                     <div class="modal-header">
                         <div class="modal-title-wrap">
