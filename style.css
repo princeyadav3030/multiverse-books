@@ -529,9 +529,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), 0 0 20px rgba(239, 68, 68, 0.3);
 }
 
-/* ======================================================== */
-/* UPLOAD HUB FULLSCREEN OVERLAY                            */
-/* ======================================================== */
+/* UPLOAD HUB FULLSCREEN OVERLAY */
 .upload-modal-fullscreen {
     position: fixed; 
     top: 0; 
@@ -1446,7 +1444,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 .rm-submit-btn { width: 100%; padding: 15px; border-radius: 16px; background: #ef4444; color: #fff; border: none; font-size: 15px; font-weight: 800; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3); font-family: 'Poppins', sans-serif; letter-spacing: 0.5px; opacity: 0.5; pointer-events: none; }
 .rm-submit-btn.enabled { opacity: 1; pointer-events: auto; }
 
-/* IN-APP HD PDF VIEWER */
+/* IN-APP HD PDF VIEWER (WITH CHEVRON-RIGHT BACK BUTTON) */
 .pdf-viewer-overlay {
     position: fixed; 
     inset: 0; 
@@ -1480,14 +1478,14 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 .pdf-viewer-title { color: #ffffff; font-size: 13.8px; font-weight: 800; font-family: 'Poppins', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; letter-spacing: 0.3px; flex: 1; }
 
 .pdf-viewer-close-circle {
-    width: 34px; height: 34px; border-radius: 50%;
+    width: 36px; height: 36px; border-radius: 50%;
     background: rgba(255, 255, 255, 0.06);
     border: 1.2px solid rgba(255, 255, 255, 0.28);
     color: #f1f5f9; display: flex; align-items: center; justify-content: center;
-    font-size: 12.5px; cursor: pointer; outline: none; transition: all 0.2s ease;
+    font-size: 14px; cursor: pointer; outline: none; transition: all 0.2s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); flex-shrink: 0;
 }
-.pdf-viewer-close-circle:hover { background: rgba(239, 68, 68, 0.18); border-color: #ef4444; color: #ef4444; transform: scale(1.05); }
+.pdf-viewer-close-circle:hover { background: rgba(255, 255, 255, 0.14); border-color: #38bdf8; color: #38bdf8; transform: scale(1.05); }
 .pdf-viewer-close-circle:active { transform: scale(0.92); }
 
 .pdf-viewer-container {
@@ -2510,9 +2508,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
     margin-left: 4px;
 }
 
-/* ======================================================== */
-/* TOKEN VERIFICATION OVERLAY                               */
-/* ======================================================== */
+/* TOKEN VERIFICATION OVERLAY */
 .modal-overlay-token { position: fixed; inset: 0; z-index: 9999999; display: grid; place-items: center; padding: 20px; overflow-y: auto; background: #000; pointer-events: auto; }
 .premium-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
 .grid-overlay { position: absolute; inset: -50%; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 50px 50px; z-index: 1; transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px); animation: gridMove 20s linear infinite; }
@@ -2564,49 +2560,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 .security-footer-token::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; border-top: 2px dotted rgba(255, 255, 255, 0.25); }
 .footer-item-token { display: flex; align-items: center; gap: 6px; color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
 
-/* ======================================================== */
-/* MODULE VIEW SCREENS                                      */
-/* ======================================================== */
-.app-header-module {
-    display: flex !important; align-items: center !important; justify-content: flex-start !important; padding: 14px 16px !important;
-    background: rgba(10, 12, 18, 0.95) !important; backdrop-filter: blur(14px) !important; border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-    position: sticky !important; top: 0 !important; z-index: 100 !important; gap: 14px !important; width: 100% !important; box-sizing: border-box !important;
-}
-
-.app-header-module .back-btn-capsule {
-    width: 36px !important; 
-    height: 36px !important; 
-    border-radius: 50% !important; 
-    background: rgba(255, 255, 255, 0.035) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important; 
-    color: #ffffff !important; 
-    display: flex !important; 
-    align-items: center !important; 
-    justify-content: center !important; 
-    cursor: pointer !important;
-    transition: all 0.22s ease !important;
-    flex-shrink: 0 !important;
-}
-.app-header-module .back-btn-capsule:hover {
-    background-color: rgba(255, 255, 255, 0.08) !important;
-    border-color: rgba(255, 255, 255, 0.3) !important;
-    transform: scale(1.05) !important;
-}
-.app-header-module .back-btn-capsule:active {
-    transform: scale(0.92) !important;
-}
-.app-header-module .back-btn-capsule svg {
-    width: 14px !important;
-    height: 14px !important;
-    stroke-width: 2.4 !important;
-    margin-right: 1px !important;
-}
-
-.header-text-module {
-    font-size: 1.05rem !important; font-weight: 800 !important; letter-spacing: 0.8px !important; color: #ffffff !important; text-transform: uppercase !important;
-    margin: 0 !important; flex: 1 !important; text-align: left !important;
-}
-
+/* MODULE VIEW SCREENS (MATCHED TO DOWNLOAD PAGE HEADER DESIGN) */
 .module-view-screen { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 18px 40px; display: flex; flex-direction: column; }
 .module-view-screen.hidden-view { display: none !important; }
 .category-header-module { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 0 2px; }
@@ -2648,7 +2602,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 .dmca-content::-webkit-scrollbar { display: none; }
 
 /* ======================================================== */
-/* 4-BOX MAIN FILTER & CENTER MODAL ENGINE                  */
+/* 4-BOX MAIN FILTER & COMPACT SUB-FILTER MODAL ENGINE      */
 /* ======================================================== */
 .app-filter-icon { 
     width: 36px; 
@@ -2669,7 +2623,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
     border-color: rgba(255,255,255,0.3); 
 }
 
-/* MODAL OVERLAY BACKGROUND (CLICK OUTSIDE TO CLOSE) */
+/* MODAL OVERLAY BACKGROUND */
 .modal-overlay {
     position: fixed !important;
     inset: 0 !important;
@@ -2693,7 +2647,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
     pointer-events: auto !important;
 }
 
-/* 4-BOX MAIN CONTAINER (IMAGE 1) */
+/* 4-BOX MAIN CONTAINER (IMAGE 2) */
 .filter-card-container {
     background: #0d0f15;
     border: 1px solid #1a1e29;
@@ -2812,7 +2766,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
     transition: stroke 0.2s;
 }
 
-/* SUB-OPTIONS CENTER POPUP CARD (IMAGE 2) */
+/* SUB-OPTIONS CENTER POPUP CARD (IMAGE 1) */
 .center-modal-card {
     width: 100%;
     max-width: 360px;
@@ -2824,7 +2778,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
     transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex;
     flex-direction: column;
-    max-height: 85vh;
+    max-height: 88vh;
     overflow: hidden;
     cursor: default;
 }
@@ -2837,20 +2791,20 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
     height: 4px;
     background: #2a2e39;
     border-radius: 99px;
-    margin: 12px auto 0;
+    margin: 10px auto 0;
 }
 
 .modal-head {
-    padding: 14px 20px;
+    padding: 12px 18px 10px;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: space-between;
 }
 
 .head-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .slider-filter-logo {
@@ -2865,16 +2819,50 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 
 .modal-title-text {
     font-family: 'Merriweather', serif;
-    font-size: 18px;
+    font-size: 16.5px;
     font-weight: 900;
     color: #ffffff;
     letter-spacing: -0.2px;
 }
 
+/* SUB-FILTER CLOSE BUTTON (PROPER CIRCLE WITH 'X') */
+.modal-close-btn {
+    width: 32px;
+    height: 32px;
+    background: #191c24;
+    border: 1px solid #262b37;
+    border-radius: 50%;
+    color: #9299a8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    outline: none;
+}
+.modal-close-btn:hover {
+    background: #252a38;
+    color: #ffffff;
+    border-color: #3e4557;
+}
+.modal-close-btn:active {
+    transform: scale(0.92);
+}
+.close-icon-svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+}
+
 .header-divider-container {
     width: 100%;
-    padding: 0 20px;
-    margin-bottom: 6px;
+    padding: 0 18px;
+    margin-bottom: 4px;
 }
 
 .header-divider-line {
@@ -2884,51 +2872,53 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 }
 
 .modal-body-content {
-    padding: 12px 18px 22px;
+    padding: 8px 16px 18px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 8px;
 }
 .modal-body-content::-webkit-scrollbar { display: none; }
 
 .section-subtitle-row {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     padding-left: 2px;
     user-select: none;
 }
 
 .subtitle-icon {
-    width: 13px;
-    height: 13px;
+    width: 12px;
+    height: 12px;
     stroke-width: 2.2;
     fill: none;
     flex-shrink: 0;
 }
 
 .section-subtitle {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.9px;
     text-transform: uppercase;
 }
 
+/* COMPACT GRID & PILLS FOR MAXIMUM DISPLAY FIT */
 .pills-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 9px;
+    gap: 6px 8px;
 }
 
 .pill-btn {
     background: #141720;
     border: 1.5px solid #212532;
-    border-radius: 12px;
-    padding: 12px 10px;
+    border-radius: 10px;
+    padding: 8px 6px;
+    min-height: 38px;
     color: #a4abb8;
     font-family: 'Merriweather', serif;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     text-align: center;
     cursor: pointer;
@@ -2948,7 +2938,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 }
 .pill-btn:active { transform: scale(0.96); }
 
-/* COLOR THEMES MATCHING IMAGE 2 */
+/* COLOR THEMES MATCHING SUB-FILTER */
 .theme-green .slider-filter-logo { stroke: #10b981; }
 .theme-green .subtitle-icon { stroke: #10b981; }
 .theme-green .section-subtitle { color: #34d399; }
@@ -3358,7 +3348,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
     color: #ffffff;
     font-family: 'Poppins', sans-serif;
 }
-.modal-close-btn {
+.modal-close-btn-issue {
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -3372,7 +3362,7 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
     outline: none;
     transition: background 0.15s ease;
 }
-.modal-close-btn:hover {
+.modal-close-btn-issue:hover {
     background: rgba(255, 255, 255, 0.16);
     color: #ffffff;
 }
