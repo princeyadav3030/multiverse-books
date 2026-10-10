@@ -296,7 +296,7 @@ function renderDynamicBanners(banners) {
     if (!banners || banners.length === 0) {
         track.innerHTML = `
             <div class="promo-slide">
-                <img src="https://i.postimg.cc/Pq0JLj3C/file-0000000027dc82119d3731d4bfe9bccf.png" alt="Promo Banner" class="promo-banner-img">
+                <img src="https://i.postimg.cc/Pq0JLj3C/file-0000000027dc82119d3731d4bfe9bccf.png" alt="Promo Banner" class="promo-banner-img" draggable="false">
             </div>`;
         dotsWrap.innerHTML = `<span class="promo-dot active" data-slide="0"></span>`;
         return;
@@ -514,8 +514,11 @@ window.openSubjectModulesList = function(subjectKey) {
 
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
-        document.getElementById('loginOverlay').style.display = 'flex';
-        setTimeout(() => document.getElementById('loginOverlay').style.opacity = '1', 10);
+        const loginOverlay = document.getElementById('loginOverlay');
+        if (loginOverlay) {
+            loginOverlay.style.display = 'flex';
+            setTimeout(() => loginOverlay.style.opacity = '1', 10);
+        }
         return;
     }
 
@@ -760,7 +763,6 @@ const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
 
-// AUTO-CLAIM TOKEN HANDSHAKE (?t=SPIDY-XXXX)
 if (urlParamsCheck.has('t')) {
     const rawToken = urlParamsCheck.get('t').trim();
     if (rawToken.startsWith('SPIDY-')) {
@@ -860,8 +862,10 @@ function tryTransition() {
                         if (isUserLoggedIn) { openDownloadPageLocal(pendingBookSlug, true); } 
                         else {
                             const loginOverlay = document.getElementById('loginOverlay');
-                            loginOverlay.style.display = 'flex';
-                            setTimeout(() => loginOverlay.style.opacity = '1', 10);
+                            if (loginOverlay) {
+                                loginOverlay.style.display = 'flex';
+                                setTimeout(() => loginOverlay.style.opacity = '1', 10);
+                            }
                         }
                     } else {
                         initCommunityDualPopup(); 
@@ -1610,11 +1614,20 @@ function closeSubFilterModal() {
     if (subOverlay) subOverlay.classList.remove('active');
 }
 
-// Filter listeners for trending button and 4 boxes
 document.getElementById('openAuthorFilterBtn')?.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
     openMainFilterModal();
+});
+
+document.getElementById('closeSubFilterBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (history.state && history.state.popup === 'subFilter') {
+        history.back();
+    } else {
+        closeSubFilterModal();
+    }
 });
 
 document.getElementById('mainFilterOverlay')?.addEventListener('click', (e) => {
@@ -1648,7 +1661,6 @@ function normalizeTextForSearch(str) {
 }
 
 function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords) {
-    // 1. Class / Exam Filter
     let matchesCategory = true;
     if (filterState.class !== "All") {
         let bookExamsString = (book.exams || "").toUpperCase();
@@ -1656,25 +1668,21 @@ function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords
         matchesCategory = targetKeywords.some(kw => bookExamsString.includes(kw));
     }
 
-    // 2. Language Filter
     let matchesLanguage = true;
     if (filterState.language !== "All") {
         matchesLanguage = (book.lang || "").toLowerCase().trim() === filterState.language.toLowerCase().trim();
     }
 
-    // 3. Author Filter
     let matchesAuthor = true;
     if (filterState.author !== "All") {
         matchesAuthor = (book.author || "").toLowerCase().trim() === filterState.author.toLowerCase().trim();
     }
 
-    // 4. Year Filter
     let matchesYear = true;
     if (filterState.year !== "All") {
         matchesYear = (book.year || "").toString().trim() === filterState.year.toString().trim();
     }
 
-    // 5. Search Bar Query
     let matchesSearch = true;
     if (searchInputRaw.length > 0) {
         const rawCombined = `${book.title || ''} ${book.author || ''} ${book.exams || ''}`.toLowerCase();
@@ -1722,7 +1730,6 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
     }
 }
 
-// Search bar input listeners
 const searchInputEl = document.getElementById('app-search-input'); 
 let searchTimeout;
 searchInputEl?.addEventListener('input', () => { 
