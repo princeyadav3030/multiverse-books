@@ -45,23 +45,24 @@
         <div class="loader-logo"><img src="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png" alt="Logo" oncontextmenu="return false;" draggable="false"></div>
         <div class="loader-title">SPIDY BOOK HUB</div>
         
+        <!-- Compact 1-Row Tags -->
         <div class="premium-tags">
             <div class="tag">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                     <polyline points="14 2 14 8 20 8"></polyline>
                     <text x="7" y="17" font-size="6.5" font-family="'Poppins', sans-serif" font-weight="900" fill="#ffffff" stroke="none">PDF</text>
                 </svg> 
                 PDF
             </div>
-            <div class="tag"><i class="fas fa-file-lines" style="color: #ffffff; font-size: 11px;"></i> NOTES</div>
-            <div class="tag"><i class="fa-solid fa-square-root-variable"></i> FORMULA</div>
-            <div class="tag"><i class="fa-solid fa-layer-group"></i> MORE</div>
+            <div class="tag"><i class="fas fa-file-lines" style="color: #ffffff; font-size: 10px;"></i> NOTES</div>
+            <div class="tag"><i class="fa-solid fa-square-root-variable" style="font-size: 10px;"></i> FORMULA</div>
+            <div class="tag"><i class="fa-solid fa-layer-group" style="font-size: 10px;"></i> MORE</div>
         </div>
         
         <div class="loader-bar"><div class="loader-fill" id="loaderFill"></div></div>
         <div class="loader-progress-text">
-            <span id="loaderStatusText">Initializing System...</span>
+            <span id="loaderStatusText">Loading Books Securely...</span>
             <span id="loaderPercentage">0%</span>
         </div>
         <div class="loader-powered-text">POWERED BY SPIDYUNIVERSE</div>
@@ -178,7 +179,7 @@
                         </div>
                     </div>
 
-                    <h3 class="community-popup-title">𝗙𝗿𝗲𝗲 𝗕𝗼𝗼𝗸𝘀 &amp; 𝗦𝘁𝘂𝗱𝘆 𝗠𝗮𝘁𝗲𝗿𝗶𝗮𝗹</h3>
+                    <h3 class="community-popup-title">Free Books &amp; Study Material</h3>
                     
                     <p class="community-popup-desc">
                         Study material ke liye idhar-udhar bhatakna chhodo! 📚 Ab milega saara content bilkul FREE. Instant updates aur best books paane ke liye aaj hi hamare channels follow karein.
@@ -193,10 +194,10 @@
                                 </div>
                                 <div class="community-channel-meta">
                                     <h4>Join WhatsApp Channel</h4>
-                                    <div class="community-new-msg-tag">
+                                    <div class="community-new-msg-tag community-wa-tag">
                                         1 new message 
                                         <span class="community-pulse-indicator">
-                                            <span class="community-text-pulse-dot"></span>
+                                            <span class="community-text-pulse-dot wa-dot"></span>
                                         </span>
                                     </div>
                                 </div>
@@ -217,10 +218,10 @@
                                 </div>
                                 <div class="community-channel-meta">
                                     <h4>Join Telegram Channel</h4>
-                                    <div class="community-new-msg-tag">
+                                    <div class="community-new-msg-tag community-tg-tag">
                                         1 new message 
                                         <span class="community-pulse-indicator">
-                                            <span class="community-text-pulse-dot"></span>
+                                            <span class="community-text-pulse-dot tg-dot"></span>
                                         </span>
                                     </div>
                                 </div>
@@ -249,7 +250,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <button type="button" class="community-join-btn community-join-btn-ig" id="igStatusBtn">
+                            <button type="button" class="community-join-btn community-join-btn-ig clean-ig-btn" id="igStatusBtn">
                                 <span>Follow</span>
                                 <span class="community-icon-circle">
                                     <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -279,14 +280,14 @@
         </div>
 
         <div class="app-container">
-            <!-- Persistent Header -->
+            <!-- Persistent Header with Responsive Layout (No Dot Cutoff) -->
             <header id="main-header" class="modern-glow-header">
                 <div class="header-left">
                     <div class="icon-box modern-menu-box" id="open-menu" title="Menu">
-                        <svg width="22" height="16" viewBox="0 0 20 15" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
-                            <rect x="0" y="0" width="20" height="2.2" rx="1.1" fill="#FFFFFF"/>
-                            <rect x="0" y="6.4" width="16" height="2.2" rx="1.1" fill="#FFFFFF"/>
-                            <rect x="0" y="12.8" width="11" height="2.2" rx="1.1" fill="#FFFFFF"/>
+                        <svg width="20" height="15" viewBox="0 0 20 15" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
+                            <rect x="0" y="0" width="20" height="2" rx="1" fill="#FFFFFF"/>
+                            <rect x="0" y="6.5" width="15" height="2" rx="1" fill="#FFFFFF"/>
+                            <rect x="0" y="13" width="10" height="2" rx="1" fill="#FFFFFF"/>
                         </svg>
                     </div>
                     <span class="header-title" id="dynamic-header-title">SPIDY BOOK HUB</span>
@@ -476,6 +477,7 @@
                                 </div>
                             </div>
                             
+                            <!-- Cover Image Upload Box with Clear Limit Text -->
                             <div class="adm-form-group" style="margin-top: 4px;" id="cardCoverContainer">
                                 <div class="upload-card-box upload-purple">
                                     <div class="uc-header">
@@ -498,10 +500,11 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="uc-footer">JPG, PNG • Maximum 5MB</div>
+                                    <div class="uc-footer">Supported: JPG, PNG • Max File Size: Up to 5 MB</div>
                                 </div>
                             </div>
 
+                            <!-- PDF File Upload Box with Clear Limit Text -->
                             <div class="adm-form-group" style="margin-top: 2px;" id="cardPdfContainer">
                                 <div class="upload-card-box upload-red">
                                     <div class="uc-header">
@@ -527,7 +530,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="uc-footer">PDF FILES • Maximum 250MB (Admins up to 1GB)</div>
+                                    <div class="uc-footer">Supported: PDF Document • Max File Size: Up to 250 MB (Admins: Up to 1 GB)</div>
                                 </div>
                             </div>
                             
@@ -846,7 +849,7 @@
                                 Spidy Book Hub Official 
                                 <svg class="verified-icon-svg" viewBox="0 0 100 100">
                                     <defs>
-                                        <linearGradient id="pG2" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <linearGradient id="pG2" x1="0%" y1="0%" x2="100%">
                                             <stop offset="0%" stop-color="#55bbf8" /><stop offset="100%" stop-color="#0a7bd2" />
                                         </linearGradient>
                                     </defs>
@@ -888,32 +891,25 @@
                 </div>
             </div>
 
-            <!-- ======================================================== -->
-            <!-- 🔑 NEW PREMIUM KEY GENERATE & TOKEN ACCESS PORTAL MODAL 🔑 -->
-            <!-- ======================================================== -->
+            <!-- TOKEN MODAL -->
             <div id="tokenModalOverlay" class="modal-overlay-token" style="display: none;">
-                <!-- Subtle Radial Glow -->
                 <div class="ambient-glow"></div>
 
                 <div class="auth-card" id="authCardBox" onclick="event.stopPropagation()">
-                    <!-- Top Glassmorphic Close Button -->
                     <button id="closeTokenModalBtn" class="close-modal-btn" title="Close">
                         <i class="fas fa-times"></i>
                     </button>
 
-                    <!-- Hexagon Frame with Dashed Animated Perimeter Ring -->
                     <div class="icon-hex">
                         <img src="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png" alt="Logo" class="custom-logo-token" oncontextmenu="return false;" draggable="false">
                     </div>
 
-                    <!-- Chrome & Metallic Title[span_0](start_span)[span_0](end_span) -->
                     <h1 class="card-title">
                         <span class="brand-text-spidy">SPIDY BOOK</span>
                         <span class="brand-text-hub">HUB</span>
                     </h1>
                     <p class="card-subtitle"><i class="fas fa-shield-alt"></i> Authenticate your premium access</p>
 
-                    <!-- Clean Input Area with White Border on Focus/Input[span_1](start_span)[span_1](end_span) -->
                     <div class="input-section-token">
                         <label class="input-label-token">
                             ACCESS TOKEN
@@ -925,7 +921,6 @@
                         </div>
                     </div>
 
-                    <!-- Action Buttons: Metallic Silver 'Get Key' & Emerald 'Verify[span_2](start_span)'[span_2](end_span) -->
                     <div class="button-group-token">
                         <button class="btn-token btn-secondary-token" id="getKeyBtn">
                             <i class="fas fa-link"></i> Get Key
@@ -935,7 +930,6 @@
                         </button>
                     </div>
 
-                    <!-- Social / Help Stack[span_3](start_span)[span_3](end_span) -->
                     <div class="social-actions-token">
                         <a href="https://youtube.com/@PRINCE_YADAV" target="_blank" class="social-card-wrapper-token yt-theme-token" id="ytGuideBtn">
                             <div class="social-icon-wrapper-token"><i class="fab fa-youtube"></i></div>
@@ -956,7 +950,6 @@
                         </a>
                     </div>
 
-                    <!-- Solid Border-Separated Footer[span_4](start_span)[span_4](end_span) -->
                     <div class="card-footer">
                         <span><i class="far fa-clock icon-clock-token"></i> Valid for 10 days</span>
                         <span><i class="fas fa-lock icon-shield-token"></i> Secure connection</span>
@@ -1030,7 +1023,7 @@
                 </div>
             </div>
 
-            <!-- SUPPORT & CONTACT OVERLAY -->
+            <!-- SUPPORT & CONTACT OVERLAY (Matching Theme Logo & Locked Email) -->
             <div class="overlay-panel support-modal-fullscreen" id="supportModalOverlay">
                 <div class="modal-header-fixed support-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
@@ -1051,11 +1044,12 @@
                     <div class="contact-card">
                         <div class="header">
                             <h2>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#purple-gradient-support)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                                <!-- High-Visibility Purple/Indigo Glowing SVG -->
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#purpleGlowGradient)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.7));">
                                     <defs>
-                                        <linearGradient id="purple-gradient-support" x1="0%" y1="0%" x2="100%" y2="100%">
-                                            <stop offset="0%" stroke-color="#8c52ff" />
-                                            <stop offset="100%" stroke-color="#5e17eb" />
+                                        <linearGradient id="purpleGlowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#c084fc" />
+                                            <stop offset="100%" stop-color="#8b5cf6" />
                                         </linearGradient>
                                     </defs>
                                     <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"></path>
@@ -1080,8 +1074,10 @@
 
                             <div class="input-group">
                                 <label>Email Address</label>
-                                <input type="email" id="supEmail" name="email" placeholder="princeyadav@gmail.com" 
-                                       pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
+                                <!-- Auto-locked with readonly attribute so user cannot backspace/edit manually -->
+                                <input type="email" id="supEmail" name="email" placeholder="Loading your registered email..." 
+                                       readonly
+                                       style="cursor: not-allowed; opacity: 0.85; background: rgba(255, 255, 255, 0.03);"
                                        required autocomplete="off">
                             </div>
 
