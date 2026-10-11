@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Playfair+Display:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;600&family=Merriweather:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Playfair+Display:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;600;700&family=Merriweather:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
     
     <!-- DOMPurify for Security -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
@@ -67,10 +67,8 @@
         <div class="loader-powered-text">POWERED BY SPIDYUNIVERSE</div>
     </div>
 
-    <!-- NEW LOGIN OVERLAY (CHARCOAL CURVED HEADER DESIGN) -->
+    <!-- LOGIN OVERLAY -->
     <div id="loginOverlay" class="login-container" style="display: none; opacity: 0;">
-
-        <!-- Top Curved Charcoal Header -->
         <header class="top-curved-header">
             <div class="logo-frame">
                 <div class="logo-rotating-ring"></div>
@@ -89,13 +87,11 @@
             </h1>
         </header>
 
-        <!-- Login Form Section -->
         <main class="form-wrapper">
             <h2 class="card-title">Welcome Back..!</h2>
             <p class="card-subtitle">Login to your learning account on Spidy Book Hub</p>
 
             <form id="loginForm">
-                <!-- Mobile / Email Field -->
                 <div class="form-group">
                     <div class="input-box-wrapper">
                         <input 
@@ -110,7 +106,6 @@
                     </div>
                 </div>
 
-                <!-- Password Field with Clean Border-less Eye Icon -->
                 <div class="form-group">
                     <div class="input-box-wrapper">
                         <input 
@@ -170,7 +165,7 @@
     <!-- Main App Wrapper -->
     <div id="mainAppWrapper" style="display: none; width: 100%; height: 100%;">
         
-        <!-- UNIFIED COMMUNITY POPUP -->
+        <!-- COMMUNITY POPUP -->
         <div class="community-popup-overlay" id="communityPopup">
             <div class="community-popup-wrapper">
                 <div class="community-ambient-glow"></div>
@@ -284,7 +279,7 @@
         </div>
 
         <div class="app-container">
-            <!-- Persistent Header with Clean Luxury Design -->
+            <!-- Persistent Header -->
             <header id="main-header" class="modern-glow-header">
                 <div class="header-left">
                     <div class="icon-box modern-menu-box" id="open-menu" title="Menu">
@@ -321,9 +316,7 @@
                     <div class="menu-section">
                         <div class="section-title">MAIN MENU</div>
                         <a href="#" class="menu-item active" id="menu-home-side"><i class="fas fa-home"></i><span>Home</span></a>
-                        <!-- Updated Support Hub Link with Headset Icon -->
                         <a href="#" class="menu-item normal" id="menu-contact"><i class="fas fa-headset"></i><span>Support Hub</span></a>
-                        <!-- Saved Books -->
                         <a href="#" class="menu-item normal" id="menu-bookmarks"><i class="far fa-bookmark"></i><span>Saved Books</span></a>
                     </div>
                     <div class="menu-section">
@@ -347,10 +340,10 @@
                 </div>
             </div>
 
-            <!-- Main Content Area: Single Page Home Flow -->
+            <!-- Main Content Area -->
             <main id="mainContentArea">
                 <div id="tab-home" class="app-tab active" style="padding-bottom: 25px;">
-                    <!-- Dynamic Module & Promo Banner Carousel -->
+                    <!-- Promo Banner Carousel -->
                     <div class="promo-carousel-container" id="promoCarouselContainer">
                         <button class="promo-arrow-btn arrow-prev" id="promoPrevBtn" aria-label="Previous Slide">
                             <i class="fas fa-chevron-left"></i>
@@ -372,7 +365,6 @@
 
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <div class="section-header-title" style="margin-bottom: 0;"><i class="fas fa-book-open" style="color: #10b981;"></i> Trending Books 🔥 </div>
-                        <!-- Filter Open Icon (Triggers 4-Box Modal) -->
                         <div class="app-filter-icon" id="openAuthorFilterBtn">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
                         </div>
@@ -553,7 +545,7 @@
                 </div>
             </div>
 
-            <!-- MODULE BANNER FULLSCREEN OVERLAY (MATCHED TO DOWNLOAD PAGE HEADER DESIGN) -->
+            <!-- MODULE BANNER FULLSCREEN OVERLAY -->
             <div class="overlay-panel" id="moduleBannerModal" style="z-index: 99999; background: #07090e;">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
@@ -600,11 +592,10 @@
                 </main>
             </div>
 
-            <!-- 4-BOX MAIN FILTER OVERLAY (IMAGE 2) -->
+            <!-- 4-BOX MAIN FILTER OVERLAY -->
             <div class="modal-overlay" id="mainFilterOverlay">
                 <div class="filter-card-container" id="mainFilterCard" onclick="event.stopPropagation()">
                     
-                    <!-- 1. LANGUAGE BOX -->
                     <div class="filter-item type-language" id="filterBoxLanguage">
                         <div class="filter-label-row">
                             <svg class="label-icon" viewBox="0 0 24 24">
@@ -622,7 +613,6 @@
                         </div>
                     </div>
 
-                    <!-- 2. CLASS / EXAM BOX -->
                     <div class="filter-item type-class" id="filterBoxClass">
                         <div class="filter-label-row">
                             <svg class="label-icon" viewBox="0 0 24 24">
@@ -639,7 +629,6 @@
                         </div>
                     </div>
 
-                    <!-- 3. AUTHOR BOX -->
                     <div class="filter-item type-author" id="filterBoxAuthor">
                         <div class="filter-label-row">
                             <svg class="label-icon" viewBox="0 0 24 24">
@@ -656,7 +645,6 @@
                         </div>
                     </div>
 
-                    <!-- 4. YEAR BOX -->
                     <div class="filter-item type-year" id="filterBoxYear">
                         <div class="filter-label-row">
                             <svg class="label-icon" viewBox="0 0 24 24">
@@ -678,13 +666,11 @@
                 </div>
             </div>
 
-            <!-- SUB-OPTIONS POPUP MODAL (IMAGE 1 - WITH PROPER 'X' CLOSE BUTTON) -->
+            <!-- SUB-OPTIONS POPUP MODAL -->
             <div class="modal-overlay" id="subFilterModalOverlay">
                 <div class="center-modal-card" id="centerModalCard" onclick="event.stopPropagation()">
-                    <!-- Top Grab Bar Indicator -->
                     <div class="sheet-pill-indicator"></div>
 
-                    <!-- Header with Filter Icon, Title & 'X' Close Button -->
                     <div class="modal-head">
                         <div class="head-left">
                             <svg class="slider-filter-logo" viewBox="0 0 24 24">
@@ -697,7 +683,6 @@
                             </svg>
                             <span class="modal-title-text" id="modalTitleText">Filter Exam / Board</span>
                         </div>
-                        <!-- Proper 'X' Close Button for Sub-Options Modal -->
                         <button type="button" class="modal-close-btn" id="closeSubFilterBtn" title="Close">
                             <svg class="close-icon-svg" viewBox="0 0 24 24">
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -706,12 +691,10 @@
                         </button>
                     </div>
 
-                    <!-- Gray Divider Line -->
                     <div class="header-divider-container">
                         <div class="header-divider-line"></div>
                     </div>
 
-                    <!-- Content Area with Category Subtitle & Options Grid -->
                     <div class="modal-body-content">
                         <div class="section-subtitle-row">
                             <div id="modalSubtitleIcon"></div>
@@ -722,7 +705,7 @@
                 </div>
             </div>
 
-            <!-- Download Modal with Chevron Left Back Button -->
+            <!-- Download Modal -->
             <div class="download-modal" id="downloadModal" style="display: none;">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
@@ -821,7 +804,7 @@
                 </div>
             </div>
             
-            <!-- Bookmarks Panel with Chevron Left Back Button -->
+            <!-- Bookmarks Panel -->
             <div class="overlay-panel" id="bookmarks-panel">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
@@ -851,7 +834,7 @@
                 </div>
             </div>
 
-            <!-- Notifications Channel Panel with Chevron Right Close Button -->
+            <!-- Notifications Channel Panel -->
             <div class="notifications-panel" id="noti-panel">
                 <div class="noti-header-premium">
                     <div class="noti-header-left">
@@ -905,36 +888,44 @@
                 </div>
             </div>
 
-            <!-- Token Verification Overlay -->
+            <!-- ======================================================== -->
+            <!-- 🔑 NEW PREMIUM KEY GENERATE & TOKEN ACCESS PORTAL MODAL 🔑 -->
+            <!-- ======================================================== -->
             <div id="tokenModalOverlay" class="modal-overlay-token" style="display: none;">
-                <div class="premium-bg">
-                    <div class="grid-overlay"></div>
-                    <div class="particles-container" id="particles"></div>
-                </div>
+                <!-- Subtle Radial Glow -->
+                <div class="ambient-glow"></div>
 
-                <div class="modal-container-token">
+                <div class="auth-card" id="authCardBox" onclick="event.stopPropagation()">
+                    <!-- Top Glassmorphic Close Button -->
                     <button id="closeTokenModalBtn" class="close-modal-btn" title="Close">
                         <i class="fas fa-times"></i>
                     </button>
 
-                    <div class="logo-wrapper-token">
-                        <img src="https://i.postimg.cc/VN90Zpys/IMG-20260704-WA0000.jpg" alt="Spidy Book Hub Logo" class="custom-logo-token">
+                    <!-- Hexagon Frame with Dashed Animated Perimeter Ring -->
+                    <div class="icon-hex">
+                        <img src="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png" alt="Logo" class="custom-logo-token" oncontextmenu="return false;" draggable="false">
                     </div>
 
-                    <h1 class="main-title-token">SPIDY BOOK HUB</h1>
-                    <p class="subtitle-token"><i class="fas fa-shield-alt icon-shield-premium"></i> Authenticate your premium access</p>
+                    <!-- Chrome & Metallic Title[span_0](start_span)[span_0](end_span) -->
+                    <h1 class="card-title">
+                        <span class="brand-text-spidy">SPIDY BOOK</span>
+                        <span class="brand-text-hub">HUB</span>
+                    </h1>
+                    <p class="card-subtitle"><i class="fas fa-shield-alt"></i> Authenticate your premium access</p>
 
+                    <!-- Clean Input Area with White Border on Focus/Input[span_1](start_span)[span_1](end_span) -->
                     <div class="input-section-token">
                         <label class="input-label-token">
-                            Access Token
+                            ACCESS TOKEN
                             <i class="fas fa-info-circle info-tooltip" title="Click 'Get Key' to generate your 10-day access token"></i>
                         </label>
-                        <div class="input-box-token" id="inputBoxWrapperToken">
-                            <i class="fas fa-key input-icon-token"></i>
+                        <div class="key-input-box" id="inputBoxWrapperToken">
+                            <i class="fas fa-key"></i>
                             <input type="text" id="tokenInput" placeholder="Paste your token here..." autocomplete="off">
                         </div>
                     </div>
 
+                    <!-- Action Buttons: Metallic Silver 'Get Key' & Emerald 'Verify[span_2](start_span)'[span_2](end_span) -->
                     <div class="button-group-token">
                         <button class="btn-token btn-secondary-token" id="getKeyBtn">
                             <i class="fas fa-link"></i> Get Key
@@ -944,34 +935,36 @@
                         </button>
                     </div>
 
+                    <!-- Social / Help Stack[span_3](start_span)[span_3](end_span) -->
                     <div class="social-actions-token">
-                        <a href="#" class="social-card-wrapper-token yt-theme-token" id="ytGuideBtn">
+                        <a href="https://youtube.com/@PRINCE_YADAV" target="_blank" class="social-card-wrapper-token yt-theme-token" id="ytGuideBtn">
                             <div class="social-icon-wrapper-token"><i class="fab fa-youtube"></i></div>
                             <span class="social-text-token">How to generate key</span>
                             <i class="fas fa-chevron-right arrow-icon-token"></i>
                         </a>
                         
-                        <a href="https://t.me/MultiverseBooks" target="_blank" class="social-card-wrapper-token tg-theme-token" id="tgChannelBtn">
+                        <a href="https://t.me/MultiverseBooks" target="_blank" rel="noopener noreferrer" class="social-card-wrapper-token tg-theme-token" id="tgChannelBtn">
                             <div class="social-icon-wrapper-token"><i class="fab fa-telegram-plane"></i></div>
                             <span class="social-text-token">Join Telegram channel</span>
                             <i class="fas fa-chevron-right arrow-icon-token"></i>
                         </a>
 
-                        <a href="https://t.me/MultiverseBooks" target="_blank" class="social-card-wrapper-token support-theme-token">
+                        <a href="https://t.me/MultiverseBooks" target="_blank" rel="noopener noreferrer" class="social-card-wrapper-token support-theme-token">
                             <div class="social-icon-wrapper-token"><i class="fas fa-headset"></i></div>
                             <span class="social-text-token">Need Help? Contact Us</span>
                             <i class="fas fa-chevron-right arrow-icon-token"></i>
                         </a>
                     </div>
 
-                    <div class="security-footer-token">
-                        <div class="footer-item-token"><i class="far fa-clock icon-clock-token"></i><span>Valid for 10 days</span></div>
-                        <div class="footer-item-token"><i class="fas fa-lock icon-shield-token"></i><span>Secure connection</span></div>
+                    <!-- Solid Border-Separated Footer[span_4](start_span)[span_4](end_span) -->
+                    <div class="card-footer">
+                        <span><i class="far fa-clock icon-clock-token"></i> Valid for 10 days</span>
+                        <span><i class="fas fa-lock icon-shield-token"></i> Secure connection</span>
                     </div>
                 </div>
             </div>
 
-            <!-- PDF Viewer (Chevron Right '》' Close Button) -->
+            <!-- PDF Viewer -->
             <div id="pdfViewerOverlay" class="pdf-viewer-overlay" style="display:none;">
                 <div class="pdf-viewer-header">
                     <div class="pdf-viewer-header-left">
@@ -979,7 +972,6 @@
                         <h3 id="pdfViewerTitle" class="pdf-viewer-title">Reading Book...</h3>
                     </div>
                     <div class="pdf-viewer-header-right">
-                        <!-- Updated from 'X' to '》' (chevron-right) button -->
                         <button id="closePdfViewerBtn" class="pdf-viewer-close-circle" title="Close Viewer">
                             <i class="fas fa-chevron-right"></i>
                         </button>
@@ -1038,7 +1030,7 @@
                 </div>
             </div>
 
-            <!-- SUPPORT & CONTACT FULLSCREEN OVERLAY -->
+            <!-- SUPPORT & CONTACT OVERLAY -->
             <div class="overlay-panel support-modal-fullscreen" id="supportModalOverlay">
                 <div class="modal-header-fixed support-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
@@ -1074,7 +1066,6 @@
                             <div class="dotted-divider"></div>
                         </div>
 
-                        <!-- Backend API Connected Form -->
                         <form id="supportContactForm">
                             <div class="form-row">
                                 <div class="input-group">
