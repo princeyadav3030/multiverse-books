@@ -788,7 +788,7 @@ function updateLoaderUI(percent) {
     if (loaderPercentage) loaderPercentage.innerText = percent + "%";
     if (loaderStatusText) {
         if (percent < 30) loaderStatusText.innerText = "Initializing System...";
-        else if (percent < 60) loaderStatusText.innerText = "Fetching Secure Data...";
+        else if (percent < 60) loaderStatusText.innerText = "Loading Books Securely...";
         else if (percent < 95) loaderStatusText.innerText = "Preparing Content...";
         else loaderStatusText.innerText = "Ready to Launch!";
     }
@@ -1238,12 +1238,14 @@ document.addEventListener('click', (e) => {
 }, true);
         
 // ==========================================
-// 9. AUTHENTICATION OBSERVER
+// 9. AUTHENTICATION OBSERVER & EMAIL LOCK IN SUPPORT
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (unsubBanners) { unsubBanners(); unsubBanners = null; }
     if (unsubPrompts) { unsubPrompts(); unsubPrompts = null; }
     if (unsubChannel) { unsubChannel(); unsubChannel = null; }
+
+    const supEmailField = document.getElementById('supEmail');
 
     if (user) {
         isUserLoggedIn = true;
@@ -1261,6 +1263,12 @@ onAuthStateChanged(auth, async (user) => {
         
         CURRENT_ADMIN_NAME = dName;
         CURRENT_ADMIN_EMAIL = user.email;
+
+        // Auto populate registered email & keep it securely locked in Support Hub
+        if (supEmailField) {
+            supEmailField.value = user.email || "";
+            supEmailField.readOnly = true;
+        }
 
         try {
             const cleanEmail = user.email ? user.email.toLowerCase().trim() : "";
@@ -1287,6 +1295,11 @@ onAuthStateChanged(auth, async (user) => {
         CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
         const sidebarAvatar = document.getElementById('sidebarProfileImg');
         if (sidebarAvatar) sidebarAvatar.src = DEFAULT_AVATAR;
+
+        if (supEmailField) {
+            supEmailField.value = "";
+            supEmailField.readOnly = true;
+        }
     }
 
     isAppReady.auth = true; 
@@ -1728,7 +1741,7 @@ document.getElementById('close-search')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// 11. REALTIME PAGINATION HANDLER (WITH 2-SEC BUFFER)
+// 11. REALTIME PAGINATION HANDLER
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -1776,7 +1789,6 @@ async function loadNextBooksBatch() {
     if (infiniteLoader) infiniteLoader.style.display = 'flex';
 
     try {
-        // Requested 2-second smooth loading animation buffer
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         const booksRef = collection(db, "books");
@@ -2162,6 +2174,13 @@ document.getElementById('menu-contact')?.addEventListener('click', (e) => {
     
     history.pushState({ popup: 'support' }, '');
     document.getElementById('supportModalOverlay')?.classList.add('active');
+
+    // Ensure email is preset from logged-in user if available
+    const supEmail = document.getElementById('supEmail');
+    if (supEmail && auth.currentUser) {
+        supEmail.value = auth.currentUser.email || "";
+        supEmail.readOnly = true;
+    }
 });
 
 document.getElementById('closeSupportBtn')?.addEventListener('click', () => {
@@ -2216,10 +2235,12 @@ document.getElementById('supportContactForm')?.addEventListener('submit', async 
     btnIcon.innerHTML = `<circle cx="12" cy="12" r="10" stroke-width="3" stroke="currentColor" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="1s" values="0 12 12;360 12 12"/></circle>`;
     btn.style.pointerEvents = "none";
 
+    const userEmail = (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : document.getElementById('supEmail').value.trim();
+
     const formData = {
         firstName: document.getElementById('supFirstName').value.trim(),
         lastName: document.getElementById('supLastName').value.trim(),
-        email: document.getElementById('supEmail').value.trim(),
+        email: userEmail,
         subject: document.getElementById('selectedSubjectInput').value.trim(),
         message: document.getElementById('supMessage').value.trim()
     };
@@ -2241,7 +2262,9 @@ document.getElementById('supportContactForm')?.addEventListener('submit', async 
             btnText.innerText = "Successfully Sent";
             btnIcon.innerHTML = `<polyline points="20 6 9 17 4 12"></polyline>`;
             
-            e.target.reset();
+            document.getElementById('supFirstName').value = "";
+            document.getElementById('supLastName').value = "";
+            document.getElementById('supMessage').value = "";
             document.getElementById('selectedSubjectInput').value = "⚠️ Report Broken Download Link";
             document.getElementById('selectedSubjectDisplay').innerText = "⚠️ Report Broken Download Link";
             issueOptions.forEach((btn, idx) => {
@@ -2495,7 +2518,6 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
         initPdfScrollTracker();
         initTargetLockedDoubleTapZoom();
 
-        // Screen black na ho, isliye initial page 1 & 2 pehle render ho jayein
         await renderSingleHdPage(pdf, 1);
         if (pdf.numPages >= 2) renderSingleHdPage(pdf, 2);
 
@@ -2532,7 +2554,6 @@ async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
 function initVirtualizationObserver(pdf) {
     if (pdfVirtualObserver) pdfVirtualObserver.disconnect();
 
-    // 500px pre-caching ensures pages are completely ready before entering viewport
     pdfVirtualObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             const pageNum = parseInt(entry.target.dataset.pageNum, 10);
@@ -2596,7 +2617,6 @@ async function renderSingleHdPage(pdf, pageNum) {
         activeRenderTasks.delete(pageNum);
         renderedPagesMap.set(pageNum, true);
 
-        // Canvas poori tarah draw hone ke baad hi placeholder hataya jayega (No Black Screen!)
         wrapper.classList.remove('page-placeholder');
         wrapper.innerHTML = '';
         wrapper.appendChild(canvas);
@@ -2656,7 +2676,6 @@ function unloadSinglePage(pageNum) {
     renderedPagesMap.delete(pageNum);
 }
 
-// Optimized Ultra Fast Zoom
 function applyTargetLockedZoom(scaleFactor, targetPageNum) {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
@@ -2682,7 +2701,6 @@ function applyTargetLockedZoom(scaleFactor, targetPageNum) {
         container.style.touchAction = "pan-y pinch-zoom";
     }
 
-    // Reflow-optimized batch DOM styling (Instant Response!)
     const wrappers = scroller.children;
     for (let i = 0; i < wrappers.length; i++) {
         wrappers[i].style.width = `${newWidth}px`;
@@ -2712,7 +2730,6 @@ function applyTargetLockedZoom(scaleFactor, targetPageNum) {
     }
 }
 
-// Ultra Responsive Double-Tap Handler
 function initTargetLockedDoubleTapZoom() {
     if (isDoubleTapBound) return;
     const container = document.getElementById('pdfContainer');
@@ -2943,7 +2960,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
             } catch(e) {}
         }
 
-        // Sirf aur sirf tabhi khulega jab token missing ya invalid ho!
         if(!hasValidToken && !IS_SUPER_ADMIN) {
              history.pushState({ popup: 'tokenModal' }, '');
              const tModal = document.getElementById('tokenModalOverlay');
@@ -3085,7 +3101,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ========================================================
-// 17. NEW PREMIUM TOKEN VERIFICATION & GET KEY PORTAL
+// 17. TOKEN VERIFICATION & GET KEY PORTAL
 // ========================================================
 const tokenModal = document.getElementById('tokenModalOverlay');
 const tokenInput = document.getElementById('tokenInput');
