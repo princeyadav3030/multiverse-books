@@ -35,6 +35,155 @@
         }
     </script>
 
+    <!-- Inline Specific Responsive Polish Overrides -->
+    <style>
+        /* Header icons uniform bold & crisp setup */
+        .modern-glow-header .header-left .header-title {
+            font-size: 16.5px !important;
+            font-weight: 800 !important;
+            letter-spacing: 0.5px !important;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+        }
+        .modern-glow-header .icon-box i {
+            font-size: 1.15rem !important;
+            font-weight: 900 !important;
+            stroke-width: 1.5px;
+        }
+
+        /* Round arrow badge matching Image 5 */
+        .pod-round-arrow-wrap {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #181a20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s ease;
+        }
+        .pod-round-arrow-wrap svg {
+            width: 13px;
+            height: 13px;
+            stroke: #a1a1aa;
+            stroke-width: 2.8;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Realistic PDF icon matching Image 4 */
+        .module-file-badge {
+            width: 44px;
+            height: 48px;
+            position: relative;
+            background: #ffffff;
+            border-radius: 7px 14px 7px 7px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 5px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            flex-shrink: 0;
+        }
+        .module-file-badge::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 14px;
+            height: 14px;
+            background: #cbd5e1;
+            border-bottom-left-radius: 5px;
+        }
+        .module-file-badge-tag {
+            width: 34px;
+            height: 15px;
+            background: #ef4444;
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: 900;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 0.5px;
+            margin-bottom: 3px;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Red strip light shimmer animation */
+        .community-must-join-strip {
+            position: relative;
+            overflow: hidden;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+        }
+        .community-must-join-strip::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 80%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.35), transparent);
+            animation: redGlowWave 2.4s infinite cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes redGlowWave {
+            0% { left: -100%; }
+            100% { left: 140%; }
+        }
+
+        /* Pulse live radio dot with radial glow */
+        .pulsing-radio-dot {
+            position: relative;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .pulsing-radio-dot::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 1.5px solid currentColor;
+            opacity: 0.6;
+            animation: radioPulse 1.5s infinite ease-out;
+        }
+        @keyframes radioPulse {
+            0% { transform: scale(0.6); opacity: 0.9; }
+            100% { transform: scale(1.8); opacity: 0; }
+        }
+
+        /* Loader bar thickness upgrade */
+        .loader-bar {
+            height: 11px !important;
+            border-radius: 20px !important;
+        }
+        .loader-logo {
+            width: 108px !important;
+            height: 108px !important;
+            border: 2.8px solid #3f3f46 !important;
+            border-radius: 26px !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8) !important;
+        }
+
+        /* Bold Modal Close (✕) Buttons */
+        .popup-modal-close, .ug-close-btn, .close-modal-btn {
+            font-weight: 900 !important;
+            font-size: 14px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            pointer-events: auto !important;
+            z-index: 100 !important;
+        }
+    </style>
+
     <!-- Main CSS File -->
     <link rel="stylesheet" href="./style.css">
 </head>
@@ -42,13 +191,15 @@
 
     <!-- Loader Screen -->
     <div class="loader-screen" id="loaderScreen" style="display: flex; opacity: 1;">
-        <div class="loader-logo"><img src="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png" alt="Logo" oncontextmenu="return false;" draggable="false"></div>
+        <div class="loader-logo">
+            <img src="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png" alt="Logo" oncontextmenu="return false;" draggable="false">
+        </div>
         <div class="loader-title">SPIDY BOOK HUB</div>
         
         <!-- Compact 1-Row Tags -->
         <div class="premium-tags">
             <div class="tag">
-                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                     <polyline points="14 2 14 8 20 8"></polyline>
                     <text x="7" y="17" font-size="6.5" font-family="'Poppins', sans-serif" font-weight="900" fill="#ffffff" stroke="none">PDF</text>
@@ -60,6 +211,7 @@
             <div class="tag"><i class="fa-solid fa-layer-group" style="font-size: 10px;"></i> MORE</div>
         </div>
         
+        <!-- Enhanced Thicker Progress Bar -->
         <div class="loader-bar"><div class="loader-fill" id="loaderFill"></div></div>
         <div class="loader-progress-text">
             <span id="loaderStatusText">Loading Books Securely...</span>
@@ -193,12 +345,10 @@
                                     <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
                                 </div>
                                 <div class="community-channel-meta">
-                                    <h4>Join WhatsApp Channel</h4>
-                                    <div class="community-new-msg-tag community-wa-tag">
-                                        1 new message 
-                                        <span class="community-pulse-indicator">
-                                            <span class="community-text-pulse-dot wa-dot"></span>
-                                        </span>
+                                    <h4 style="white-space: normal; line-height: 1.2;">Join WhatsApp Channel</h4>
+                                    <div class="community-new-msg-tag community-wa-tag" style="display: flex; align-items: center; gap: 7px;">
+                                        <span>1 new message</span>
+                                        <span class="pulsing-radio-dot" style="background:#10b981; color:#10b981; box-shadow: 0 0 8px #10b981;"></span>
                                     </div>
                                 </div>
                             </div>
@@ -217,12 +367,10 @@
                                     <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" alt="Telegram">
                                 </div>
                                 <div class="community-channel-meta">
-                                    <h4>Join Telegram Channel</h4>
-                                    <div class="community-new-msg-tag community-tg-tag">
-                                        1 new message 
-                                        <span class="community-pulse-indicator">
-                                            <span class="community-text-pulse-dot tg-dot"></span>
-                                        </span>
+                                    <h4 style="white-space: normal; line-height: 1.2;">Join Telegram Channel</h4>
+                                    <div class="community-new-msg-tag community-tg-tag" style="display: flex; align-items: center; gap: 7px;">
+                                        <span>1 new message</span>
+                                        <span class="pulsing-radio-dot" style="background:#38bdf8; color:#38bdf8; box-shadow: 0 0 8px #38bdf8;"></span>
                                     </div>
                                 </div>
                             </div>
@@ -242,11 +390,9 @@
                                 </div>
                                 <div class="community-channel-meta">
                                     <h4>Follow on Instagram</h4>
-                                    <div class="community-new-msg-tag community-ig-tag">
-                                        Daily Updates
-                                        <span class="community-pulse-indicator">
-                                            <span class="community-text-pulse-dot ig-dot"></span>
-                                        </span>
+                                    <div class="community-new-msg-tag community-ig-tag" style="display: flex; align-items: center; gap: 7px;">
+                                        <span>Daily Updates</span>
+                                        <span class="pulsing-radio-dot" style="background:#ec4899; color:#ec4899; box-shadow: 0 0 8px #ec4899;"></span>
                                     </div>
                                 </div>
                             </div>
@@ -259,12 +405,13 @@
                         </div>
                     </div>
 
+                    <!-- Left to Right Flowing Shimmer Red Strip -->
                     <div class="community-must-join-strip">
-                        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                        <span class="community-must-join-text">
+                        <svg viewBox="0 0 24 24" style="position:relative; z-index:2;"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        <span class="community-must-join-text" style="position:relative; z-index:2;">
                             FOLLOW <b>ALL CHANNELS</b> TO UNLOCK ALL FREE E-BOOKS &amp; PDFS
                         </span>
-                        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        <svg viewBox="0 0 24 24" style="position:relative; z-index:2;"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                     </div>
 
                     <div class="community-popup-divider"></div>
@@ -280,14 +427,14 @@
         </div>
 
         <div class="app-container">
-            <!-- Persistent Header with Responsive Layout (No Dot Cutoff) -->
+            <!-- Persistent Header with Bold Crisp Design -->
             <header id="main-header" class="modern-glow-header">
                 <div class="header-left">
-                    <div class="icon-box modern-menu-box" id="open-menu" title="Menu">
+                    <div class="icon-box modern-menu-box" id="open-menu" title="Menu" style="cursor: pointer;">
                         <svg width="20" height="15" viewBox="0 0 20 15" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
-                            <rect x="0" y="0" width="20" height="2" rx="1" fill="#FFFFFF"/>
-                            <rect x="0" y="6.5" width="15" height="2" rx="1" fill="#FFFFFF"/>
-                            <rect x="0" y="13" width="10" height="2" rx="1" fill="#FFFFFF"/>
+                            <rect x="0" y="0" width="20" height="2.6" rx="1.3" fill="#FFFFFF"/>
+                            <rect x="0" y="6.2" width="15" height="2.6" rx="1.3" fill="#FFFFFF"/>
+                            <rect x="0" y="12.4" width="10" height="2.6" rx="1.3" fill="#FFFFFF"/>
                         </svg>
                     </div>
                     <span class="header-title" id="dynamic-header-title">SPIDY BOOK HUB</span>
@@ -477,7 +624,7 @@
                                 </div>
                             </div>
                             
-                            <!-- Cover Image Upload Box with Clear Limit Text -->
+                            <!-- Cover Image Upload Box -->
                             <div class="adm-form-group" style="margin-top: 4px;" id="cardCoverContainer">
                                 <div class="upload-card-box upload-purple">
                                     <div class="uc-header">
@@ -504,7 +651,7 @@
                                 </div>
                             </div>
 
-                            <!-- PDF File Upload Box with Clear Limit Text -->
+                            <!-- PDF File Upload Box -->
                             <div class="adm-form-group" style="margin-top: 2px;" id="cardPdfContainer">
                                 <div class="upload-card-box upload-red">
                                     <div class="uc-header">
@@ -891,13 +1038,13 @@
                 </div>
             </div>
 
-            <!-- TOKEN MODAL -->
+            <!-- TOKEN MODAL (Fixed Click/Close Button) -->
             <div id="tokenModalOverlay" class="modal-overlay-token" style="display: none;">
                 <div class="ambient-glow"></div>
 
                 <div class="auth-card" id="authCardBox" onclick="event.stopPropagation()">
-                    <button id="closeTokenModalBtn" class="close-modal-btn" title="Close">
-                        <i class="fas fa-times"></i>
+                    <button id="closeTokenModalBtn" class="close-modal-btn" title="Close" style="border: 1.5px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1); color: #ffffff;">
+                        ✕
                     </button>
 
                     <div class="icon-hex">
@@ -996,7 +1143,7 @@
                 <div class="report-modal-box">
                     <div class="rm-header">
                         <h3><i class="fas fa-triangle-exclamation" style="color: #ef4444;"></i> Report Issue</h3>
-                        <button id="closeReportBtn"><i class="fas fa-times"></i></button>
+                        <button id="closeReportBtn">✕</button>
                     </div>
                     <p class="rm-desc">Please let us know what's wrong with this book so we can fix it.</p>
                     
@@ -1023,7 +1170,7 @@
                 </div>
             </div>
 
-            <!-- SUPPORT & CONTACT OVERLAY (Matching Theme Logo & Locked Email) -->
+            <!-- SUPPORT & CONTACT OVERLAY -->
             <div class="overlay-panel support-modal-fullscreen" id="supportModalOverlay">
                 <div class="modal-header-fixed support-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
@@ -1036,15 +1183,9 @@
                 </div>
 
                 <div class="support-scroll-content">
-                    <div class="support-bg-animation">
-                        <div class="bg-orb-1"></div>
-                        <div class="bg-orb-2"></div>
-                    </div>
-
                     <div class="contact-card">
                         <div class="header">
                             <h2>
-                                <!-- High-Visibility Purple/Indigo Glowing SVG -->
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#purpleGlowGradient)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.7));">
                                     <defs>
                                         <linearGradient id="purpleGlowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1074,10 +1215,9 @@
 
                             <div class="input-group">
                                 <label>Email Address</label>
-                                <!-- Auto-locked with readonly attribute so user cannot backspace/edit manually -->
                                 <input type="email" id="supEmail" name="email" placeholder="Loading your registered email..." 
                                        readonly
-                                       style="cursor: not-allowed; opacity: 0.85; background: rgba(255, 255, 255, 0.03);"
+                                       style="cursor: not-allowed; opacity: 0.9; background: rgba(255, 255, 255, 0.05); color:#ffffff; font-weight:700;"
                                        required autocomplete="off">
                             </div>
 
@@ -1125,11 +1265,8 @@
                             <span style="font-size: 19px;">🚨</span>
                             <span class="modal-title">Select Issue</span>
                         </div>
-                        <button type="button" class="modal-close-btn" id="closeIssueModalBtn">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
+                        <button type="button" class="modal-close-btn" id="closeIssueModalBtn" style="font-weight:900;">
+                            ✕
                         </button>
                     </div>
                     
@@ -1188,7 +1325,7 @@
         </div>
     </div>
 
-    <!-- Dynamic Auto-Rolling Year Picker Modal -->
+    <!-- Dynamic Auto-Rolling Year Picker Modal (Bold Close Button) -->
     <div class="center-popup-overlay" id="yearPopupOverlay">
         <div class="center-popup-box">
             <div class="popup-modal-header">
@@ -1196,7 +1333,7 @@
                     <i class="fas fa-calendar-check"></i>
                     Select Publish Year
                 </div>
-                <button class="popup-modal-close" id="closeYearModalBtn">✕</button>
+                <button class="popup-modal-close" id="closeYearModalBtn" style="font-weight:900; font-size:15px;">✕</button>
             </div>
             <div class="popup-modal-grid" id="yearOptionsList"></div>
         </div>
@@ -1210,7 +1347,7 @@
                     <i class="fas fa-globe"></i>
                     Select Language
                 </div>
-                <button class="popup-modal-close" id="closeLangModalBtn">✕</button>
+                <button class="popup-modal-close" id="closeLangModalBtn" style="font-weight:900; font-size:15px;">✕</button>
             </div>
             <div class="popup-modal-grid three-col" id="langOptionsList">
                 <div class="popup-select-option active" data-lang="Hindi">Hindi</div>
@@ -1248,17 +1385,17 @@
     <!-- Native Toast Pill Container -->
     <div id="spidyPillToast" class="spidy-pill-toast"></div>
 
-    <!-- Upload Tutorial Popup -->
+    <!-- Upload Tutorial Popup with Bold Close & Pulsating Green Dots -->
     <div class="ug-overlay hidden" id="uploadPopup">
         <div class="ug-card">
-            <button class="ug-close-btn" id="closeUploadPopupBtn">✕</button>
+            <button class="ug-close-btn" id="closeUploadPopupBtn" style="font-weight:900; font-size:15px; color:#ffffff;">✕</button>
             <img src="https://i.postimg.cc/1XYDWd3M/file-0000000038f87208b99601cc409d2e5c.png" alt="Book Upload Banner" class="ug-banner">
             
             <div class="ug-body">
-                <h2 class="ug-title">
-                    <span class="ug-blink-dot"></span>
-                    📢 Book Upload Kaise Karein?
-                    <span class="ug-blink-dot"></span>
+                <h2 class="ug-title" style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <span class="pulsing-radio-dot" style="background:#22c55e; color:#22c55e; box-shadow:0 0 10px #22c55e;"></span>
+                    <span>📢 Book Upload Kaise Karein?</span>
+                    <span class="pulsing-radio-dot" style="background:#22c55e; color:#22c55e; box-shadow:0 0 10px #22c55e;"></span>
                 </h2>
                 
                 <div class="ug-text">
