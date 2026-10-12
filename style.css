@@ -136,8 +136,8 @@ header {
 }
 
 .modern-menu-box {
-    width: 38px !important;
-    height: 38px !important;
+    width: 40px !important;
+    height: 40px !important;
     background: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid rgba(255, 255, 255, 0.14) !important;
     border-radius: 11px !important;
@@ -152,8 +152,8 @@ header {
 }
 
 .header-title { 
-    font-weight: 800 !important; 
-    font-size: 16.5px !important; 
+    font-weight: 900 !important; 
+    font-size: 18.5px !important; 
     line-height: 1.1 !important;
     color: #ffffff !important; 
     white-space: nowrap !important; 
