@@ -152,8 +152,8 @@ header {
 }
 
 .header-title { 
-    font-weight: 900 !important; 
-    font-size: 18.5px !important; 
+    font-weight: 800 !important; 
+    font-size: 19.5px !important; 
     line-height: 1.1 !important;
     color: #ffffff !important; 
     white-space: nowrap !important; 
@@ -3059,29 +3059,45 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 .community-ig-tag { color: #ec4899; }
 
 /* Compact & Premium Pulsating Radio Dot (No Text Overlap) */
+/* 3. Dot Blink Ko Chota, Smooth Aur Pure Perfect Circle Banana (No Flat Line Cut) */
 .pulsing-radio-dot {
     position: relative;
-    width: 6.5px;
-    height: 6.5px;
-    border-radius: 50%;
+    width: 5.5px !important;            /* Size halka chota kiya */
+    height: 5.5px !important;
+    min-width: 5.5px !important;
+    min-height: 5.5px !important;
+    border-radius: 50% !important;
     display: inline-block;
     flex-shrink: 0;
-    margin: 0 4px;
+    margin: 0 5px;
     vertical-align: middle;
+    box-sizing: border-box;
 }
+
 .pulsing-radio-dot::after {
     content: '';
     position: absolute;
-    inset: -2px;
-    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    border-radius: 50% !important;     /* Pure round circle */
     border: 1.2px solid currentColor;
-    opacity: 0.6;
-    animation: radioPulse 1.6s infinite cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-sizing: border-box;
+    transform: translate(-50%, -50%) scale(1);
+    animation: radioPulsePerfect 1.8s infinite cubic-bezier(0.2, 0.8, 0.2, 1);
     pointer-events: none;
 }
-@keyframes radioPulse {
-    0% { transform: scale(0.8); opacity: 0.85; }
-    100% { transform: scale(1.45); opacity: 0; }
+
+@keyframes radioPulsePerfect {
+    0% {
+        transform: translate(-50%, -50%) scale(0.9);
+        opacity: 0.85;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(2.2);
+        opacity: 0;
+    }
 }
 
 .community-join-btn {
@@ -3116,13 +3132,16 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 .community-join-btn-wa { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; }
 .community-join-btn-tg { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; }
 
+/* 2. Instagram Follow Button Ko Crisp Flat Gradient Dena (No White Glare) */
 .community-join-btn-ig.clean-ig-btn { 
     background: linear-gradient(135deg, #e1306c 0%, #c13584 50%, #833ab4 100%) !important; 
     color: #ffffff !important; 
     box-shadow: none !important;
     filter: none !important;
     outline: none !important;
+    border: none !important;
 }
+
 
 .community-join-btn.completed { 
     background: linear-gradient(135deg, #0f1d19 0%, #091410 100%) !important; 
