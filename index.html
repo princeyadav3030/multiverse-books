@@ -35,156 +35,7 @@
         }
     </script>
 
-    <!-- Inline Specific Responsive Polish Overrides -->
-    <style>
-        /* Header icons uniform bold & crisp setup */
-        .modern-glow-header .header-left .header-title {
-            font-size: 16.5px !important;
-            font-weight: 800 !important;
-            letter-spacing: 0.5px !important;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
-        }
-        .modern-glow-header .icon-box i {
-            font-size: 1.15rem !important;
-            font-weight: 900 !important;
-            stroke-width: 1.5px;
-        }
-
-        /* Round arrow badge matching Image 5 */
-        .pod-round-arrow-wrap {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #181a20;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: all 0.2s ease;
-        }
-        .pod-round-arrow-wrap svg {
-            width: 13px;
-            height: 13px;
-            stroke: #a1a1aa;
-            stroke-width: 2.8;
-            fill: none;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        /* Realistic PDF icon matching Image 4 */
-        .module-file-badge {
-            width: 44px;
-            height: 48px;
-            position: relative;
-            background: #ffffff;
-            border-radius: 7px 14px 7px 7px;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            padding-bottom: 5px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-            flex-shrink: 0;
-        }
-        .module-file-badge::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 14px;
-            height: 14px;
-            background: #cbd5e1;
-            border-bottom-left-radius: 5px;
-        }
-        .module-file-badge-tag {
-            width: 34px;
-            height: 15px;
-            background: #ef4444;
-            color: #ffffff;
-            font-size: 8px;
-            font-weight: 900;
-            border-radius: 3px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            letter-spacing: 0.5px;
-            margin-bottom: 3px;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        /* Red strip light shimmer animation */
-        .community-must-join-strip {
-            position: relative;
-            overflow: hidden;
-            background: rgba(239, 68, 68, 0.12);
-            border: 1px solid rgba(239, 68, 68, 0.35);
-        }
-        .community-must-join-strip::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 80%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.35), transparent);
-            animation: redGlowWave 2.4s infinite cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        @keyframes redGlowWave {
-            0% { left: -100%; }
-            100% { left: 140%; }
-        }
-
-        /* Pulse live radio dot with radial glow */
-        .pulsing-radio-dot {
-            position: relative;
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            display: inline-block;
-            flex-shrink: 0;
-        }
-        .pulsing-radio-dot::after {
-            content: '';
-            position: absolute;
-            inset: -4px;
-            border-radius: 50%;
-            border: 1.5px solid currentColor;
-            opacity: 0.6;
-            animation: radioPulse 1.5s infinite ease-out;
-        }
-        @keyframes radioPulse {
-            0% { transform: scale(0.6); opacity: 0.9; }
-            100% { transform: scale(1.8); opacity: 0; }
-        }
-
-        /* Loader bar thickness upgrade */
-        .loader-bar {
-            height: 11px !important;
-            border-radius: 20px !important;
-        }
-        .loader-logo {
-            width: 108px !important;
-            height: 108px !important;
-            border: 2.8px solid #3f3f46 !important;
-            border-radius: 26px !important;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8) !important;
-        }
-
-        /* Bold Modal Close (✕) Buttons */
-        .popup-modal-close, .ug-close-btn, .close-modal-btn {
-            font-weight: 900 !important;
-            font-size: 14px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            cursor: pointer !important;
-            pointer-events: auto !important;
-            z-index: 100 !important;
-        }
-    </style>
-
-    <!-- Main CSS File -->
+    <!-- Main External CSS File -->
     <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -211,7 +62,7 @@
             <div class="tag"><i class="fa-solid fa-layer-group" style="font-size: 10px;"></i> MORE</div>
         </div>
         
-        <!-- Enhanced Thicker Progress Bar -->
+        <!-- Thicker Solid Progress Bar -->
         <div class="loader-bar"><div class="loader-fill" id="loaderFill"></div></div>
         <div class="loader-progress-text">
             <span id="loaderStatusText">Loading Books Securely...</span>
@@ -345,10 +196,10 @@
                                     <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
                                 </div>
                                 <div class="community-channel-meta">
-                                    <h4 style="white-space: normal; line-height: 1.2;">Join WhatsApp Channel</h4>
-                                    <div class="community-new-msg-tag community-wa-tag" style="display: flex; align-items: center; gap: 7px;">
+                                    <h4>Join WhatsApp Channel</h4>
+                                    <div class="community-new-msg-tag community-wa-tag">
                                         <span>1 new message</span>
-                                        <span class="pulsing-radio-dot" style="background:#10b981; color:#10b981; box-shadow: 0 0 8px #10b981;"></span>
+                                        <span class="pulsing-radio-dot" style="background:#10b981; color:#10b981; box-shadow:0 0 8px #10b981;"></span>
                                     </div>
                                 </div>
                             </div>
@@ -367,10 +218,10 @@
                                     <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" alt="Telegram">
                                 </div>
                                 <div class="community-channel-meta">
-                                    <h4 style="white-space: normal; line-height: 1.2;">Join Telegram Channel</h4>
-                                    <div class="community-new-msg-tag community-tg-tag" style="display: flex; align-items: center; gap: 7px;">
+                                    <h4>Join Telegram Channel</h4>
+                                    <div class="community-new-msg-tag community-tg-tag">
                                         <span>1 new message</span>
-                                        <span class="pulsing-radio-dot" style="background:#38bdf8; color:#38bdf8; box-shadow: 0 0 8px #38bdf8;"></span>
+                                        <span class="pulsing-radio-dot" style="background:#38bdf8; color:#38bdf8; box-shadow:0 0 8px #38bdf8;"></span>
                                     </div>
                                 </div>
                             </div>
@@ -390,9 +241,9 @@
                                 </div>
                                 <div class="community-channel-meta">
                                     <h4>Follow on Instagram</h4>
-                                    <div class="community-new-msg-tag community-ig-tag" style="display: flex; align-items: center; gap: 7px;">
+                                    <div class="community-new-msg-tag community-ig-tag">
                                         <span>Daily Updates</span>
-                                        <span class="pulsing-radio-dot" style="background:#ec4899; color:#ec4899; box-shadow: 0 0 8px #ec4899;"></span>
+                                        <span class="pulsing-radio-dot" style="background:#ec4899; color:#ec4899; box-shadow:0 0 8px #ec4899;"></span>
                                     </div>
                                 </div>
                             </div>
@@ -405,13 +256,13 @@
                         </div>
                     </div>
 
-                    <!-- Left to Right Flowing Shimmer Red Strip -->
+                    <!-- Flowing Shimmer Red Strip -->
                     <div class="community-must-join-strip">
-                        <svg viewBox="0 0 24 24" style="position:relative; z-index:2;"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                        <span class="community-must-join-text" style="position:relative; z-index:2;">
+                        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        <span class="community-must-join-text">
                             FOLLOW <b>ALL CHANNELS</b> TO UNLOCK ALL FREE E-BOOKS &amp; PDFS
                         </span>
-                        <svg viewBox="0 0 24 24" style="position:relative; z-index:2;"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                     </div>
 
                     <div class="community-popup-divider"></div>
@@ -1038,12 +889,12 @@
                 </div>
             </div>
 
-            <!-- TOKEN MODAL (Fixed Click/Close Button) -->
+            <!-- TOKEN MODAL -->
             <div id="tokenModalOverlay" class="modal-overlay-token" style="display: none;">
                 <div class="ambient-glow"></div>
 
                 <div class="auth-card" id="authCardBox" onclick="event.stopPropagation()">
-                    <button id="closeTokenModalBtn" class="close-modal-btn" title="Close" style="border: 1.5px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1); color: #ffffff;">
+                    <button id="closeTokenModalBtn" class="close-modal-btn" title="Close">
                         ✕
                     </button>
 
@@ -1217,7 +1068,6 @@
                                 <label>Email Address</label>
                                 <input type="email" id="supEmail" name="email" placeholder="Loading your registered email..." 
                                        readonly
-                                       style="cursor: not-allowed; opacity: 0.9; background: rgba(255, 255, 255, 0.05); color:#ffffff; font-weight:700;"
                                        required autocomplete="off">
                             </div>
 
@@ -1265,7 +1115,7 @@
                             <span style="font-size: 19px;">🚨</span>
                             <span class="modal-title">Select Issue</span>
                         </div>
-                        <button type="button" class="modal-close-btn" id="closeIssueModalBtn" style="font-weight:900;">
+                        <button type="button" class="modal-close-btn" id="closeIssueModalBtn">
                             ✕
                         </button>
                     </div>
@@ -1325,7 +1175,7 @@
         </div>
     </div>
 
-    <!-- Dynamic Auto-Rolling Year Picker Modal (Bold Close Button) -->
+    <!-- Dynamic Auto-Rolling Year Picker Modal -->
     <div class="center-popup-overlay" id="yearPopupOverlay">
         <div class="center-popup-box">
             <div class="popup-modal-header">
@@ -1333,7 +1183,7 @@
                     <i class="fas fa-calendar-check"></i>
                     Select Publish Year
                 </div>
-                <button class="popup-modal-close" id="closeYearModalBtn" style="font-weight:900; font-size:15px;">✕</button>
+                <button class="popup-modal-close" id="closeYearModalBtn">✕</button>
             </div>
             <div class="popup-modal-grid" id="yearOptionsList"></div>
         </div>
@@ -1347,7 +1197,7 @@
                     <i class="fas fa-globe"></i>
                     Select Language
                 </div>
-                <button class="popup-modal-close" id="closeLangModalBtn" style="font-weight:900; font-size:15px;">✕</button>
+                <button class="popup-modal-close" id="closeLangModalBtn">✕</button>
             </div>
             <div class="popup-modal-grid three-col" id="langOptionsList">
                 <div class="popup-select-option active" data-lang="Hindi">Hindi</div>
@@ -1385,14 +1235,14 @@
     <!-- Native Toast Pill Container -->
     <div id="spidyPillToast" class="spidy-pill-toast"></div>
 
-    <!-- Upload Tutorial Popup with Bold Close & Pulsating Green Dots -->
+    <!-- Upload Tutorial Popup -->
     <div class="ug-overlay hidden" id="uploadPopup">
         <div class="ug-card">
-            <button class="ug-close-btn" id="closeUploadPopupBtn" style="font-weight:900; font-size:15px; color:#ffffff;">✕</button>
+            <button class="ug-close-btn" id="closeUploadPopupBtn">✕</button>
             <img src="https://i.postimg.cc/1XYDWd3M/file-0000000038f87208b99601cc409d2e5c.png" alt="Book Upload Banner" class="ug-banner">
             
             <div class="ug-body">
-                <h2 class="ug-title" style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                <h2 class="ug-title">
                     <span class="pulsing-radio-dot" style="background:#22c55e; color:#22c55e; box-shadow:0 0 10px #22c55e;"></span>
                     <span>📢 Book Upload Kaise Karein?</span>
                     <span class="pulsing-radio-dot" style="background:#22c55e; color:#22c55e; box-shadow:0 0 10px #22c55e;"></span>
