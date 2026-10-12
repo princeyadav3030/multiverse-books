@@ -3062,10 +3062,10 @@ main#mainContentArea::-webkit-scrollbar { display: none; }
 /* 3. Dot Blink Ko Chota, Smooth Aur Pure Perfect Circle Banana (No Flat Line Cut) */
 .pulsing-radio-dot {
     position: relative;
-    width: 5.5px !important;            /* Size halka chota kiya */
-    height: 5.5px !important;
-    min-width: 5.5px !important;
-    min-height: 5.5px !important;
+    width: 4.5px !important;            /* Size halka chota kiya */
+    height: 4.5px !important;
+    min-width: 3.5px !important;
+    min-height: 3.5px !important;
     border-radius: 50% !important;
     display: inline-block;
     flex-shrink: 0;
