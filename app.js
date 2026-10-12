@@ -384,6 +384,7 @@ function initPromoCarousel() {
     startAutoSlide();
 }
 
+// 🌟 SUBJECT LIST VIEW WITH IMAGE 5 STYLE ROUND ARROW BADGE 🌟
 window.openBannerModules = function(bannerId) {
     const banner = dynamicBannersList.find(b => b.id === bannerId);
     if (!banner) return;
@@ -425,7 +426,9 @@ window.openBannerModules = function(bannerId) {
                     <div class="subject-name-main">${sub.name}</div>
                     <div class="subject-modules-count">${modulesArr.length} Modules Available</div>
                 </div>
-                <i class="fas fa-chevron-right pod-arrow-icon"></i>
+                <div class="pod-round-arrow-wrap">
+                    <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </div>
             </div>`;
         }
     });
@@ -443,6 +446,7 @@ window.openBannerModules = function(bannerId) {
     }
 };
 
+// 🌟 MODULE LIST WITH IMAGE 4 PDF SHEET ICON & IMAGE 5 ROUND ARROW BADGE (CHAPTER TEXT REMOVED) 🌟
 window.openSubjectModulesList = function(subjectKey) {
     if (!activeBannerData) return;
     activeSubjectKey = subjectKey;
@@ -475,15 +479,16 @@ window.openSubjectModulesList = function(subjectKey) {
 
             html += `
             <div class="module-pdf-card" onclick="window.readModulePdfDirectly(decodeURIComponent('${safeEncodedKey}'), decodeURIComponent('${encodedTitle}'))">
-                <div class="module-pdf-badge">
-                    <i class="fas fa-file-pdf"></i>
+                <div class="module-file-badge">
+                    <div class="module-file-badge-tag">PDF</div>
                 </div>
                 <div class="module-details-wrap">
                     <div class="module-title-h3">${escapeHTML(mod.name || 'Module')}</div>
-                    <div class="module-chapters-sub">${escapeHTML(mod.sub || 'Chapters & topics included')}</div>
                     <span class="module-tag-pages"><i class="fas fa-layer-group"></i> ${escapeHTML(pageLabel)}</span>
                 </div>
-                <i class="fas fa-chevron-right" style="color:rgba(255,255,255,0.25); font-size:0.9rem;"></i>
+                <div class="pod-round-arrow-wrap">
+                    <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </div>
             </div>`;
         });
         container.innerHTML = html;
@@ -1238,7 +1243,7 @@ document.addEventListener('click', (e) => {
 }, true);
         
 // ==========================================
-// 9. AUTHENTICATION OBSERVER & EMAIL LOCK IN SUPPORT
+// 9. AUTHENTICATION OBSERVER
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (unsubBanners) { unsubBanners(); unsubBanners = null; }
@@ -1264,7 +1269,7 @@ onAuthStateChanged(auth, async (user) => {
         CURRENT_ADMIN_NAME = dName;
         CURRENT_ADMIN_EMAIL = user.email;
 
-        // Auto populate registered email & keep it securely locked in Support Hub
+        // Auto populate email & keep locked in Support Hub
         if (supEmailField) {
             supEmailField.value = user.email || "";
             supEmailField.readOnly = true;
@@ -1969,7 +1974,8 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     } 
 });
 
-document.getElementById('googleSignInBtn')?.addEventListener('click', async () => { 
+document.getElementById('googleSignInBtn')?.addEventListener('click', async () => 
+{ 
     const btn = document.getElementById('googleSignInBtn');
     const originalContent = btn.innerHTML;
     btn.innerHTML = `<span style="display:flex; align-items:center; gap:8px;"><i class="fas fa-spinner fa-spin"></i> Connecting...</span>`;
@@ -2175,7 +2181,6 @@ document.getElementById('menu-contact')?.addEventListener('click', (e) => {
     history.pushState({ popup: 'support' }, '');
     document.getElementById('supportModalOverlay')?.classList.add('active');
 
-    // Ensure email is preset from logged-in user if available
     const supEmail = document.getElementById('supEmail');
     if (supEmail && auth.currentUser) {
         supEmail.value = auth.currentUser.email || "";
@@ -2435,7 +2440,7 @@ function showCenteredPdfLoader(message = "Aapki Kitab Khul Rahi Hai... Bas Kuch 
 }
 
 // =========================================================================
-// 14. ULTRA HD VECTOR PDF ENGINE (ZERO BLACK-SCREEN & INSTANT DOUBLE TAP ZOOM)
+// 14. ULTRA HD VECTOR PDF ENGINE
 // =========================================================================
 async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -3101,7 +3106,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ========================================================
-// 17. TOKEN VERIFICATION & GET KEY PORTAL
+// 17. TOKEN VERIFICATION & GET KEY PORTAL (FIXED CLOSE)
 // ========================================================
 const tokenModal = document.getElementById('tokenModalOverlay');
 const tokenInput = document.getElementById('tokenInput');
@@ -3137,7 +3142,10 @@ tokenInput?.addEventListener('keydown', (e) => {
     }
 });
 
-document.getElementById('closeTokenModalBtn')?.addEventListener('click', () => {
+// 🌟 RELIABLE CLOSE BUTTON FOR TOKEN MODAL 🌟
+document.getElementById('closeTokenModalBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (history.state && history.state.popup === 'tokenModal') {
         history.back();
     } else if (tokenModal) {
