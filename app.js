@@ -446,7 +446,7 @@ window.openBannerModules = function(bannerId) {
     }
 };
 
-// 🌟 MODULE LIST WITH VECTOR RED-FOLD PDF SVG ICON 🌟
+// 🌟 MODULE LIST 🌟
 window.openSubjectModulesList = function(subjectKey) {
     if (!activeBannerData) return;
     activeSubjectKey = subjectKey;
@@ -501,7 +501,7 @@ window.openSubjectModulesList = function(subjectKey) {
         container.innerHTML = html;
     }
 
-    history.pushState({ popup: 'moduleList' }, '');
+    history.pushState({ popup: 'moduleList', subjectKey: subjectKey }, '');
     document.getElementById('bannerSubjectsView').classList.add('hidden-view');
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
@@ -528,7 +528,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     }
 
     if (!hasValidToken && !IS_SUPER_ADMIN) {
-        history.pushState({ popup: 'tokenModal' }, '');
+        history.pushState({ popup: 'tokenModal', returnTo: 'module' }, '');
         const tModal = document.getElementById('tokenModalOverlay');
         if (tModal) tModal.style.display = 'flex';
         return;
@@ -543,10 +543,10 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
         pdfViewer.style.display = 'flex';
     }
 
-    showCenteredPdfLoader("Aapki Kitab Khul Rahi Hai... Bas Kuch Hi Second! 🚀📖");
+    showCenteredPdfLoader("Just a Moment… Your Module Is Almost Ready..!! 🚀📚");
 
     if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
-        renderPdfInModal("", true); 
+        renderPdfInModal("", true, "module"); 
         return;
     }
 
@@ -565,16 +565,19 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 
         const data = await response.json();
         if (response.ok && data.success) {
-            renderPdfInModal(data.pdfLink, true);
+            renderPdfInModal(data.pdfLink, true, "module");
         } else {
-            renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true);
+            renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true, "module");
         }
     } catch (err) {
-        renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true);
+        renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true, "module");
     }
 };
 
-document.getElementById('moduleBackBtn')?.addEventListener('click', () => {
+document.getElementById('moduleBackBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     const modulesView = document.getElementById('bannerModulesView');
     if (modulesView && !modulesView.classList.contains('hidden-view')) {
         if (history.state && history.state.popup === 'moduleList') {
@@ -2328,7 +2331,7 @@ document.getElementById('supportContactForm')?.addEventListener('submit', async 
     }
 });
 
-// POPSTATE LISTENER
+// POPSTATE LISTENER (SEAMLESS MULTI-LEVEL STEP-BY-STEP BACK NAVIGATION)
 window.addEventListener('popstate', (e) => {
     const loginOverlay = document.getElementById('loginOverlay');
     if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
@@ -2359,6 +2362,12 @@ window.addEventListener('popstate', (e) => {
         return;
     }
 
+    const tokenModal = document.getElementById('tokenModalOverlay');
+    if (tokenModal && tokenModal.style.display === 'flex') {
+        tokenModal.style.display = 'none';
+        return;
+    }
+
     const supportModal = document.getElementById('supportModalOverlay');
     if (supportModal && supportModal.classList.contains('active')) {
         const issueModal = document.getElementById('issueModal');
@@ -2376,25 +2385,24 @@ window.addEventListener('popstate', (e) => {
         return;
     }
 
+    // Step-by-Step Module Hierarchy Navigation
     const bannerModal = document.getElementById('moduleBannerModal');
     if (bannerModal && bannerModal.classList.contains('active')) {
         const modulesView = document.getElementById('bannerModulesView');
+        const subjectsView = document.getElementById('bannerSubjectsView');
+
         if (modulesView && !modulesView.classList.contains('hidden-view')) {
             modulesView.classList.add('hidden-view');
-            document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
+            subjectsView?.classList.remove('hidden-view');
             document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
+            activeSubjectKey = null;
+            return;
         } else {
             bannerModal.classList.remove('active');
             activeBannerData = null;
             activeSubjectKey = null;
+            return;
         }
-        return;
-    }
-
-    const tokenModal = document.getElementById('tokenModalOverlay');
-    if (tokenModal && tokenModal.style.display === 'flex') {
-        tokenModal.style.display = 'none';
-        return;
     }
 
     document.getElementById('noti-panel')?.classList.remove('active'); 
@@ -2445,7 +2453,8 @@ function cleanupPdfResources() {
     }
 }
 
-function showCenteredPdfLoader(message = "Aapki Kitab Khul Rahi Hai... Bas Kuch Hi Second! 🚀📖") {
+// 🌟 DYNAMIC LOADER MESSAGE 🌟
+function showCenteredPdfLoader(message = "Just a Moment… Your Book Is Almost Ready..!! 🚀📚") {
     const container = document.getElementById('pdfContainer');
     const existingLoader = document.getElementById('pdfCenteredLoader');
     if (existingLoader) existingLoader.remove();
@@ -2467,11 +2476,14 @@ function showCenteredPdfLoader(message = "Aapki Kitab Khul Rahi Hai... Bas Kuch 
 // =========================================================================
 // 14. ULTRA HD VECTOR PDF ENGINE
 // =========================================================================
-async function renderPdfInModal(pdfUrl, keepExistingLoader = false) {
+async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docType = "book") {
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
     if (!keepExistingLoader) {
-        showCenteredPdfLoader("Aapki Kitab Khul Rahi Hai... Bas Kuch Hi Second! 🚀📖");
+        const loaderMsg = docType === "module" 
+            ? "Just a Moment… Your Module Is Almost Ready..!! 🚀📚" 
+            : "Just a Moment… Your Book Is Almost Ready..!! 🚀📚";
+        showCenteredPdfLoader(loaderMsg);
     }
     
     if (scrollContainer) scrollContainer.innerHTML = '';
@@ -2991,7 +3003,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         }
 
         if(!hasValidToken && !IS_SUPER_ADMIN) {
-             history.pushState({ popup: 'tokenModal' }, '');
+             history.pushState({ popup: 'tokenModal', returnTo: 'book' }, '');
              const tModal = document.getElementById('tokenModalOverlay');
              if (tModal) tModal.style.display = 'flex';
              return; 
@@ -3020,11 +3032,11 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
                 if (title) title.innerText = sanitizeHTML(book.title);
                 history.pushState({ popup: 'pdfViewer', from: 'book' }, '');
                 if (pdfViewer) pdfViewer.style.display = 'flex';
-                renderPdfInModal(data.pdfLink);
+                renderPdfInModal(data.pdfLink, false, "book");
             } else {
                 if (response.status === 401 || (data.error && data.error.includes('Unauthorized'))) {
                     localStorage.removeItem('spidy_secure_session');
-                    history.pushState({ popup: 'tokenModal' }, '');
+                    history.pushState({ popup: 'tokenModal', returnTo: 'book' }, '');
                     const tModal = document.getElementById('tokenModalOverlay');
                     if (tModal) tModal.style.display = 'flex';
                 } else {
@@ -3131,7 +3143,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ========================================================
-// 17. TOKEN VERIFICATION & GET KEY PORTAL
+// 17. TOKEN VERIFICATION & GET KEY PORTAL (INSTANT-CLOSE)
 // ========================================================
 const tokenModal = document.getElementById('tokenModalOverlay');
 const tokenInput = document.getElementById('tokenInput');
@@ -3167,15 +3179,25 @@ tokenInput?.addEventListener('keydown', (e) => {
     }
 });
 
-document.getElementById('closeTokenModalBtn')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (history.state && history.state.popup === 'tokenModal') {
-        history.back();
-    } else if (tokenModal) {
+// Fast Response Handler for Token Modal Close Button
+function handleFastTokenClose(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    if (tokenModal) {
         tokenModal.style.display = 'none';
     }
-});
+    if (history.state && history.state.popup === 'tokenModal') {
+        history.back();
+    }
+}
+
+const closeTokenBtn = document.getElementById('closeTokenModalBtn');
+if (closeTokenBtn) {
+    closeTokenBtn.addEventListener('click', handleFastTokenClose);
+    closeTokenBtn.addEventListener('touchstart', handleFastTokenClose, { passive: false });
+}
 
 getKeyBtn?.addEventListener('click', async () => {
     const originalContent = getKeyBtn.innerHTML;
