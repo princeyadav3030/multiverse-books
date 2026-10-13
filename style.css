@@ -290,7 +290,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .upload-pipeline-screen .footer-note svg { width: 14px; height: 14px; fill: var(--pipeline-green); }
 
 /* ========================================================
-   14. TUTORIAL MODAL (BOLD CLOSE & COMPACT ACCENT + PROPER DOT SIZE)
+   14. TUTORIAL MODAL (BOLD CLOSE & COMPACT ACCENT)
    ======================================================== */
 .ug-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(6px); display: flex; justify-content: center; align-items: center; z-index: 9999999; transition: opacity 0.3s ease; padding: 16px; }
 .ug-overlay.hidden { opacity: 0; pointer-events: none; display: none !important; }
@@ -300,7 +300,6 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .ug-banner { width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; background-color: #000000; }
 .ug-body { padding: 16px 18px 20px; text-align: center; }
 .ug-title { font-size: 14.5px; font-weight: 800; margin-bottom: 12px; color: #ffffff; display: flex; justify-content: center; align-items: center; gap: 8px; font-family: 'Poppins', sans-serif; }
-/* Slightly larger blinking dots for Upload Tutorial title */
 .ug-title .ug-radio-dot, .ug-title .pulsing-radio-dot { width: 6.5px !important; height: 6.5px !important; min-width: 6.5px !important; min-height: 6.5px !important; margin: 0 4px !important; }
 .ug-text { font-size: 11.5px; color: #cbd5e1; line-height: 1.45; margin-bottom: 10px; font-weight: 600; text-align: left; background: rgba(255, 255, 255, 0.03); padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.12); border-left: 2px solid #ffffff; }
 .ug-quote-green { font-style: italic; font-size: 11px; color: #f1f5f9; line-height: 1.5; margin-bottom: 18px; font-weight: 700; text-align: left; background: rgba(34, 197, 94, 0.08); padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(34, 197, 94, 0.3); border-left: 2px solid #22c55e; }
@@ -768,7 +767,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .dmca-content::-webkit-scrollbar { display: none; }
 
 /* ========================================================
-   28. 4-BOX MAIN FILTER & SUB-FILTER MODALS (COMPACT FIT - NO SCROLL)
+   28. 4-BOX MAIN FILTER & SUB-FILTER MODALS (BALANCED FIT - NO SCROLL)
    ======================================================== */
 .app-filter-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.04); border-radius: 12px; cursor: pointer; transition: 0.2s; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; }
 .app-filter-icon:active { transform: scale(0.9); }
@@ -796,61 +795,61 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .filter-select-box span { font-family: 'Poppins', sans-serif; font-size: 13.5px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 6px; flex-grow: 1; }
 .arrow-icon { width: 16px; height: 16px; stroke: #737887; stroke-width: 2.2; fill: none; flex-shrink: 0; }
 
-/* COMPACT SUB-FILTER MODAL (Fits all items completely in one viewport without scroll) */
+/* BALANCED SUB-FILTER MODAL (Proportionally larger pills that fit entirely in one screen) */
 .center-modal-card { 
     width: 100%; 
-    max-width: 360px; 
+    max-width: 365px; 
     background: #111317; 
     border: 1px solid #1f232b; 
-    border-radius: 20px; 
+    border-radius: 24px; 
     box-shadow: 0 35px 80px rgba(0, 0, 0, 0.95); 
     transform: scale(0.93) translateY(8px); 
     transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1); 
     display: flex; 
     flex-direction: column; 
-    max-height: 96vh !important; 
+    max-height: 94vh !important; 
     overflow: hidden; 
     cursor: default; 
 }
 .modal-overlay.active .center-modal-card { transform: scale(1) translateY(0); }
-.sheet-pill-indicator { width: 36px; height: 3.5px; background: #2a2e39; border-radius: 99px; margin: 8px auto 0; }
-.modal-head { padding: 9px 14px 6px; display: flex; align-items: center; justify-content: space-between; }
-.head-left { display: flex; align-items: center; gap: 8px; }
-.slider-filter-logo { width: 17px; height: 17px; stroke-width: 2.2; fill: none; flex-shrink: 0; }
-.modal-title-text { font-family: 'Poppins', sans-serif; font-size: 14.5px; font-weight: 900; color: #ffffff; }
-.modal-close-btn { width: 28px; height: 28px; background: #191c24; border: 1px solid #262b37; border-radius: 50%; color: #9299a8; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; outline: none; }
-.close-icon-svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2.4; fill: none; }
-.header-divider-container { width: 100%; padding: 0 14px; margin-bottom: 3px; }
+.sheet-pill-indicator { width: 40px; height: 4px; background: #2a2e39; border-radius: 99px; margin: 10px auto 0; }
+.modal-head { padding: 11px 16px 8px; display: flex; align-items: center; justify-content: space-between; }
+.head-left { display: flex; align-items: center; gap: 9px; }
+.slider-filter-logo { width: 18px; height: 18px; stroke-width: 2.2; fill: none; flex-shrink: 0; }
+.modal-title-text { font-family: 'Poppins', sans-serif; font-size: 15.5px; font-weight: 900; color: #ffffff; }
+.modal-close-btn { width: 30px; height: 30px; background: #191c24; border: 1px solid #262b37; border-radius: 50%; color: #9299a8; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; outline: none; }
+.close-icon-svg { width: 13px; height: 13px; stroke: currentColor; stroke-width: 2.4; fill: none; }
+.header-divider-container { width: 100%; padding: 0 16px; margin-bottom: 4px; }
 .header-divider-line { width: 100%; height: 1px; background: #1c202a; }
 
 .modal-body-content { 
-    padding: 6px 12px 10px !important; 
+    padding: 8px 14px 14px !important; 
     overflow: hidden !important; 
     display: flex; 
     flex-direction: column; 
-    gap: 5px; 
+    gap: 7px; 
 }
 .modal-body-content::-webkit-scrollbar { display: none; }
-.section-subtitle-row { display: flex; align-items: center; gap: 5px; padding-left: 2px; user-select: none; margin-bottom: 2px; }
-.subtitle-icon { width: 11px; height: 11px; stroke-width: 2.2; fill: none; flex-shrink: 0; }
-.section-subtitle { font-size: 8.5px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+.section-subtitle-row { display: flex; align-items: center; gap: 6px; padding-left: 2px; user-select: none; margin-bottom: 3px; }
+.subtitle-icon { width: 12px; height: 12px; stroke-width: 2.2; fill: none; flex-shrink: 0; }
+.section-subtitle { font-size: 9.5px; font-weight: 800; letter-spacing: 0.85px; text-transform: uppercase; }
 
-/* Compact 2-column Grid: perfectly calibrated to fit all 24 cards */
+/* Balanced 2-column Grid with properly enlarged cards */
 .pills-grid { 
     display: grid; 
     grid-template-columns: repeat(2, minmax(0, 1fr)); 
-    gap: 4px 6px !important; 
+    gap: 6px 8px !important; 
 }
 .pill-btn { 
     background: #181b22; 
     border: 1px solid #282c38; 
-    border-radius: 8px !important; 
-    padding: 5px 6px !important; 
-    min-height: 27px !important; 
-    height: 27px !important; 
+    border-radius: 10px !important; 
+    padding: 6px 10px !important; 
+    min-height: 34px !important; 
+    height: 34px !important; 
     color: #cbd5e1; 
     font-family: 'Inter', 'Poppins', sans-serif; 
-    font-size: 10.5px !important; 
+    font-size: 12px !important; 
     font-weight: 700 !important; 
     text-align: center; 
     cursor: pointer; 
@@ -860,7 +859,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
     white-space: nowrap; 
     overflow: hidden; 
     text-overflow: ellipsis; 
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.5); 
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); 
     transition: all 0.15s ease; 
     line-height: 1 !important;
 }
