@@ -443,11 +443,11 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .message-bubble { background-color: var(--bg-card-channel); backdrop-filter: blur(14px); border-radius: 14px; padding: 12px 14px; width: 98%; max-width: 370px; margin: 0 auto; position: relative; box-shadow: 0 8px 24px rgba(0,0,0,0.65); display: flex; flex-direction: column; border: 1px solid var(--card-border-channel); transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease; cursor: pointer; transform: none !important; }
 .message-bubble:active { transform: none !important; }
 
-/* Fixed High-Visibility Glowing Pulse (No !important in @keyframes) */
+/* Subtle Inner Card Highlight (No Outer Glow, No Harsh Border) */
 .message-bubble.highlight-post { animation: luxuryGlowPulse 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards !important; z-index: 10; }
 @keyframes luxuryGlowPulse {
     0% { background-color: var(--bg-card-channel); border-color: var(--card-border-channel); box-shadow: 0 8px 24px rgba(0,0,0,0.65); }
-    18%, 70% { background-color: #172435; border-color: #38bdf8; box-shadow: 0 0 25px rgba(56, 189, 248, 0.55), 0 8px 30px rgba(0,0,0,0.85); }
+    18%, 70% { background-color: #1a2c42; border-color: rgba(56, 189, 248, 0.25); box-shadow: 0 8px 24px rgba(0,0,0,0.65); }
     100% { background-color: var(--bg-card-channel); border-color: var(--card-border-channel); box-shadow: 0 8px 24px rgba(0,0,0,0.65); }
 }
 
