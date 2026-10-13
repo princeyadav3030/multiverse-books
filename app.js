@@ -384,7 +384,7 @@ function initPromoCarousel() {
     startAutoSlide();
 }
 
-// 🌟 SUBJECT LIST VIEW WITH IMAGE 5 STYLE ROUND ARROW BADGE 🌟
+// 🌟 SUBJECT LIST VIEW 🌟
 window.openBannerModules = function(bannerId) {
     const banner = dynamicBannersList.find(b => b.id === bannerId);
     if (!banner) return;
@@ -446,7 +446,7 @@ window.openBannerModules = function(bannerId) {
     }
 };
 
-// 🌟 MODULE LIST WITH IMAGE 4 PDF SHEET ICON & IMAGE 5 ROUND ARROW BADGE (CHAPTER TEXT REMOVED) 🌟
+// 🌟 MODULE LIST WITH VECTOR RED-FOLD PDF SVG ICON 🌟
 window.openSubjectModulesList = function(subjectKey) {
     if (!activeBannerData) return;
     activeSubjectKey = subjectKey;
@@ -479,8 +479,15 @@ window.openSubjectModulesList = function(subjectKey) {
 
             html += `
             <div class="module-pdf-card" onclick="window.readModulePdfDirectly(decodeURIComponent('${safeEncodedKey}'), decodeURIComponent('${encodedTitle}'))">
-                <div class="module-file-badge">
-                    <div class="module-file-badge-tag">PDF</div>
+                <div class="module-svg-icon-wrap">
+                    <svg viewBox="0 0 64 64" fill="none" width="44" height="44">
+                        <path d="M16 8C14.9 8 14 8.9 14 10V54C14 55.1 14.9 56 16 56H48C49.1 56 50 55.1 50 54V22L36 8H16Z" fill="#dc2626"/>
+                        <path d="M36 8V22H50L36 8Z" fill="#f87171"/>
+                        <line x1="22" y1="28" x2="42" y2="28" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+                        <line x1="22" y1="34" x2="34" y2="34" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+                        <rect x="20" y="40" width="24" height="9" rx="3" fill="#ffffff"/>
+                        <text x="32" y="47" font-family="sans-serif" font-size="6.8" font-weight="800" fill="#dc2626" text-anchor="middle">PDF</text>
+                    </svg>
                 </div>
                 <div class="module-details-wrap">
                     <div class="module-title-h3">${escapeHTML(mod.name || 'Module')}</div>
@@ -819,16 +826,25 @@ function checkAndOpenTargetPost() {
     }
 
     if (targetPostId) {
-        setTimeout(() => {
-            const notiPanel = document.getElementById('noti-panel');
-            if (notiPanel && !notiPanel.classList.contains('active')) {
-                history.pushState({ popup: 'noti' }, '');
-                notiPanel.classList.add('active');
+        const notiPanel = document.getElementById('noti-panel');
+        if (notiPanel && !notiPanel.classList.contains('active')) {
+            history.pushState({ popup: 'noti' }, '');
+            notiPanel.classList.add('active');
+        }
+        
+        let attempts = 0;
+        const checkTargetInterval = setInterval(() => {
+            attempts++;
+            const targetElement = document.getElementById(`post_${targetPostId}`);
+            if (targetElement) {
+                clearInterval(checkTargetInterval);
+                setTimeout(() => {
+                    window.scrollToChannelPost(targetPostId);
+                }, 200);
+            } else if (attempts > 25) {
+                clearInterval(checkTargetInterval);
             }
-            setTimeout(() => {
-                window.scrollToChannelPost(targetPostId);
-            }, 500);
-        }, 300);
+        }, 120);
     }
 }
 
@@ -957,10 +973,14 @@ window.scrollToChannelPost = function(postId) {
     const target = document.getElementById(`post_${postId}`);
     if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
         target.classList.remove('highlight-post');
-        void target.offsetWidth;
+        void target.offsetWidth; 
         target.classList.add('highlight-post');
-        setTimeout(() => target.classList.remove('highlight-post'), 2800);
+        
+        setTimeout(() => {
+            target.classList.remove('highlight-post');
+        }, 2900);
     }
 };
 
@@ -1113,7 +1133,9 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         postViewObserver.observe(bubble);
     });
 
-    if (isInitialOrPanelOpen) {
+    const hasTargetPost = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
+
+    if (isInitialOrPanelOpen && !hasTargetPost) {
         chatBody.style.visibility = 'hidden';
         chatBody.innerHTML = '';
         chatBody.appendChild(fragment);
@@ -1129,7 +1151,10 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         const prevScrollTop = chatBody.scrollTop;
         chatBody.innerHTML = '';
         chatBody.appendChild(fragment);
-        chatBody.scrollTop = prevScrollTop;
+        chatBody.style.visibility = 'visible';
+        if (!hasTargetPost) {
+            chatBody.scrollTop = prevScrollTop;
+        }
     }
 }
 
@@ -1269,7 +1294,6 @@ onAuthStateChanged(auth, async (user) => {
         CURRENT_ADMIN_NAME = dName;
         CURRENT_ADMIN_EMAIL = user.email;
 
-        // Auto populate email & keep locked in Support Hub
         if (supEmailField) {
             supEmailField.value = user.email || "";
             supEmailField.readOnly = true;
@@ -1378,9 +1402,10 @@ onAuthStateChanged(auth, async (user) => {
         const notiPanel = document.getElementById('noti-panel');
         const isNotiPanelOpen = notiPanel && notiPanel.classList.contains('active');
         const blinkDot = document.querySelector('.blink-dot');
+        const hasTargetPost = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
 
         if (isInitialChannelLoad) {
-            renderChannelFeed(livePosts, true);
+            renderChannelFeed(livePosts, !hasTargetPost);
             isInitialChannelLoad = false;
             checkAndOpenTargetPost();
         } else if (livePosts.length !== prevCount) {
@@ -1398,7 +1423,7 @@ onAuthStateChanged(auth, async (user) => {
                 if (scrollDownWrapper) scrollDownWrapper.classList.add('show');
                 renderChannelFeed(livePosts, false);
             } else {
-                renderChannelFeed(livePosts, true);
+                renderChannelFeed(livePosts, !hasTargetPost);
             }
         } else {
             livePosts.forEach(p => updateReactionInDOM(p.id));
@@ -2073,13 +2098,13 @@ document.getElementById('open-noti')?.addEventListener('click', () => {
     if (blinkDot) blinkDot.style.display = 'none'; 
     
     if (livePosts.length > 0) {
-        renderChannelFeed(livePosts, true);
-        setTimeout(() => {
-            const hasTarget = window.location.hash.includes("post/");
-            if (!hasTarget) {
-                forceScrollChatToBottom();
-            }
-        }, 60);
+        const hasTarget = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
+        renderChannelFeed(livePosts, !hasTarget);
+        if (!hasTarget) {
+            setTimeout(forceScrollChatToBottom, 60);
+        } else {
+            checkAndOpenTargetPost();
+        }
     } else {
         renderChannelLoader();
     }
@@ -3106,7 +3131,7 @@ submitReportBtn?.addEventListener('click', async () => {
 });
 
 // ========================================================
-// 17. TOKEN VERIFICATION & GET KEY PORTAL (FIXED CLOSE)
+// 17. TOKEN VERIFICATION & GET KEY PORTAL
 // ========================================================
 const tokenModal = document.getElementById('tokenModalOverlay');
 const tokenInput = document.getElementById('tokenInput');
@@ -3142,7 +3167,6 @@ tokenInput?.addEventListener('keydown', (e) => {
     }
 });
 
-// 🌟 RELIABLE CLOSE BUTTON FOR TOKEN MODAL 🌟
 document.getElementById('closeTokenModalBtn')?.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
