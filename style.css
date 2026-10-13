@@ -422,7 +422,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .pdf-modal-btn.confirm { background: #38bdf8; color: #000000; font-weight: 800; }
 
 /* ========================================================
-   19. NOTIFICATIONS CHANNEL PANEL
+   19. NOTIFICATIONS CHANNEL PANEL (WITH WORKING GLOW PULSE)
    ======================================================== */
 .notifications-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-solid-channel); z-index: 999; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; background-repeat: repeat; background-size: 440px 440px; background-position: center top; }
 .notifications-panel.active { transform: translateX(0); }
@@ -442,8 +442,15 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .date-divider { display: flex; justify-content: center; align-items: center; margin: 6px auto; width: fit-content; background: rgba(24, 28, 38, 0.88); color: #9ca3af; font-size: 11px; font-weight: 600; padding: 4px 14px; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.07); backdrop-filter: blur(8px); }
 .message-bubble { background-color: var(--bg-card-channel); backdrop-filter: blur(14px); border-radius: 14px; padding: 12px 14px; width: 98%; max-width: 370px; margin: 0 auto; position: relative; box-shadow: 0 8px 24px rgba(0,0,0,0.65); display: flex; flex-direction: column; border: 1px solid var(--card-border-channel); transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease; cursor: pointer; transform: none !important; }
 .message-bubble:active { transform: none !important; }
-.message-bubble.highlight-post { animation: luxuryGlowPulse 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
-@keyframes luxuryGlowPulse { 0% { background-color: var(--bg-card-channel); border-color: var(--card-border-channel); box-shadow: 0 8px 24px rgba(0,0,0,0.65); } 18%, 68% { background-color: #172435 !important; border-color: #38bdf8 !important; box-shadow: 0 0 25px rgba(56, 189, 248, 0.45), 0 8px 30px rgba(0,0,0,0.85) !important; } 100% { background-color: var(--bg-card-channel); border-color: var(--card-border-channel); box-shadow: 0 8px 24px rgba(0,0,0,0.65); } }
+
+/* Fixed High-Visibility Glowing Pulse (No !important in @keyframes) */
+.message-bubble.highlight-post { animation: luxuryGlowPulse 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards !important; z-index: 10; }
+@keyframes luxuryGlowPulse {
+    0% { background-color: var(--bg-card-channel); border-color: var(--card-border-channel); box-shadow: 0 8px 24px rgba(0,0,0,0.65); }
+    18%, 70% { background-color: #172435; border-color: #38bdf8; box-shadow: 0 0 25px rgba(56, 189, 248, 0.55), 0 8px 30px rgba(0,0,0,0.85); }
+    100% { background-color: var(--bg-card-channel); border-color: var(--card-border-channel); box-shadow: 0 8px 24px rgba(0,0,0,0.65); }
+}
+
 .msg-image { width: 100%; border-radius: 10px; margin-bottom: 8px; object-fit: cover; display: block; border: 1px solid rgba(255,255,255,0.06); max-height: 280px; }
 .msg-text { color: var(--text-primary); font-size: 14px; line-height: 1.55; word-break: break-word; pointer-events: none; }
 .msg-text b { font-weight: 700; color: #ffffff; }
@@ -666,7 +673,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .auth-card .card-footer i.icon-shield-token { color: #10b981; font-size: 12px; }
 
 /* ========================================================
-   26. MODULE VIEW SCREENS & ROUND ARROW BADGES
+   26. MODULE VIEW SCREENS & CRISP PDF SVG ICONS
    ======================================================== */
 .module-view-screen { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 18px 40px; display: flex; flex-direction: column; }
 .module-view-screen.hidden-view { display: none !important; }
@@ -696,9 +703,11 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .module-cards-container { display: flex; flex-direction: column; gap: 12px; width: 100%; }
 .module-pdf-card { background: #0f121a; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all 0.22s ease; }
 .module-pdf-card:active { transform: scale(0.98); }
-.module-file-badge { width: 44px; height: 48px; position: relative; background: #ffffff; border-radius: 7px 14px 7px 7px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); flex-shrink: 0; }
-.module-file-badge::after { content: ''; position: absolute; top: 0; right: 0; width: 14px; height: 14px; background: #cbd5e1; border-bottom-left-radius: 5px; }
-.module-file-badge-tag { width: 34px; height: 15px; background: #ef4444; color: #ffffff; font-size: 8px; font-weight: 900; border-radius: 3px; display: flex; align-items: center; justify-content: center; letter-spacing: 0.5px; margin-bottom: 3px; font-family: 'Poppins', sans-serif; }
+
+/* SVG Vector PDF Icon Container for Modules (Image 4 Alignment) */
+.module-svg-icon-wrap, .module-file-badge { width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative; background: transparent !important; box-shadow: none !important; border: none !important; padding: 0 !important; }
+.module-svg-icon-wrap svg, .module-file-badge svg { width: 44px !important; height: 44px !important; display: block; filter: drop-shadow(0 4px 12px rgba(220, 38, 38, 0.35)); }
+
 .module-details-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .module-title-h3 { font-size: 0.96rem; font-weight: 800; color: #ffffff; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .module-tag-pages { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); padding: 2.5px 8px; border-radius: 6px; font-weight: 700; width: fit-content; }
