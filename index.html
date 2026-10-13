@@ -159,10 +159,10 @@
                 <span>Continue with Google</span>
             </button>
 
-            <!-- Updated: Image 6 Style Underlined Sign Up Link -->
+            <!-- Sign Up without underline -->
             <p class="register-prompt">
                 Don't have an account? 
-                <a href="javascript:void(0)" class="register-link">Sign Up</a>
+                <a href="javascript:void(0)" class="register-link" style="text-decoration: none !important; border-bottom: none !important;">Sign Up</a>
             </p>
         </main>
     </div>
@@ -186,7 +186,7 @@
                     <h3 class="community-popup-title">Free Books &amp; Study Material</h3>
                     
                     <p class="community-popup-desc">
-                        Study material ke liye idhar-udhar bhatakna chhodo! 📚 Ab milega saara content bilkul FREE. Instant updates aur best books paane ke liye aaj hi hamare channels join karein.
+                        Study material ke liye idhar-udhar bhatakna chhodo! 📚 Ab milega saara content bilkul FREE. Instant updates aur best books paane ke liye aaj hi hamare channels follow karein.
                     </p>
 
                     <div class="community-channel-list">
@@ -234,7 +234,7 @@
                             </button>
                         </div>
 
-                        <!-- Official Instagram Card -->
+                        <!-- Official Instagram Card (No White Glow) -->
                         <div class="community-channel-card" id="btnJoinInstagram">
                             <div class="community-channel-left">
                                 <div class="community-icon-box-3d community-ig-shadow">
@@ -243,7 +243,7 @@
                                 <div class="community-channel-meta">
                                     <h4>Follow on Instagram</h4>
                                     <div class="community-new-msg-tag community-ig-tag">
-                                        <span>1 new Update</span>
+                                        <span>Daily Updates</span>
                                         <span class="pulsing-radio-dot" style="background:#ec4899; color:#ec4899; box-shadow:0 0 8px #ec4899;"></span>
                                     </div>
                                 </div>
@@ -551,7 +551,7 @@
             <div class="overlay-panel" id="moduleBannerModal" style="z-index: 99999; background: #07090e;">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
-                        <button class="back-btn back-chevron-btn" id="moduleBackBtn" title="Back"><i class="fas fa-chevron-left"></i></button>
+                        <button class="back-btn back-chevron-btn" id="moduleBackBtn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
                         <h1 class="modal-title" id="moduleHeaderTitle">MODULE PACK</h1>
                     </div>
                     <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
@@ -603,7 +603,7 @@
                             <svg class="label-icon" viewBox="0 0 24 24">
                                 <circle cx="12" cy="12" r="10"></circle>
                                 <line x1="2" y1="12" x2="22" y2="12"></line>
-                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                             </svg>
                             <span class="filter-label">LANGUAGE</span>
                         </div>
@@ -668,9 +668,9 @@
                 </div>
             </div>
 
-            <!-- SUB-OPTIONS POPUP MODAL -->
+            <!-- SUB-OPTIONS POPUP MODAL (COMPACT SINGLE-SCREEN FIT) -->
             <div class="modal-overlay" id="subFilterModalOverlay">
-                <div class="center-modal-card" id="centerModalCard" onclick="event.stopPropagation()">
+                <div class="center-modal-card compact-fit-card" id="centerModalCard" onclick="event.stopPropagation()">
                     <div class="sheet-pill-indicator"></div>
 
                     <div class="modal-head">
@@ -697,12 +697,12 @@
                         <div class="header-divider-line"></div>
                     </div>
 
-                    <div class="modal-body-content">
+                    <div class="modal-body-content compact-pills-scroll">
                         <div class="section-subtitle-row">
                             <div id="modalSubtitleIcon"></div>
                             <span class="section-subtitle" id="modalSubText">SELECT EXAM / BOARD</span>
                         </div>
-                        <div class="pills-grid" id="modalGridContainer"></div>
+                        <div class="pills-grid compact-grid" id="modalGridContainer"></div>
                     </div>
                 </div>
             </div>
@@ -711,7 +711,7 @@
             <div class="download-modal" id="downloadModal" style="display: none;">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
-                        <button class="back-btn back-chevron-btn" id="closeDlBtn" title="Back"><i class="fas fa-chevron-left"></i></button>
+                        <button class="back-btn back-chevron-btn" id="closeDlBtn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
                         <h1 class="modal-title">SPIDY BOOK HUB</h1>
                     </div>
                     <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
@@ -810,7 +810,7 @@
             <div class="overlay-panel" id="bookmarks-panel">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
-                        <button class="back-btn back-chevron-btn" id="close-bookmarks-btn" title="Back"><i class="fas fa-chevron-left"></i></button>
+                        <button class="back-btn back-chevron-btn" id="close-bookmarks-btn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
                         <h1 class="modal-title">SAVED BOOKS</h1>
                     </div>
                     <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
@@ -862,7 +862,7 @@
                         </div>
                     </div>
 
-                    <div class="header-back-btn back-chevron-btn" id="close-noti-btn" title="Back">
+                    <div class="header-back-btn back-chevron-btn" id="close-noti-btn" title="Back" type="button">
                         <i class="fas fa-chevron-right"></i>
                     </div>
                 </div>
@@ -890,12 +890,12 @@
                 </div>
             </div>
 
-            <!-- TOKEN MODAL -->
+            <!-- TOKEN MODAL (INSTANT-TOUCH CLOSE & OPTIMIZED Z-INDEX) -->
             <div id="tokenModalOverlay" class="modal-overlay-token" style="display: none;">
                 <div class="ambient-glow"></div>
 
                 <div class="auth-card" id="authCardBox" onclick="event.stopPropagation()">
-                    <button id="closeTokenModalBtn" class="close-modal-btn" title="Close">
+                    <button id="closeTokenModalBtn" class="close-modal-btn" title="Close" type="button" aria-label="Close Token Modal">
                         ✕
                     </button>
 
@@ -921,10 +921,10 @@
                     </div>
 
                     <div class="button-group-token">
-                        <button class="btn-token btn-secondary-token" id="getKeyBtn">
+                        <button class="btn-token btn-secondary-token" id="getKeyBtn" type="button">
                             <i class="fas fa-link"></i> Get Key
                         </button>
-                        <button class="btn-token btn-primary-token" id="verifyBtn">
+                        <button class="btn-token btn-primary-token" id="verifyBtn" type="button">
                             <i class="fas fa-shield-halved"></i> Verify
                         </button>
                     </div>
@@ -964,7 +964,7 @@
                         <h3 id="pdfViewerTitle" class="pdf-viewer-title">Reading Book...</h3>
                     </div>
                     <div class="pdf-viewer-header-right">
-                        <button id="closePdfViewerBtn" class="pdf-viewer-close-circle" title="Close Viewer">
+                        <button id="closePdfViewerBtn" class="pdf-viewer-close-circle" title="Close Viewer" type="button">
                             <i class="fas fa-chevron-right"></i>
                         </button>
                     </div>
@@ -983,8 +983,8 @@
                         <div id="goToPageRange" class="pdf-modal-subrange">1 - 1</div>
                         <input type="number" id="goToPageInput" placeholder="Enter page number" inputmode="numeric" class="pdf-modal-input">
                         <div class="pdf-modal-actions">
-                            <button id="cancelGoToPageBtn" class="pdf-modal-btn cancel">Cancel</button>
-                            <button id="confirmGoToPageBtn" class="pdf-modal-btn confirm">OK</button>
+                            <button id="cancelGoToPageBtn" class="pdf-modal-btn cancel" type="button">Cancel</button>
+                            <button id="confirmGoToPageBtn" class="pdf-modal-btn confirm" type="button">OK</button>
                         </div>
                     </div>
                 </div>
@@ -995,7 +995,7 @@
                 <div class="report-modal-box">
                     <div class="rm-header">
                         <h3><i class="fas fa-triangle-exclamation" style="color: #ef4444;"></i> Report Issue</h3>
-                        <button id="closeReportBtn">✕</button>
+                        <button id="closeReportBtn" type="button">✕</button>
                     </div>
                     <p class="rm-desc">Please let us know what's wrong with this book so we can fix it.</p>
                     
@@ -1018,7 +1018,7 @@
                         </div>
                     </div>
                     
-                    <button class="rm-submit-btn" id="submitReportBtn">Submit Report</button>
+                    <button class="rm-submit-btn" id="submitReportBtn" type="button">Submit Report</button>
                 </div>
             </div>
 
@@ -1026,7 +1026,7 @@
             <div class="overlay-panel support-modal-fullscreen" id="supportModalOverlay">
                 <div class="modal-header-fixed support-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
-                        <button class="back-btn back-chevron-btn" id="closeSupportBtn" title="Back">
+                        <button class="back-btn back-chevron-btn" id="closeSupportBtn" title="Back" type="button">
                             <i class="fas fa-chevron-left"></i>
                         </button>
                         <h1 class="modal-title">SUPPORT &amp; HELP</h1>
@@ -1065,7 +1065,6 @@
                                 </div>
                             </div>
 
-                            <!-- Updated: Support Email Input with Envelope Icon (Image 4 Style) -->
                             <div class="input-group">
                                 <label>Email Address</label>
                                 <div class="support-input-icon-wrap">
@@ -1188,7 +1187,7 @@
                     <i class="fas fa-calendar-check"></i>
                     Select Publish Year
                 </div>
-                <button class="popup-modal-close" id="closeYearModalBtn">✕</button>
+                <button class="popup-modal-close" id="closeYearModalBtn" type="button">✕</button>
             </div>
             <div class="popup-modal-grid" id="yearOptionsList"></div>
         </div>
@@ -1202,7 +1201,7 @@
                     <i class="fas fa-globe"></i>
                     Select Language
                 </div>
-                <button class="popup-modal-close" id="closeLangModalBtn">✕</button>
+                <button class="popup-modal-close" id="closeLangModalBtn" type="button">✕</button>
             </div>
             <div class="popup-modal-grid three-col" id="langOptionsList">
                 <div class="popup-select-option active" data-lang="Hindi">Hindi</div>
@@ -1243,14 +1242,14 @@
     <!-- Upload Tutorial Popup -->
     <div class="ug-overlay hidden" id="uploadPopup">
         <div class="ug-card">
-            <button class="ug-close-btn" id="closeUploadPopupBtn">✕</button>
+            <button class="ug-close-btn" id="closeUploadPopupBtn" type="button">✕</button>
             <img src="https://i.postimg.cc/1XYDWd3M/file-0000000038f87208b99601cc409d2e5c.png" alt="Book Upload Banner" class="ug-banner">
             
             <div class="ug-body">
                 <h2 class="ug-title">
-                    <span class="pulsing-radio-dot" style="background:#22c55e; color:#22c55e; box-shadow:0 0 10px #22c55e;"></span>
+                    <span class="pulsing-radio-dot ug-radio-dot" style="background:#22c55e; color:#22c55e; width: 6.5px; height: 6.5px; box-shadow:0 0 10px #22c55e;"></span>
                     <span>📢 Book Upload Kaise Karein?</span>
-                    <span class="pulsing-radio-dot" style="background:#22c55e; color:#22c55e; box-shadow:0 0 10px #22c55e;"></span>
+                    <span class="pulsing-radio-dot ug-radio-dot" style="background:#22c55e; color:#22c55e; width: 6.5px; height: 6.5px; box-shadow:0 0 10px #22c55e;"></span>
                 </h2>
                 
                 <div class="ug-text">
@@ -1261,7 +1260,7 @@
                     💡 <span class="highlight">Aapki share ki hui ek book</span> kisi student ka exam clear karwa sakti hai! Apna study material yahan upload karo aur dusron ki safalta ka hissa bano. 💖
                 </div>
                 
-                <button class="ug-action-btn" onclick="window.open('https://youtube.com/@PRINCE_YADAV', '_blank')">
+                <button class="ug-action-btn" type="button" onclick="window.open('https://youtube.com/@PRINCE_YADAV', '_blank')">
                     <svg class="upload-icon" viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke: #000000; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                         <polyline points="17 8 12 3 7 8"></polyline>
@@ -1337,8 +1336,8 @@
             <h3 class="logout-title">Sign Out?</h3>
             <p class="logout-desc">𝐀𝐫𝐞 𝐲𝐨𝐮 𝐬𝐮𝐫𝐞 𝐲𝐨𝐮 𝐰𝐚𝐧𝐭 𝐭𝐨 𝐥𝐨𝐠 𝐨𝐮𝐭 𝐨𝐟 𝐲𝐨𝐮𝐫 𝐚𝐜𝐜𝐨𝐮𝐧𝐭..?</p>
             <div class="logout-actions">
-                <button class="btn-cancel-logout" id="cancelLogoutBtn">Cancel</button>
-                <button class="btn-confirm-logout" id="confirmLogoutBtn">Yes, Log Out</button>
+                <button class="btn-cancel-logout" id="cancelLogoutBtn" type="button">Cancel</button>
+                <button class="btn-confirm-logout" id="confirmLogoutBtn" type="button">Yes, Log Out</button>
             </div>
         </div>
     </div>
