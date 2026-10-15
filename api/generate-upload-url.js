@@ -1,3 +1,5 @@
+// File: api/generate-upload-url.js
+
 const admin = require('firebase-admin');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
@@ -73,7 +75,7 @@ module.exports = async function handler(req, res) {
     const { fileName, fileSize, userToken, fileType, mimeType } = bodyData || {};
 
     if (!userToken) {
-      return res.status(401).json({ success: false, error: 'Please log in first.' });
+      return res.status(401).json({ success: false, error: 'Please log in first to continue.' });
     }
 
     // User verify
@@ -81,7 +83,7 @@ module.exports = async function handler(req, res) {
     const uid = decodedToken.uid;
     const userEmail = (decodedToken.email || "").toLowerCase().trim();
 
-    // Admin role check
+    // Admin role check (admins collection theke)
     let isAdmin = false;
     if (userEmail) {
       try {
@@ -90,7 +92,7 @@ module.exports = async function handler(req, res) {
       } catch (e) {}
     }
 
-    // 24-Hour Cooldown (Normal user only)
+    // 24-Hour Cooldown check (Normal users jonne)
     if (!isAdmin) {
       try {
         const userDoc = await db.collection('users').doc(uid).get();
@@ -99,10 +101,10 @@ module.exports = async function handler(req, res) {
           const ONE_DAY_MS = 24 * 60 * 60 * 1000;
           const diff = Date.now() - lastUpload;
           if (diff < ONE_DAY_MS) {
-            const hours = Math.ceil((ONE_DAY_MS - diff) / (1000 * 60 * 60));
+            const remainingHours = Math.ceil((ONE_DAY_MS - diff) / (1000 * 60 * 60));
             return res.status(403).json({
               success: false,
-              error: `Normal users can only upload 1 book per 24 hours. Wait ${hours} hour(s).`
+              error: `Daily Community Upload Limit Reached: To ensure fair access and top quality for everyone, you can publish 1 book every 24 hours. Please check back in ${remainingHours} hour(s) to share your next study material! 📚✨`
             });
           }
         }
@@ -114,19 +116,21 @@ module.exports = async function handler(req, res) {
     if (Number(fileSize) > allowedLimit) {
       return res.status(403).json({
         success: false,
-        error: `File size exceeds allowed limit (${isAdmin ? "1GB" : "250MB"}).`
+        error: `File size exceeds the allowed limit (${isAdmin ? "1GB" : "250MB"}).`
       });
     }
 
-    // File path & MIME type setting (Signature match lock)
+    // Folder routing: cover image hole 'covers', PDF hole 'pdfs'
     const folderPrefix = fileType === 'image' ? 'covers' : 'pdfs';
     const cleanExt = (fileName || "").split('.').pop().toLowerCase() || (fileType === 'image' ? 'jpg' : 'pdf');
     const randomHex = crypto.randomBytes(4).toString('hex');
     const cleanBase = (fileName || "file").replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 12);
+    
+    // Exact path structure
     const safeKey = `${folderPrefix}/${Date.now()}_${uid.slice(0, 5)}_${randomHex}_${cleanBase}.${cleanExt}`;
     const bucketName = process.env.R2_BUCKET_NAME || 'spidy-books';
 
-    // Lock exact ContentType in AWS signature
+    // MIME type lock
     const finalMime = mimeType || (fileType === 'image' ? 'image/jpeg' : 'application/pdf');
 
     const command = new PutObjectCommand({
@@ -146,7 +150,7 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error("API Error:", error.message);
+    console.error("Generate Upload URL Error:", error.message);
     return res.status(500).json({ success: false, error: error.message || 'Server error' });
   }
 };
