@@ -1,7 +1,3 @@
-/* ========================================================
-   FILE: style.css - SPIDY BOOK HUB COMPLETE STYLESHEET
-   ======================================================== */
-
 :root { --bg-main: #000000; --bg-card: #121212; --text-primary: #ffffff; --text-secondary: #a1a1aa; --accent-color: #ffffff; --border-color: rgba(255, 255, 255, 0.12); --spidy-sidebar-bg: #09090b; --spidy-text-muted: #a1a1aa; --spidy-text-small: #71717a; --whatsapp-green: #25D366; --whatsapp-bg: rgba(37, 211, 102, 0.08); --telegram-blue: #0088cc; --telegram-bg: rgba(0, 136, 204, 0.08); --insta-pink: #E1306C; --insta-bg: rgba(225, 48, 108, 0.08); --youtube-red: #FF0000; --youtube-bg: rgba(255, 0, 0, 0.08); --dev-bg-main: #000000; --dev-bg-card: #1c1c1e; --dev-text-secondary: #a1a1aa; --bg-solid-channel: #0a0c10; --bg-card-channel: rgba(20, 24, 32, 0.90); --card-border-channel: rgba(255, 255, 255, 0.08); --reaction-bg: rgba(255, 255, 255, 0.06); --reaction-active-bg: rgba(156, 163, 175, 0.22); --reaction-active-border: rgba(209, 213, 219, 0.5); --context-bg: rgba(18, 21, 28, 0.96); --accent-green: #25d366; --accent-blue: #38bdf8; --link-color: #60a5fa; --wa-quote-border: #00a884; --pipeline-bg: #060709; --pipeline-panel: rgba(18, 20, 26, 0.85); --pipeline-border: rgba(255, 255, 255, 0.08); --pipeline-green: #10b981; --pipeline-green-glow: rgba(16, 185, 129, 0.45); --token-bg-surface: rgba(14, 16, 24, 0.96); --token-border-card: rgba(255, 255, 255, 0.16); --token-neon-emerald: #10b981; --token-neon-red: #ef4444; }
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Poppins', sans-serif; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
 input, textarea, select { -webkit-touch-callout: default; -webkit-user-select: auto; -moz-user-select: auto; -ms-user-select: auto; user-select: auto; }
@@ -290,7 +286,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .upload-pipeline-screen .footer-note svg { width: 14px; height: 14px; fill: var(--pipeline-green); }
 
 /* ========================================================
-   14. TUTORIAL MODAL (BOLD CLOSE & COMPACT ACCENT)
+   14. TUTORIAL MODAL
    ======================================================== */
 .ug-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(6px); display: flex; justify-content: center; align-items: center; z-index: 9999999; transition: opacity 0.3s ease; padding: 16px; }
 .ug-overlay.hidden { opacity: 0; pointer-events: none; display: none !important; }
@@ -513,22 +509,22 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .loader-powered-text { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); color: #ffffff; font-size: 10.5px; font-weight: 900; letter-spacing: 1.5px; font-family: 'Poppins', sans-serif; text-transform: uppercase; z-index: 10; white-space: nowrap; }
 
 /* ========================================================
-   22. COMMUNITY POPUP & INSTAGRAM BUTTON (NO WHITE GLOW)
+   22. COMMUNITY POPUP & INSTAGRAM BUTTON (NO WHITE GLOW - FIX 1)
    ======================================================== */
-.community-popup-overlay { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-height: 100dvh !important; background: rgba(0, 0, 0, 0.78) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; display: none !important; align-items: center !important; justify-content: center !important; padding: 16px !important; box-sizing: border-box !important; z-index: 99999999 !important; opacity: 0; transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+.community-popup-overlay { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-height: 100dvh !important; background: rgba(0, 0, 0, 0.82) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; display: none !important; align-items: center !important; justify-content: center !important; padding: 16px !important; box-sizing: border-box !important; z-index: 99999999 !important; opacity: 0; transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 .community-popup-overlay.active { display: flex !important; opacity: 1 !important; }
 .community-popup-wrapper { position: relative; width: 100%; max-width: 380px; margin: auto; display: flex; justify-content: center; align-items: center; }
-.community-ambient-glow { position: absolute; inset: -15px; background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.15), rgba(225, 48, 108, 0.1) 45%, transparent 75%); filter: blur(40px); z-index: 0; pointer-events: none; }
-.community-popup-card { position: relative; z-index: 1; width: 100%; background: linear-gradient(180deg, rgba(26, 29, 36, 0.96) 0%, rgba(18, 20, 26, 0.97) 40%, rgba(10, 11, 15, 0.99) 100%); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 28px; padding: 22px 18px 18px; box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.95); text-align: center; transform: scale(0.92); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); box-sizing: border-box; overflow: hidden; }
+.community-ambient-glow { display: none !important; }
+.community-popup-card { position: relative; z-index: 1; width: 100%; background: #0f1117 !important; border: 1px solid rgba(255, 255, 255, 0.12) !important; border-radius: 28px; padding: 22px 18px 18px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.95); text-align: center; transform: scale(0.92); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); box-sizing: border-box; overflow: hidden; }
 .community-popup-overlay.active .community-popup-card { transform: scale(1) translateY(0); }
 .community-badge-wrapper { display: flex; justify-content: center; margin-bottom: 12px; }
-.community-pill-chip { display: inline-flex; align-items: center; gap: 7px; padding: 5.5px 14px; border-radius: 999px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%); border: 1px solid rgba(255, 255, 255, 0.24); color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; }
+.community-pill-chip { display: inline-flex; align-items: center; gap: 7px; padding: 5.5px 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.14); color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; }
 .community-pill-emoji { font-size: 12px; line-height: 1; display: inline-block; }
 .community-popup-title { color: #ffffff; font-size: 19px; letter-spacing: -0.4px; margin-bottom: 6px; font-weight: 800; font-family: 'Poppins', sans-serif; }
 .community-popup-desc { color: #9ca3af; font-size: 11.5px; line-height: 1.55; margin-bottom: 14px; padding: 0 4px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; }
 .community-channel-list { display: flex; flex-direction: column; gap: 9px; margin-bottom: 12px; width: 100%; box-sizing: border-box; }
-.community-channel-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; min-height: 56px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%); border: 1px solid rgba(255, 255, 255, 0.11); border-radius: 16px; text-decoration: none; transition: all 0.25s ease; cursor: pointer; box-sizing: border-box; width: 100%; }
-.community-channel-card:hover { background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%); border-color: rgba(255, 255, 255, 0.25); }
+.community-channel-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; min-height: 56px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; text-decoration: none; transition: all 0.25s ease; cursor: pointer; box-sizing: border-box; width: 100%; }
+.community-channel-card:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.18); }
 .community-channel-left { display: flex; align-items: center; gap: 12px; text-align: left; flex: 1; min-width: 0; }
 .community-icon-box-3d { width: 36px !important; height: 36px !important; min-width: 36px !important; min-height: 36px !important; max-width: 36px !important; max-height: 36px !important; flex-shrink: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; overflow: hidden !important; }
 .community-icon-box-3d img { width: 36px !important; height: 36px !important; max-width: 36px !important; max-height: 36px !important; object-fit: contain !important; display: block !important; }
@@ -549,19 +545,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .community-join-btn svg { width: 10px; height: 10px; stroke-width: 2.8; stroke: currentColor; fill: none; }
 .community-join-btn-wa { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; box-shadow: none !important; }
 .community-join-btn-tg { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #ffffff; box-shadow: none !important; }
-
-/* Follow Instagram Button: completely clean gradient without white glow / shadow */
-.community-join-btn-ig, .community-join-btn-ig.clean-ig-btn { 
-    background: linear-gradient(135deg, #e1306c 0%, #c13584 50%, #833ab4 100%) !important; 
-    color: #ffffff !important; 
-    box-shadow: none !important; 
-    -webkit-box-shadow: none !important;
-    filter: none !important; 
-    outline: none !important; 
-    border: none !important; 
-    text-shadow: none !important;
-}
-
+.community-join-btn-ig, .community-join-btn-ig.clean-ig-btn { background: linear-gradient(135deg, #e1306c 0%, #c13584 50%, #833ab4 100%) !important; color: #ffffff !important; box-shadow: none !important; -webkit-box-shadow: none !important; filter: none !important; -webkit-filter: none !important; outline: none !important; border: none !important; text-shadow: none !important; }
 .community-join-btn.completed { background: linear-gradient(135deg, #0f1d19 0%, #091410 100%) !important; color: #34d399 !important; border: 1.2px solid rgba(52, 211, 153, 0.45) !important; box-shadow: none !important; }
 .premium-verified-tick { width: 15px; height: 15px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
 .community-must-join-strip { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 7.5px 8px; border-radius: 10px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.38); margin-bottom: 12px; width: 100%; box-sizing: border-box; }
@@ -592,7 +576,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .cm-item i { font-size: 15px; width: 20px; text-align: center; color: var(--text-secondary); }
 
 /* ========================================================
-   24. CURVED CHARCOAL LOGIN SCREEN (NO SIGNUP UNDERLINE)
+   24. CURVED CHARCOAL LOGIN SCREEN
    ======================================================== */
 .login-container { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; z-index: 99999; display: flex; flex-direction: column; align-items: center; background: #0b0c0f !important; backdrop-filter: blur(10px); transition: opacity 0.4s ease; overflow-y: auto; overflow-x: hidden; touch-action: manipulation; }
 .top-curved-header { width: 100% !important; background: linear-gradient(165deg, #2a2e37 0%, #1c1f26 60%, #13151b 100%) !important; border-bottom-right-radius: 65px !important; padding: 24px 20px 24px 20px !important; display: flex !important; flex-direction: column !important; align-items: center !important; text-align: center !important; position: relative !important; z-index: 5 !important; border-bottom: 1.5px solid #282c35 !important; border-right: 1.5px solid #282c35 !important; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.65) !important; }
@@ -630,56 +614,20 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .btn-google svg { width: 18px; height: 18px; }
 .btn-google:hover { background: #1c1f26; border-color: rgba(255, 255, 255, 0.3); }
 .register-prompt { text-align: center; margin-top: 16px; font-size: 12.5px; color: #a1a1aa; font-weight: 600; font-family: 'Montserrat', sans-serif; }
-
-/* Sign Up text without any underline */
-.register-link { 
-    color: #ffffff !important; 
-    font-weight: 800 !important; 
-    text-decoration: none !important; 
-    border-bottom: none !important; 
-    margin-left: 5px; 
-    cursor: pointer; 
-    transition: opacity 0.2s ease; 
-    display: inline-block; 
-}
+.register-link { color: #ffffff !important; font-weight: 800 !important; text-decoration: none !important; border-bottom: none !important; margin-left: 5px; cursor: pointer; transition: opacity 0.2s ease; display: inline-block; }
 .register-link:hover { opacity: 0.85; }
 
 /* ========================================================
-   25. TOKEN MODAL (FAST-RESPONSE CLOSE BUTTON)
+   25. TOKEN MODAL
    ======================================================== */
 .modal-overlay-token { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-height: 100dvh !important; z-index: 9999999 !important; display: none; align-items: center !important; justify-content: center !important; padding: 12px !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; background: rgba(0, 0, 0, 0.82) !important; backdrop-filter: blur(18px) !important; -webkit-backdrop-filter: blur(18px) !important; box-sizing: border-box !important; }
 .modal-overlay-token.keyboard-active { align-items: flex-end !important; padding-bottom: 8px !important; }
 .modal-overlay-token .ambient-glow { position: fixed; width: 320px; height: 320px; top: 50%; left: 50%; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 45%, transparent 70%); border-radius: 50%; filter: blur(75px); pointer-events: none; z-index: 0; }
 .auth-card { position: relative; z-index: 1; width: 100%; max-width: 375px; background-color: var(--token-bg-surface); background-image: linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px); background-size: 24px 24px; background-position: center center; backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--token-border-card); border-radius: 26px; padding: 22px 20px 16px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.95); animation: tokenCardFadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1); overflow: hidden; margin: auto; box-sizing: border-box; }
 @keyframes tokenCardFadeUp { 0% { transform: scale(0.94) translateY(12px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
-
-/* Token Close Button: Instant tap, clean touch priority */
-.auth-card .close-modal-btn { 
-    position: absolute; 
-    top: 14px; 
-    right: 14px; 
-    width: 34px !important; 
-    height: 34px !important; 
-    border-radius: 50%; 
-    background: rgba(255, 255, 255, 0.1) !important; 
-    border: 1.5px solid rgba(255, 255, 255, 0.25) !important; 
-    color: #ffffff !important; 
-    font-size: 15px !important; 
-    font-weight: 900 !important; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    cursor: pointer; 
-    transition: transform 0.1s ease, background 0.1s ease; 
-    z-index: 99999 !important; 
-    pointer-events: auto !important; 
-    outline: none; 
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-}
+.auth-card .close-modal-btn { position: absolute; top: 14px; right: 14px; width: 34px !important; height: 34px !important; border-radius: 50%; background: rgba(255, 255, 255, 0.1) !important; border: 1.5px solid rgba(255, 255, 255, 0.25) !important; color: #ffffff !important; font-size: 15px !important; font-weight: 900 !important; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.1s ease, background 0.1s ease; z-index: 99999 !important; pointer-events: auto !important; outline: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .auth-card .close-modal-btn:hover { background: rgba(239, 68, 68, 0.25) !important; color: #ef4444 !important; border-color: rgba(239, 68, 68, 0.6) !important; transform: scale(1.08); }
 .auth-card .close-modal-btn:active { transform: scale(0.92); }
-
 .icon-hex { width: 58px; height: 58px; margin: 0 auto 14px; background: rgba(255, 255, 255, 0.05); border: 1.5px solid rgba(255, 255, 255, 0.2); border-radius: 17px; display: flex; align-items: center; justify-content: center; position: relative; }
 .icon-hex::after { content: ''; position: absolute; inset: -4px; border-radius: 21px; border: 1.6px dashed rgba(255, 255, 255, 0.65); animation: rotatePerimeter 14s linear infinite; pointer-events: none; }
 @keyframes rotatePerimeter { 100% { transform: rotate(360deg); } }
@@ -706,7 +654,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .btn-token { flex: 1; height: 48px; border: none; border-radius: 13px; font-size: 13.5px; font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; font-family: 'Plus Jakarta Sans', sans-serif; outline: none; }
 .btn-token:active { transform: scale(0.96); }
 .btn-secondary-token { background: linear-gradient(135deg, #ffffff 0%, #9ca3af 100%); color: #111827; border: 1px solid rgba(255, 255, 255, 0.5); }
-.btn-primary-token { background: linear-gradient(135deg, #10b981 0%, #064e3b 100%); color: #ffffff; border: 1px solid rgba(16, 185, 129, 0.5); }
+.btn-primary-token { background: linear-gradient(135deg, #10b981 0%, #064e3b 100%); color: #ffffff; border: 1px solid rgba(160, 185, 129, 0.5); }
 .social-actions-token { display: flex; flex-direction: column; gap: 9px; width: 100%; margin-bottom: 13px; }
 .social-card-wrapper-token { width: 100%; height: 46px; border-radius: 12px; padding: 0 14px; display: flex; align-items: center; text-decoration: none; border: 1px solid rgba(255, 255, 255, 0.12); font-family: 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; }
 .social-card-wrapper-token:active { transform: scale(0.97); }
@@ -722,7 +670,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .auth-card .card-footer i.icon-shield-token { color: #10b981; font-size: 12px; }
 
 /* ========================================================
-   26. MODULE VIEW SCREENS & CRISP PDF SVG ICONS
+   26. MODULE VIEW SCREENS & CLEAN PAGES TAG (FIX 2)
    ======================================================== */
 .module-view-screen { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 18px 40px; display: flex; flex-direction: column; }
 .module-view-screen.hidden-view { display: none !important; }
@@ -758,7 +706,8 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 
 .module-details-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .module-title-h3 { font-size: 0.96rem; font-weight: 800; color: #ffffff; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.module-tag-pages { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); padding: 2.5px 8px; border-radius: 6px; font-weight: 700; width: fit-content; }
+.module-tag-pages { display: inline-flex; align-items: center; gap: 6px; font-size: 0.76rem; color: #38bdf8; background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; font-weight: 700; width: fit-content; }
+.module-tag-pages i { font-size: 0.72rem; }
 
 /* ========================================================
    27. BOOKMARKS CONTENT WRAPPER
@@ -767,7 +716,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .dmca-content::-webkit-scrollbar { display: none; }
 
 /* ========================================================
-   28. 4-BOX MAIN FILTER & SUB-FILTER MODALS (BALANCED FIT - NO SCROLL)
+   28. 4-BOX MAIN FILTER & SUB-FILTER MODALS
    ======================================================== */
 .app-filter-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.04); border-radius: 12px; cursor: pointer; transition: 0.2s; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; }
 .app-filter-icon:active { transform: scale(0.9); }
@@ -794,23 +743,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .filter-select-box { background: #141720; border: 1.5px solid #202432; border-radius: 14px; padding: 13px 13px; display: flex; align-items: center; justify-content: space-between; color: #ffffff; transition: all 0.2s ease; min-width: 0; width: 100%; }
 .filter-select-box span { font-family: 'Poppins', sans-serif; font-size: 13.5px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 6px; flex-grow: 1; }
 .arrow-icon { width: 16px; height: 16px; stroke: #737887; stroke-width: 2.2; fill: none; flex-shrink: 0; }
-
-/* BALANCED SUB-FILTER MODAL (Proportionally larger pills that fit entirely in one screen) */
-.center-modal-card { 
-    width: 100%; 
-    max-width: 365px; 
-    background: #111317; 
-    border: 1px solid #1f232b; 
-    border-radius: 24px; 
-    box-shadow: 0 35px 80px rgba(0, 0, 0, 0.95); 
-    transform: scale(0.93) translateY(8px); 
-    transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1); 
-    display: flex; 
-    flex-direction: column; 
-    max-height: 94vh !important; 
-    overflow: hidden; 
-    cursor: default; 
-}
+.center-modal-card { width: 100%; max-width: 365px; background: #111317; border: 1px solid #1f232b; border-radius: 24px; box-shadow: 0 35px 80px rgba(0, 0, 0, 0.95); transform: scale(0.93) translateY(8px); transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; max-height: 94vh !important; overflow: hidden; cursor: default; }
 .modal-overlay.active .center-modal-card { transform: scale(1) translateY(0); }
 .sheet-pill-indicator { width: 40px; height: 4px; background: #2a2e39; border-radius: 99px; margin: 10px auto 0; }
 .modal-head { padding: 11px 16px 8px; display: flex; align-items: center; justify-content: space-between; }
@@ -821,51 +754,15 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .close-icon-svg { width: 13px; height: 13px; stroke: currentColor; stroke-width: 2.4; fill: none; }
 .header-divider-container { width: 100%; padding: 0 16px; margin-bottom: 4px; }
 .header-divider-line { width: 100%; height: 1px; background: #1c202a; }
-
-.modal-body-content { 
-    padding: 8px 14px 14px !important; 
-    overflow: hidden !important; 
-    display: flex; 
-    flex-direction: column; 
-    gap: 7px; 
-}
+.modal-body-content { padding: 8px 14px 14px !important; overflow: hidden !important; display: flex; flex-direction: column; gap: 7px; }
 .modal-body-content::-webkit-scrollbar { display: none; }
 .section-subtitle-row { display: flex; align-items: center; gap: 6px; padding-left: 2px; user-select: none; margin-bottom: 3px; }
 .subtitle-icon { width: 12px; height: 12px; stroke-width: 2.2; fill: none; flex-shrink: 0; }
 .section-subtitle { font-size: 9.5px; font-weight: 800; letter-spacing: 0.85px; text-transform: uppercase; }
-
-/* Balanced 2-column Grid with properly enlarged cards */
-.pills-grid { 
-    display: grid; 
-    grid-template-columns: repeat(2, minmax(0, 1fr)); 
-    gap: 6px 8px !important; 
-}
-.pill-btn { 
-    background: #181b22; 
-    border: 1px solid #282c38; 
-    border-radius: 10px !important; 
-    padding: 6px 10px !important; 
-    min-height: 34px !important; 
-    height: 34px !important; 
-    color: #cbd5e1; 
-    font-family: 'Inter', 'Poppins', sans-serif; 
-    font-size: 12px !important; 
-    font-weight: 700 !important; 
-    text-align: center; 
-    cursor: pointer; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    white-space: nowrap; 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); 
-    transition: all 0.15s ease; 
-    line-height: 1 !important;
-}
+.pills-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 8px !important; }
+.pill-btn { background: #181b22; border: 1px solid #282c38; border-radius: 10px !important; padding: 6px 10px !important; min-height: 34px !important; height: 34px !important; color: #cbd5e1; font-family: 'Inter', 'Poppins', sans-serif; font-size: 12px !important; font-weight: 700 !important; text-align: center; cursor: pointer; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); transition: all 0.15s ease; line-height: 1 !important; }
 .pill-btn:hover { background: #20242e; color: #ffffff; border-color: #383e4e; }
 .pill-btn:active { transform: scale(0.96); }
-
 .theme-green .slider-filter-logo, .theme-green .subtitle-icon { stroke: #10b981; }
 .theme-green .section-subtitle, .theme-green .pill-btn.active-selected { color: #34d399; border-color: #10b981; }
 .theme-green .pill-btn.active-selected { background: rgba(16, 185, 129, 0.14); font-weight: 900; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
@@ -894,7 +791,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .btn-confirm-logout { flex: 1; background: #ef4444; color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; }
 
 /* ========================================================
-   30. SUPPORT & CONTACT MODAL
+   30. SUPPORT & CONTACT MODAL (FIX 3: SINGLE LINE ENCRYPTION NOTE)
    ======================================================== */
 .support-modal-fullscreen { position: fixed; top: 0; left: 0; right: 0; width: 100%; height: 100%; min-height: 100dvh; background-color: #030305 !important; background-image: radial-gradient(at 50% 0%, rgba(255, 255, 255, 0.08) 0px, transparent 60%), radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px); background-size: 100% 100%, 28px 28px; z-index: 100000; display: flex; flex-direction: column; overflow: hidden; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .support-modal-fullscreen.active { transform: translateX(0); }
@@ -916,8 +813,8 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .contact-card input[readonly], .contact-card input:read-only { cursor: default !important; background: rgba(255, 255, 255, 0.05) !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; font-weight: 700 !important; opacity: 1 !important; border-color: rgba(255, 255, 255, 0.22) !important; box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5) !important; }
 .contact-card textarea { height: 82px; resize: none; line-height: 1.45; }
 .submit-btn { width: 100%; padding: 13px 16px; background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 40%, #cbd5e1 100%); border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 12px; color: #050508; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px; }
-.encryption-note { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 14px; font-size: 11px; color: #94a3b8; font-weight: 600; }
-.encryption-note svg { width: 12px; height: 12px; fill: #94a3b8; flex-shrink: 0; }
+.encryption-note { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 14px; font-size: 10px !important; color: #94a3b8; font-weight: 600; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; width: 100%; box-sizing: border-box; letter-spacing: 0.1px; }
+.encryption-note svg { width: 11px; height: 11px; fill: #94a3b8; flex-shrink: 0; }
 .encryption-note .green-text { color: #25D366; font-weight: 700; }
 
 /* ========================================================
