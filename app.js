@@ -72,7 +72,7 @@ let isDeepLinkLoad = urlParamsCheck.has('book');
 let pendingBookSlug = urlParamsCheck.get('book');
 
 // ==========================================
-// 2. LOADER & TRANSITION ENGINE
+// 2. LOADER & INSTANT TRANSITION ENGINE
 // ==========================================
 function updateLoaderUI(percent) {
     const loaderFill = document.getElementById('loaderFill');
@@ -88,13 +88,21 @@ function updateLoaderUI(percent) {
     }
 }
 
+// Smooth animated loader
 loaderInterval = setInterval(() => {
     if (loadingProgress < 85) {
-        loadingProgress += Math.floor(Math.random() * 5) + 2; 
+        loadingProgress += Math.floor(Math.random() * 5) + 3; 
         if (loadingProgress > 85) loadingProgress = 85;
         updateLoaderUI(loadingProgress);
     }
-}, 200);
+}, 120);
+
+// Safety Fallback: 4.5 seconds me auto-open guarantee agar network slow ho
+setTimeout(() => {
+    isAppReady.auth = true;
+    isAppReady.data = true;
+    tryTransition();
+}, 4500);
 
 function tryTransition() {
     if (isAppReady.auth && isAppReady.data && !hasTransitioned) {
@@ -102,14 +110,15 @@ function tryTransition() {
         clearInterval(loaderInterval); 
         
         let fastLoad = setInterval(() => {
-            loadingProgress += 4;
+            loadingProgress += 5;
             if(loadingProgress >= 100) {
                 loadingProgress = 100;
                 updateLoaderUI(100);
                 clearInterval(fastLoad);
 
                 setTimeout(() => {
-                    document.getElementById('mainAppWrapper').style.display = 'block';
+                    const mainApp = document.getElementById('mainAppWrapper');
+                    if (mainApp) mainApp.style.display = 'block';
                     checkAndOpenTargetPost();
 
                     if (isDeepLinkLoad && pendingBookSlug) {
@@ -126,7 +135,7 @@ function tryTransition() {
                         loader.style.opacity = "0"; 
                         setTimeout(() => { loader.style.display = "none"; }, 300);
                     }
-                }, 400); 
+                }, 350); 
             } else {
                 updateLoaderUI(loadingProgress);
             }
@@ -795,7 +804,7 @@ function checkAndOpenTargetPost() {
 // 9. EVENT LISTENERS INITIALIZATION
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Initialize Sub-modules
+    // 1. Sub-modules setup
     initAuthSystem(() => {
         if (isDeepLinkLoad && pendingBookSlug) {
             document.getElementById('mainAppWrapper').style.display = 'block';
@@ -957,7 +966,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================================
-// 10. AUTH STATE & LIVE SYNC PIPELINE
+// 10. AUTH STATE & INITIAL LOAD
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -1001,7 +1010,7 @@ onAuthStateChanged(auth, async (user) => {
     isAppReady.auth = true; 
     tryTransition();
 
-    // Sync Live Dynamic Banners
+    // Module Banners Realtime Sync
     onSnapshot(query(collection(db, "module_banners"), orderBy("createdAt", "desc")), (snapshot) => {
         dynamicBannersList = [];
         snapshot.forEach(docSnap => {
@@ -1012,7 +1021,7 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // Initial batch load & metadata indexing
+    // Books & Metadata loader
     await loadInitialBooksBatch();
     fetchGlobalFilterMetadata();
 });
