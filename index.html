@@ -47,14 +47,33 @@
         </div>
         <div class="loader-title">SPIDY BOOK HUB</div>
         
-        <!-- Compact 1-Row Tags -->
+        <!-- Compact 1-Row Tags with New Metallic Folded Document SVG -->
         <div class="premium-tags">
             <div class="tag">
-                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <text x="7" y="17" font-size="6.5" font-family="'Poppins', sans-serif" font-weight="900" fill="#ffffff" stroke="none">PDF</text>
-                </svg> 
+                <svg width="13" height="13" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+                    <defs>
+                        <linearGradient id="whiteDocGrad" x1="14" y1="6" x2="58" y2="66" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="#FFFFFF"/>
+                            <stop offset="65%" stop-color="#F8FAFC"/>
+                            <stop offset="100%" stop-color="#E2E8F0"/>
+                        </linearGradient>
+                        <linearGradient id="flapGrad" x1="42" y1="6" x2="58" y2="22" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="#CBD5E1"/>
+                            <stop offset="100%" stop-color="#94A3B8"/>
+                        </linearGradient>
+                        <linearGradient id="flapShadow" x1="42" y1="22" x2="38" y2="18" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="#000000" stop-opacity="0.3"/>
+                            <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M42 6H17C14.7909 6 13 7.79086 13 10V62C13 64.2091 14.7909 66 17 66H55C57.2091 66 59 64.2091 59 62V23L42 6Z" fill="url(#whiteDocGrad)" stroke="#CBD5E1" stroke-width="1.2"/>
+                    <path d="M42 6V23H59" fill="url(#flapShadow)"/>
+                    <path d="M42 6V19C42 21.2091 43.7909 23 46 23H59L42 6Z" fill="url(#flapGrad)"/>
+                    <rect x="20" y="21" width="16" height="2.5" rx="1.25" fill="#94A3B8"/>
+                    <rect x="20" y="27" width="22" height="2" rx="1" fill="#CBD5E1"/>
+                    <rect x="18" y="36" width="36" height="20" rx="5" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.2"/>
+                    <text x="36" y="50.5" fill="#000000" font-size="13" font-weight="900" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" text-anchor="middle" letter-spacing="1">PDF</text>
+                </svg>
                 PDF
             </div>
             <div class="tag"><i class="fas fa-file-lines" style="color: #ffffff; font-size: 10px;"></i> NOTES</div>
@@ -234,7 +253,7 @@
                             </button>
                         </div>
 
-                        <!-- Official Instagram Card (No White Glow) -->
+                        <!-- Official Instagram Card -->
                         <div class="community-channel-card" id="btnJoinInstagram">
                             <div class="community-channel-left">
                                 <div class="community-icon-box-3d community-ig-shadow">
@@ -594,16 +613,17 @@
                 </main>
             </div>
 
-            <!-- 4-BOX MAIN FILTER OVERLAY -->
+            <!-- 4-BOX MAIN FILTER OVERLAY (UPDATED MODERN GLOBE SVG) -->
             <div class="modal-overlay" id="mainFilterOverlay">
                 <div class="filter-card-container" id="mainFilterCard" onclick="event.stopPropagation()">
                     
                     <div class="filter-item type-language" id="filterBoxLanguage">
                         <div class="filter-label-row">
+                            <!-- Realistic Clean Globe Icon -->
                             <svg class="label-icon" viewBox="0 0 24 24">
                                 <circle cx="12" cy="12" r="10"></circle>
                                 <line x1="2" y1="12" x2="22" y2="12"></line>
-                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                             </svg>
                             <span class="filter-label">LANGUAGE</span>
                         </div>
@@ -890,7 +910,7 @@
                 </div>
             </div>
 
-            <!-- TOKEN MODAL (INSTANT-TOUCH CLOSE & OPTIMIZED Z-INDEX) -->
+            <!-- TOKEN MODAL -->
             <div id="tokenModalOverlay" class="modal-overlay-token" style="display: none;">
                 <div class="ambient-glow"></div>
 
