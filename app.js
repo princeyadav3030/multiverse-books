@@ -176,7 +176,7 @@ function syncAndSanitizeBookmarks() {
 }
 
 // ==========================================
-// 4. COMMUNITY POPUP ENGINE (RESTORED CLICKS)
+// 4. COMMUNITY POPUP ENGINE
 // ==========================================
 function initCommunityDualPopup() {
     const popup = document.getElementById('communityPopup');
@@ -286,8 +286,7 @@ function initCommunityDualPopup() {
     }
 
     if (maybeLaterBtn) {
-        maybeLaterBtn.onclick = (e) => {
-            e.preventDefault();
+        maybeLaterBtn.onclick = () => {
             if (!hasClickedWA || !hasClickedTG || !hasClickedIG) {
                 showToast("Please follow all channels to continue", "error");
                 return;
@@ -1168,11 +1167,13 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!book) return;
     
     const downloadModal = document.getElementById("downloadModal");
-    if (downloadModal) downloadModal.style.display = "flex";
-
-    downloadModal.scrollTop = 0;
-    const innerScrollWrapper = downloadModal.querySelector('.download-content-wrapper') || downloadModal.firstElementChild;
-    if (innerScrollWrapper) innerScrollWrapper.scrollTop = 0;
+    if (downloadModal) {
+        downloadModal.style.display = "flex";
+        // Force reset scroll top to 0 for every book open
+        downloadModal.scrollTop = 0;
+        const innerContent = downloadModal.querySelector('.dl-content-wrapper') || downloadModal.firstElementChild;
+        if (innerContent) innerContent.scrollTop = 0;
+    }
     
     const previewImg = document.getElementById("dlPreviewImage");
     if (previewImg) {
@@ -1305,7 +1306,7 @@ function checkAndOpenTargetPost() {
 }
 
 // ==========================================
-// 11. EVENT LISTENERS & MOBILE BACK HANDLER
+// 11. EVENT LISTENERS & MOBILE BACK HIERARCHY
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
     // 1. Initialize Sub-modules
@@ -1521,9 +1522,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // 8. Mobile Native Step-by-Step Back Navigation (Strict Hierarchy)
+    // 8. Mobile Native Step-by-Step Back Navigation (Strict Hierarchy Fix)
     window.addEventListener('popstate', (e) => {
-        // Priority 1: Login Overlay
+        // Step 1: Login Overlay
         const loginOverlay = document.getElementById('loginOverlay');
         if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
             loginOverlay.style.opacity = '0';
@@ -1531,21 +1532,15 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Priority 2: Filter Sub-options Modal
-        const subFilterModal = document.getElementById('subFilterModalOverlay');
-        if (subFilterModal && subFilterModal.classList.contains('active')) {
-            closeSubFilterModal();
+        // Step 2: Token Modal
+        const tokenModal = document.getElementById('tokenModalOverlay');
+        if (tokenModal && tokenModal.style.display === 'flex') {
+            tokenModal.style.display = 'none';
+            // Agar module list me se token modal khula tha toh module view intact rahega
             return;
         }
 
-        // Priority 3: 4-Box Main Filter Card
-        const mainFilterModal = document.getElementById('mainFilterOverlay');
-        if (mainFilterModal && mainFilterModal.classList.contains('active')) {
-            closeMainFilterModal();
-            return;
-        }
-
-        // Priority 4: PDF Reader View
+        // Step 3: PDF Reader View (Wapas usi module/book page par aayega jahan se khula tha)
         const pdfViewer = document.getElementById('pdfViewerOverlay');
         if (pdfViewer && pdfViewer.style.display === 'flex') {
             pdfViewer.style.display = 'none';
@@ -1555,14 +1550,20 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Priority 5: Token Modal
-        const tokenModal = document.getElementById('tokenModalOverlay');
-        if (tokenModal && tokenModal.style.display === 'flex') {
-            tokenModal.style.display = 'none';
+        // Step 4: Sub-filter & Filter Overlays
+        const subFilterModal = document.getElementById('subFilterModalOverlay');
+        if (subFilterModal && subFilterModal.classList.contains('active')) {
+            closeSubFilterModal();
             return;
         }
 
-        // Priority 6: Support & Issues Modal
+        const mainFilterModal = document.getElementById('mainFilterOverlay');
+        if (mainFilterModal && mainFilterModal.classList.contains('active')) {
+            closeMainFilterModal();
+            return;
+        }
+
+        // Step 5: Support & Issues Modal
         const issueModal = document.getElementById('issueModal');
         if (issueModal && issueModal.classList.contains('active')) {
             issueModal.classList.remove('active');
@@ -1575,7 +1576,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Priority 7: Upload Modal
+        // Step 6: Upload Hub (Prompts Tab se wapas Add Book tab par aayega)
         const uploadModal = document.getElementById('uploadModalOverlay');
         if (uploadModal && uploadModal.classList.contains('active')) {
             const sectionPrompt = document.getElementById('sectionPrompt');
@@ -1587,7 +1588,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Priority 8: Module Packs Hierarchy
+        // Step 7: Module Packs (Module List -> Subject List -> Home)
         const bannerModal = document.getElementById('moduleBannerModal');
         if (bannerModal && bannerModal.classList.contains('active')) {
             const modulesView = document.getElementById('bannerModulesView');
@@ -1606,7 +1607,15 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Priority 9: Notification Channel Panel
+        // Step 8: Book Download Detail Page
+        const downloadModal = document.getElementById("downloadModal");
+        if (downloadModal && downloadModal.style.display === "flex") {
+            downloadModal.style.display = "none";
+            window.history.replaceState({}, '', window.location.pathname);
+            return;
+        }
+
+        // Step 9: Notifications Panel
         const notiPanel = document.getElementById('noti-panel');
         if (notiPanel && notiPanel.classList.contains('active')) {
             notiPanel.classList.remove('active');
@@ -1616,7 +1625,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Priority 10: Sidebar Navigation
+        // Step 10: Sidebar Navigation
         const sidebar = document.getElementById('sidebar');
         if (sidebar && sidebar.classList.contains('active')) {
             sidebar.classList.remove('active');
@@ -1624,32 +1633,24 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Priority 11: Saved Books Panel
+        // Step 11: Saved Books Panel
         const bookmarksPanel = document.getElementById('bookmarks-panel');
         if (bookmarksPanel && bookmarksPanel.classList.contains('active')) {
             bookmarksPanel.classList.remove('active');
             return;
         }
 
-        // Priority 12: Search Box
+        // Step 12: Search Expanded
         const searchBox = document.getElementById('search-box');
         if (searchBox && searchBox.classList.contains('active')) {
             searchBox.classList.remove('active');
             return;
         }
 
-        // Priority 13: Download Details Modal
-        const downloadModal = document.getElementById("downloadModal");
-        if (downloadModal && downloadModal.style.display === "flex") {
-            downloadModal.style.display = "none";
-            window.history.replaceState({}, '', window.location.pathname);
-            return;
-        }
-
         applyMasterFilter();
     });
 
-    // 9. Module Back Navigation
+    // 9. Module Custom Back Button (Header Chevron)
     document.getElementById('moduleBackBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1740,7 +1741,7 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // Realtime Prompts Loader (Fixed "Loading prompts..." freeze)
+    // Realtime Prompts Loader
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if (!container) return;
