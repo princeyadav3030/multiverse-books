@@ -1451,7 +1451,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Vercel Serverless /api/contact Email Dispatch
+    // Vercel Serverless /api/contact Email Dispatch with Green Glowing Feedback
     document.getElementById('supportContactForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         
@@ -1491,8 +1491,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (response.ok && data.success) {
                 if (btn) btn.classList.add('btn-success-active');
-                if (btnText) btnText.innerText = "Sent";
-                if (btnIcon) btnIcon.innerHTML = `<polyline points="20 6 9 17 4 12"></polyline>`;
+                if (btnText) btnText.innerText = "Successfully Sent";
+                if (btnIcon) btnIcon.innerHTML = `<polyline points="20 6 9 17 4 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>`;
                 
                 const fName = document.getElementById('supFirstName');
                 const lName = document.getElementById('supLastName');
@@ -1516,7 +1516,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     } else {
                         document.getElementById('supportModalOverlay')?.classList.remove('active');
                     }
-                }, 1800);
+                }, 2400);
             } else {
                 throw new Error(data.error || "Failed to send message");
             }
