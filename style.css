@@ -115,9 +115,9 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .bookmark-btn { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; background: rgba(0, 0, 0, 0.7); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: #ffffff; font-size: 15px; z-index: 5; cursor: pointer; transition: all 0.2s ease; border: 1px solid rgba(255,255,255,0.1); }
 .bookmark-btn:hover { background: rgba(0, 0, 0, 0.85); transform: scale(1.05); }
 .bookmark-btn:active { transform: scale(0.9); }
-.book-details { padding: 12px; display: flex; flex-direction: column; flex-grow: 1; }
+.book-details { padding: 12px; display: flex; flex-direction: column; flex-grow: 1; min-width: 0; }
 .book-title { font-size: 13px; font-weight: 700; line-height: 1.3; color: var(--text-primary); margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.book-author { font-size: 10px; color: var(--text-secondary); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.book-author { font-size: 10px; color: var(--text-secondary); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; width: 100%; }
 .tags-container { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; }
 .book-tag { font-size: 9px; font-weight: 700; padding: 3px 6px; border-radius: 6px; }
 .tag-year { background-color: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; color: #f59e0b; }
@@ -327,12 +327,12 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .dl-powered-badge { position: absolute; bottom: -12px; left: 15px; background: #121212 !important; color: #ffffff !important; font-size: 10px; font-weight: 800; padding: 6px 14px !important; border-radius: 6px !important; border-left: 3px solid #ffffff !important; box-shadow: 0 4px 15px rgba(0,0,0,0.8), -3px 0 12px rgba(255,255,255,0.3) !important; letter-spacing: 0.5px; z-index: 10; text-transform: uppercase; }
 .disable-long-press { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; cursor: pointer; }
 .dl-title { margin-top: 15px; font-size: 18px; font-weight: 800; line-height: 1.3; color: #fff; }
-.premium-author-pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 5px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 30px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); backdrop-filter: blur(10px); transition: all 0.2s ease; }
+.premium-author-pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 5px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 30px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); backdrop-filter: blur(10px); transition: all 0.2s ease; max-width: 90%; }
 .author-icon-badge { display: flex; justify-content: center; align-items: center; color: #3b82f6; font-size: 14px; filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.5)); flex-shrink: 0; }
-.author-text-group { display: flex; align-items: center; gap: 4px; }
-.author-prefix { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
-.author-name { font-size: 11.5px; font-weight: 700; color: #ffffff; font-family: 'Poppins', sans-serif; letter-spacing: 0.3px; }
-.verified-icon-container { position: relative; display: inline-flex; justify-content: center; align-items: center; width: 10px; height: 10px; margin-left: 2px; }
+.author-text-group { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+.author-prefix { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
+.author-name { font-size: 11.5px; font-weight: 700; color: #ffffff; font-family: 'Poppins', sans-serif; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.verified-icon-container { position: relative; display: inline-flex; justify-content: center; align-items: center; width: 10px; height: 10px; margin-left: 2px; flex-shrink: 0; }
 .verified-bg { color: #3b82f6; font-size: 13px; filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5)); }
 .verified-check { position: absolute; color: #ffffff; font-size: 6.5px; font-weight: 900; margin-top: 0.5px; }
 .action-buttons-wrapper { display: flex; flex-direction: row; gap: 12px; margin-top: 22px; width: 100%; }
@@ -509,7 +509,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .loader-powered-text { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); color: #ffffff; font-size: 10.5px; font-weight: 900; letter-spacing: 1.5px; font-family: 'Poppins', sans-serif; text-transform: uppercase; z-index: 10; white-space: nowrap; }
 
 /* ========================================================
-   22. COMMUNITY POPUP & INSTAGRAM BUTTON (NO WHITE GLOW - FIX 1)
+   22. COMMUNITY POPUP & INSTAGRAM BUTTON
    ======================================================== */
 .community-popup-overlay { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-height: 100dvh !important; background: rgba(0, 0, 0, 0.82) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; display: none !important; align-items: center !important; justify-content: center !important; padding: 16px !important; box-sizing: border-box !important; z-index: 99999999 !important; opacity: 0; transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 .community-popup-overlay.active { display: flex !important; opacity: 1 !important; }
@@ -670,7 +670,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .auth-card .card-footer i.icon-shield-token { color: #10b981; font-size: 12px; }
 
 /* ========================================================
-   26. MODULE VIEW SCREENS & CLEAN PAGES TAG (FIX 2)
+   26. MODULE VIEW SCREENS & CLEAN METALLIC GRAY PAGES TAG
    ======================================================== */
 .module-view-screen { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 18px 40px; display: flex; flex-direction: column; }
 .module-view-screen.hidden-view { display: none !important; }
@@ -706,8 +706,10 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 
 .module-details-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .module-title-h3 { font-size: 0.96rem; font-weight: 800; color: #ffffff; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.module-tag-pages { display: inline-flex; align-items: center; gap: 6px; font-size: 0.76rem; color: #38bdf8; background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; font-weight: 700; width: fit-content; }
-.module-tag-pages i { font-size: 0.72rem; }
+
+/* Metallic Slate Gray Color for Calculating Pages & Layer Counter */
+.module-tag-pages { display: inline-flex; align-items: center; gap: 6px; font-size: 0.76rem; color: #94a3b8 !important; background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; font-weight: 700; width: fit-content; }
+.module-tag-pages i { font-size: 0.72rem; color: #cbd5e1 !important; filter: drop-shadow(0 0 2px rgba(203, 213, 225, 0.4)); }
 
 /* ========================================================
    27. BOOKMARKS CONTENT WRAPPER
@@ -716,7 +718,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .dmca-content::-webkit-scrollbar { display: none; }
 
 /* ========================================================
-   28. 4-BOX MAIN FILTER & SUB-FILTER MODALS
+   28. 4-BOX MAIN FILTER & SUB-FILTER MODALS (TRUNCATED AUTHOR PILLS)
    ======================================================== */
 .app-filter-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.04); border-radius: 12px; cursor: pointer; transition: 0.2s; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; }
 .app-filter-icon:active { transform: scale(0.9); }
@@ -760,7 +762,9 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .subtitle-icon { width: 12px; height: 12px; stroke-width: 2.2; fill: none; flex-shrink: 0; }
 .section-subtitle { font-size: 9.5px; font-weight: 800; letter-spacing: 0.85px; text-transform: uppercase; }
 .pills-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 8px !important; }
-.pill-btn { background: #181b22; border: 1px solid #282c38; border-radius: 10px !important; padding: 6px 10px !important; min-height: 34px !important; height: 34px !important; color: #cbd5e1; font-family: 'Inter', 'Poppins', sans-serif; font-size: 12px !important; font-weight: 700 !important; text-align: center; cursor: pointer; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); transition: all 0.15s ease; line-height: 1 !important; }
+
+/* Truncate long author names gracefully with starting text visible */
+.pill-btn { background: #181b22; border: 1px solid #282c38; border-radius: 10px !important; padding: 6px 12px !important; min-height: 34px !important; height: 34px !important; color: #cbd5e1; font-family: 'Inter', 'Poppins', sans-serif; font-size: 12px !important; font-weight: 700 !important; text-align: center; cursor: pointer; display: block !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); transition: all 0.15s ease; line-height: 20px !important; width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; }
 .pill-btn:hover { background: #20242e; color: #ffffff; border-color: #383e4e; }
 .pill-btn:active { transform: scale(0.96); }
 .theme-green .slider-filter-logo, .theme-green .subtitle-icon { stroke: #10b981; }
@@ -791,7 +795,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .btn-confirm-logout { flex: 1; background: #ef4444; color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; }
 
 /* ========================================================
-   30. SUPPORT & CONTACT MODAL (FIX 3: SINGLE LINE ENCRYPTION NOTE)
+   30. SUPPORT & CONTACT MODAL
    ======================================================== */
 .support-modal-fullscreen { position: fixed; top: 0; left: 0; right: 0; width: 100%; height: 100%; min-height: 100dvh; background-color: #030305 !important; background-image: radial-gradient(at 50% 0%, rgba(255, 255, 255, 0.08) 0px, transparent 60%), radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px); background-size: 100% 100%, 28px 28px; z-index: 100000; display: flex; flex-direction: column; overflow: hidden; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .support-modal-fullscreen.active { transform: translateX(0); }
