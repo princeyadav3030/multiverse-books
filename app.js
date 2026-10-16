@@ -79,6 +79,21 @@ const scrollDownBtn = document.getElementById('scrollDownBtn');
 const unreadBadge = document.getElementById('unreadBadge');
 const closeNotiBtn = document.getElementById('close-noti-btn');
 
+// Community Popup Controls & Verified SVG
+let hasClickedWA = false;
+let hasClickedTG = false;
+let hasClickedIG = false;
+let isJoiningWA = false;
+let isJoiningTG = false;
+let isJoiningIG = false;
+let communityPopupTimer = null;
+
+const VERIFIED_CHECK_SVG = `
+<svg class="premium-verified-tick" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" fill="#10b981" fill-opacity="0.2" stroke="#10b981" stroke-width="2"/>
+    <path d="M8 12.5L10.5 15L16 9.5" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
 // ==========================================
 // 2. LOADER & TRANSITION ENGINE
 // ==========================================
@@ -161,7 +176,129 @@ function syncAndSanitizeBookmarks() {
 }
 
 // ==========================================
-// 4. CHANNEL POSTS & LIVE NOTIFICATIONS ENGINE
+// 4. COMMUNITY POPUP ENGINE (RESTORED CLICKS)
+// ==========================================
+function initCommunityDualPopup() {
+    const popup = document.getElementById('communityPopup');
+    if (!popup) return;
+
+    const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+    const lastLockedTime = localStorage.getItem('spidy_community_popup_locked_until');
+    const now = Date.now();
+
+    if (lastLockedTime && now < parseInt(lastLockedTime, 10)) return;
+
+    clearTimeout(communityPopupTimer);
+    communityPopupTimer = setTimeout(() => {
+        popup.classList.add('active');
+    }, 180000);
+
+    const waCard = document.getElementById('btnJoinWhatsApp');
+    const tgCard = document.getElementById('btnJoinTelegram');
+    const igCard = document.getElementById('btnJoinInstagram');
+
+    const waStatus = document.getElementById('waStatusBtn');
+    const tgStatus = document.getElementById('tgStatusBtn');
+    const igStatus = document.getElementById('igStatusBtn');
+    const maybeLaterBtn = document.getElementById('communityMaybeLaterBtn');
+
+    function checkAndComplete() {
+        if (hasClickedWA && hasClickedTG && hasClickedIG) {
+            localStorage.setItem('spidy_community_popup_locked_until', (Date.now() + FIVE_DAYS_MS).toString());
+            showToast("Community joined successfully!", "success");
+            setTimeout(() => { popup.classList.remove('active'); }, 800);
+        }
+    }
+
+    if (waCard) {
+        waCard.onclick = (e) => {
+            e.preventDefault();
+            if (hasClickedWA || isJoiningWA) return;
+            isJoiningWA = true;
+
+            if (waStatus) {
+                waStatus.style.pointerEvents = "none";
+                waStatus.innerHTML = `<span>Joining...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
+            }
+
+            window.open('https://whatsapp.com/channel/0029Vb6NBZx1yT2GByTTVf2A', '_blank');
+
+            setTimeout(() => {
+                hasClickedWA = true;
+                isJoiningWA = false;
+                if (waStatus) {
+                    waStatus.classList.add('completed');
+                    waStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
+                }
+                checkAndComplete();
+            }, 6000);
+        };
+    }
+
+    if (tgCard) {
+        tgCard.onclick = (e) => {
+            e.preventDefault();
+            if (hasClickedTG || isJoiningTG) return;
+            isJoiningTG = true;
+
+            if (tgStatus) {
+                tgStatus.style.pointerEvents = "none";
+                tgStatus.innerHTML = `<span>Joining...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
+            }
+
+            window.open('https://t.me/MultiverseBooks', '_blank');
+
+            setTimeout(() => {
+                hasClickedTG = true;
+                isJoiningTG = false;
+                if (tgStatus) {
+                    tgStatus.classList.add('completed');
+                    tgStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
+                }
+                checkAndComplete();
+            }, 6000);
+        };
+    }
+
+    if (igCard) {
+        igCard.onclick = (e) => {
+            e.preventDefault();
+            if (hasClickedIG || isJoiningIG) return;
+            isJoiningIG = true;
+
+            if (igStatus) {
+                igStatus.style.pointerEvents = "none";
+                igStatus.innerHTML = `<span>Following...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
+            }
+
+            window.open('https://www.instagram.com/PRINCE_YADAV_3030', '_blank');
+
+            setTimeout(() => {
+                hasClickedIG = true;
+                isJoiningIG = false;
+                if (igStatus) {
+                    igStatus.classList.add('completed');
+                    igStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
+                }
+                checkAndComplete();
+            }, 6000);
+        };
+    }
+
+    if (maybeLaterBtn) {
+        maybeLaterBtn.onclick = (e) => {
+            e.preventDefault();
+            if (!hasClickedWA || !hasClickedTG || !hasClickedIG) {
+                showToast("Please follow all channels to continue", "error");
+                return;
+            }
+            popup.classList.remove('active');
+        };
+    }
+}
+
+// ==========================================
+// 5. CHANNEL POSTS & LIVE NOTIFICATIONS ENGINE
 // ==========================================
 function renderChannelLoader() {
     if (!chatBody) return;
@@ -451,7 +588,6 @@ async function applyReaction(postId, newEmoji) {
     } catch (e) {}
 }
 
-// Context Menu Listeners for Posts
 if (contextOverlay) {
     contextOverlay.addEventListener('click', (e) => {
         if (e.target === contextOverlay) contextOverlay.classList.remove('show');
@@ -501,7 +637,6 @@ if (contextOverlay) {
     });
 }
 
-// Telegram Copy Button Delegation
 document.addEventListener('click', (e) => {
     const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
     if (copyBtn) {
@@ -535,7 +670,7 @@ document.addEventListener('click', (e) => {
 }, true);
 
 // ==========================================
-// 5. MASTER FILTER APPLIER & UI RENDER
+// 6. MASTER FILTER APPLIER & UI RENDER
 // ==========================================
 function applyMasterFilter(isAppending = false, newBatchData = []) {
     const searchInputRaw = (document.getElementById('app-search-input')?.value || "").trim();
@@ -627,7 +762,7 @@ function renderSavedBooksUI() {
 }
 
 // ==========================================
-// 6. REALTIME PAGINATION & DATA FETCH
+// 7. REALTIME PAGINATION & DATA FETCH
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -718,7 +853,7 @@ async function loadNextBooksBatch() {
 }
 
 // ==========================================
-// 7. PROMO CAROUSEL & MODULE PACKS
+// 8. PROMO CAROUSEL & MODULE PACKS
 // ==========================================
 let currentPromoIndex = 0;
 let promoAutoSlideInterval = null;
@@ -1022,7 +1157,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE
+// 9. BOOK DETAIL & READ ONLINE
 // ==========================================
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
@@ -1145,19 +1280,8 @@ function closeDownloadPageLocal() {
 }
 
 // ==========================================
-// 9. COMMUNITY & SUPPORT HELPERS
+// 10. NOTIFICATION TARGET SCROLL
 // ==========================================
-function initCommunityDualPopup() {
-    const popup = document.getElementById('communityPopup');
-    if (!popup) return;
-
-    const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
-    const lastLockedTime = localStorage.getItem('spidy_community_popup_locked_until');
-    if (lastLockedTime && Date.now() < parseInt(lastLockedTime, 10)) return;
-
-    setTimeout(() => popup.classList.add('active'), 180000);
-}
-
 function checkAndOpenTargetPost() {
     let targetPostId = "";
     const hash = window.location.hash || "";
@@ -1181,7 +1305,7 @@ function checkAndOpenTargetPost() {
 }
 
 // ==========================================
-// 10. EVENT LISTENERS & HEADER CONTROLS
+// 11. EVENT LISTENERS & MOBILE BACK HANDLER
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
     // 1. Initialize Sub-modules
@@ -1397,8 +1521,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // 8. Navigation Back (Popstate) Global Handler
-    window.addEventListener('popstate', () => {
+    // 8. Mobile Native Step-by-Step Back Navigation (Strict Hierarchy)
+    window.addEventListener('popstate', (e) => {
+        // Priority 1: Login Overlay
         const loginOverlay = document.getElementById('loginOverlay');
         if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
             loginOverlay.style.opacity = '0';
@@ -1406,39 +1531,122 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        closeSubFilterModal();
-        closeMainFilterModal();
+        // Priority 2: Filter Sub-options Modal
+        const subFilterModal = document.getElementById('subFilterModalOverlay');
+        if (subFilterModal && subFilterModal.classList.contains('active')) {
+            closeSubFilterModal();
+            return;
+        }
 
+        // Priority 3: 4-Box Main Filter Card
+        const mainFilterModal = document.getElementById('mainFilterOverlay');
+        if (mainFilterModal && mainFilterModal.classList.contains('active')) {
+            closeMainFilterModal();
+            return;
+        }
+
+        // Priority 4: PDF Reader View
         const pdfViewer = document.getElementById('pdfViewerOverlay');
         if (pdfViewer && pdfViewer.style.display === 'flex') {
             pdfViewer.style.display = 'none';
-            document.getElementById('pdfScrollContainer').innerHTML = '';
+            const scroller = document.getElementById('pdfScrollContainer');
+            if (scroller) scroller.innerHTML = '';
             cleanupPdfResources();
             return;
         }
 
+        // Priority 5: Token Modal
         const tokenModal = document.getElementById('tokenModalOverlay');
         if (tokenModal && tokenModal.style.display === 'flex') {
             tokenModal.style.display = 'none';
             return;
         }
 
-        document.getElementById('supportModalOverlay')?.classList.remove('active');
-        document.getElementById('uploadModalOverlay')?.classList.remove('active');
-        document.getElementById('moduleBannerModal')?.classList.remove('active');
-        document.getElementById('noti-panel')?.classList.remove('active'); 
-        document.getElementById('sidebar')?.classList.remove('active'); 
-        document.getElementById('sidebar-overlay')?.classList.remove('active'); 
-        document.getElementById('bookmarks-panel')?.classList.remove('active'); 
-        document.getElementById('search-box')?.classList.remove('active'); 
+        // Priority 6: Support & Issues Modal
+        const issueModal = document.getElementById('issueModal');
+        if (issueModal && issueModal.classList.contains('active')) {
+            issueModal.classList.remove('active');
+            return;
+        }
+
+        const supportModal = document.getElementById('supportModalOverlay');
+        if (supportModal && supportModal.classList.contains('active')) {
+            supportModal.classList.remove('active');
+            return;
+        }
+
+        // Priority 7: Upload Modal
+        const uploadModal = document.getElementById('uploadModalOverlay');
+        if (uploadModal && uploadModal.classList.contains('active')) {
+            const sectionPrompt = document.getElementById('sectionPrompt');
+            if (sectionPrompt && sectionPrompt.classList.contains('active')) {
+                document.getElementById('admTabAdd')?.click();
+                return;
+            }
+            uploadModal.classList.remove('active');
+            return;
+        }
+
+        // Priority 8: Module Packs Hierarchy
+        const bannerModal = document.getElementById('moduleBannerModal');
+        if (bannerModal && bannerModal.classList.contains('active')) {
+            const modulesView = document.getElementById('bannerModulesView');
+            const subjectsView = document.getElementById('bannerSubjectsView');
+            if (modulesView && !modulesView.classList.contains('hidden-view')) {
+                modulesView.classList.add('hidden-view');
+                subjectsView?.classList.remove('hidden-view');
+                const titleEl = document.getElementById('moduleHeaderTitle');
+                if (titleEl) titleEl.innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
+                activeSubjectKey = null;
+                return;
+            }
+            bannerModal.classList.remove('active');
+            activeBannerData = null;
+            activeSubjectKey = null;
+            return;
+        }
+
+        // Priority 9: Notification Channel Panel
+        const notiPanel = document.getElementById('noti-panel');
+        if (notiPanel && notiPanel.classList.contains('active')) {
+            notiPanel.classList.remove('active');
+            if (window.location.hash.includes('post/')) {
+                history.replaceState(null, '', window.location.pathname);
+            }
+            return;
+        }
+
+        // Priority 10: Sidebar Navigation
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && sidebar.classList.contains('active')) {
+            sidebar.classList.remove('active');
+            document.getElementById('sidebar-overlay')?.classList.remove('active');
+            return;
+        }
+
+        // Priority 11: Saved Books Panel
+        const bookmarksPanel = document.getElementById('bookmarks-panel');
+        if (bookmarksPanel && bookmarksPanel.classList.contains('active')) {
+            bookmarksPanel.classList.remove('active');
+            return;
+        }
+
+        // Priority 12: Search Box
+        const searchBox = document.getElementById('search-box');
+        if (searchBox && searchBox.classList.contains('active')) {
+            searchBox.classList.remove('active');
+            return;
+        }
+
+        // Priority 13: Download Details Modal
+        const downloadModal = document.getElementById("downloadModal");
+        if (downloadModal && downloadModal.style.display === "flex") {
+            downloadModal.style.display = "none";
+            window.history.replaceState({}, '', window.location.pathname);
+            return;
+        }
 
         applyMasterFilter();
-        const sBook = new URLSearchParams(window.location.search).get('book');
-        if(sBook) { 
-            openDownloadPageLocal(sBook, true); 
-        } else { 
-            document.getElementById("downloadModal").style.display = "none";
-        }
     });
 
     // 9. Module Back Navigation
@@ -1447,12 +1655,20 @@ document.addEventListener("DOMContentLoaded", () => {
         e.stopPropagation();
         const modulesView = document.getElementById('bannerModulesView');
         if (modulesView && !modulesView.classList.contains('hidden-view')) {
-            modulesView.classList.add('hidden-view');
-            document.getElementById('bannerSubjectsView')?.classList.remove('hidden-view');
-            document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
+            if (history.state && history.state.popup === 'moduleList') {
+                history.back();
+            } else {
+                modulesView.classList.add('hidden-view');
+                document.getElementById('bannerSubjectsView')?.classList.remove('hidden-view');
+                document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
+            }
         } else {
-            document.getElementById('moduleBannerModal')?.classList.remove('active');
-            activeBannerData = null;
+            if (history.state && history.state.popup === 'moduleBanner') {
+                history.back();
+            } else {
+                document.getElementById('moduleBannerModal')?.classList.remove('active');
+                activeBannerData = null;
+            }
         }
     });
 
@@ -1469,7 +1685,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================================
-// 11. AUTH STATE & LIVE SYNC PIPELINE
+// 12. AUTH STATE & LIVE SYNC PIPELINE
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -1522,6 +1738,40 @@ onAuthStateChanged(auth, async (user) => {
             dynamicBannersList.push(b);
         });
         renderDynamicBanners(dynamicBannersList);
+    });
+
+    // Realtime Prompts Loader (Fixed "Loading prompts..." freeze)
+    onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
+        const container = document.getElementById('promptsContainer');
+        if (!container) return;
+        container.innerHTML = '';
+        if (snapshot.empty) { 
+            container.innerHTML = `<div style="text-align:center; padding:20px; color:#8b949e; font-weight:700;">No prompts available yet.</div>`; 
+            return; 
+        }
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data(); 
+            const safeText = sanitizeHTML(data.text);
+            const safeInstruction = data.instruction ? sanitizeHTML(data.instruction).replace(/\n/g, "<br>") : "";
+            const safeTitle = sanitizeHTML(data.title || "Book Name & Author");
+            let instructionHTML = '';
+            if (safeInstruction) { 
+                instructionHTML = `<div class="prompt-instruction-text">${safeInstruction}</div>`; 
+            }
+            container.innerHTML += `
+            <div class="telegram-prompt-wrapper">
+                ${instructionHTML}
+                <div class="telegram-prompt-card">
+                    <div class="telegram-prompt-header"><span>${safeTitle}</span></div>
+                    <div class="telegram-prompt-body">${safeText}</div>
+                    <div class="telegram-prompt-footer">
+                        <button type="button" class="telegram-copy-btn" data-clipboard="${encodeURIComponent(data.text)}">
+                            <i class="far fa-copy"></i> COPY CODE
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+        });
     });
 
     // Realtime Channel Posts Listener
