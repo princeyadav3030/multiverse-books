@@ -72,7 +72,7 @@ let isDeepLinkLoad = urlParamsCheck.has('book');
 let pendingBookSlug = urlParamsCheck.get('book');
 
 // ==========================================
-// 2. LOADER & INSTANT TRANSITION ENGINE
+// 2. LOADER & TRANSITION ENGINE
 // ==========================================
 function updateLoaderUI(percent) {
     const loaderFill = document.getElementById('loaderFill');
@@ -88,7 +88,6 @@ function updateLoaderUI(percent) {
     }
 }
 
-// Smooth animated loader
 loaderInterval = setInterval(() => {
     if (loadingProgress < 85) {
         loadingProgress += Math.floor(Math.random() * 5) + 3; 
@@ -97,7 +96,6 @@ loaderInterval = setInterval(() => {
     }
 }, 120);
 
-// Safety Fallback: 4.5 seconds me auto-open guarantee agar network slow ho
 setTimeout(() => {
     isAppReady.auth = true;
     isAppReady.data = true;
@@ -801,10 +799,10 @@ function checkAndOpenTargetPost() {
 }
 
 // ==========================================
-// 9. EVENT LISTENERS INITIALIZATION
+// 9. EVENT LISTENERS & HEADER CONTROLS
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Sub-modules setup
+    // 1. Initialize Sub-modules
     initAuthSystem(() => {
         if (isDeepLinkLoad && pendingBookSlug) {
             document.getElementById('mainAppWrapper').style.display = 'block';
@@ -821,7 +819,115 @@ document.addEventListener("DOMContentLoaded", () => {
         applyMasterFilter();
     });
 
-    // 2. Global Infinite Scroll Observer
+    // 2. Header Buttons Event Listeners
+    document.getElementById('open-search')?.addEventListener('click', () => { 
+        history.pushState({ popup: 'search' }, ''); 
+        document.getElementById('search-box')?.classList.add('active'); 
+        setTimeout(() => { document.getElementById('app-search-input')?.focus(); }, 300); 
+    });
+
+    document.getElementById('open-noti')?.addEventListener('click', () => { 
+        if (!isUserLoggedIn || !auth.currentUser) {
+            triggerLoginModal();
+            return;
+        }
+
+        history.pushState({ popup: 'noti' }, ''); 
+        document.getElementById('noti-panel')?.classList.add('active'); 
+        
+        const blinkDot = document.querySelector('.blink-dot');
+        if (blinkDot) blinkDot.style.display = 'none'; 
+    });
+
+    document.getElementById('close-noti-btn')?.addEventListener('click', () => {
+        if (history.state && history.state.popup === 'noti') {
+            history.back();
+        } else {
+            document.getElementById('noti-panel')?.classList.remove('active');
+        }
+    });
+
+    document.getElementById('open-upload-btn')?.addEventListener('click', () => {
+        if (!isUserLoggedIn || !auth.currentUser) {
+            triggerLoginModal();
+            return;
+        }
+
+        const uploadModal = document.getElementById('uploadModalOverlay');
+        if (uploadModal) {
+            history.pushState({ popup: 'uploadModal' }, '');
+            uploadModal.classList.add('active');
+        }
+    });
+
+    document.getElementById('closeUploadHubBtn')?.addEventListener('click', () => {
+        if (history.state && history.state.popup === 'uploadModal') {
+            history.back();
+        } else {
+            document.getElementById('uploadModalOverlay')?.classList.remove('active');
+        }
+    });
+
+    // 3. Support Modal Listeners
+    document.getElementById('menu-contact')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('sidebar')?.classList.remove('active');
+        document.getElementById('sidebar-overlay')?.classList.remove('active');
+        
+        if (!isUserLoggedIn || !auth.currentUser) {
+            triggerLoginModal();
+            return;
+        }
+
+        history.pushState({ popup: 'support' }, '');
+        document.getElementById('supportModalOverlay')?.classList.add('active');
+
+        const supEmail = document.getElementById('supEmail');
+        if (supEmail && auth.currentUser) {
+            supEmail.value = auth.currentUser.email || "";
+            supEmail.readOnly = true;
+        }
+    });
+
+    document.getElementById('closeSupportBtn')?.addEventListener('click', () => {
+        if (history.state && history.state.popup === 'support') {
+            history.back();
+        } else {
+            document.getElementById('supportModalOverlay')?.classList.remove('active');
+        }
+    });
+
+    document.getElementById('openIssueModalBtn')?.addEventListener('click', () => {
+        document.getElementById('issueModal')?.classList.add('active');
+    });
+
+    document.getElementById('closeIssueModalBtn')?.addEventListener('click', () => {
+        document.getElementById('issueModal')?.classList.remove('active');
+    });
+
+    document.getElementById('issueModal')?.addEventListener('click', (e) => {
+        if (e.target === document.getElementById('issueModal')) {
+            document.getElementById('issueModal').classList.remove('active');
+        }
+    });
+
+    const issueOptions = document.querySelectorAll('#issueModal .modal-option-btn');
+    issueOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            issueOptions.forEach(btn => btn.classList.remove('selected'));
+            option.classList.add('selected');
+            
+            const selectedValue = option.getAttribute('data-value');
+            document.getElementById('selectedSubjectInput').value = selectedValue;
+            document.getElementById('selectedSubjectDisplay').innerText = selectedValue;
+            
+            setTimeout(() => {
+                document.getElementById('issueModal')?.classList.remove('active');
+            }, 150);
+        });
+    });
+
+    // 4. Global Infinite Scroll Observer
     const sentinel = document.getElementById('scroll-sentinel');
     if (sentinel) {
         const infiniteScrollObserver = new IntersectionObserver((entries) => {
@@ -834,7 +940,7 @@ document.addEventListener("DOMContentLoaded", () => {
         infiniteScrollObserver.observe(sentinel);
     }
 
-    // 3. Book Selection & Bookmark Clicks
+    // 5. Book Selection & Bookmark Clicks
     document.getElementById('bookContainer')?.addEventListener('click', (e) => {
         const card = e.target.closest('.book-card');
         if(card) {
@@ -855,7 +961,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 4. Download Modal Actions
+    // 6. Download Modal Actions
     document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
     document.getElementById('shareBookBtn')?.addEventListener('click', () => {
         const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
@@ -867,7 +973,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 5. Sidebar & Navigation
+    // 7. Sidebar & Navigation
     const sidebar = document.getElementById('sidebar'); 
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     document.getElementById('open-menu')?.addEventListener('click', () => { 
@@ -894,7 +1000,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // 6. Navigation Back (Popstate) Global Handler
+    // 8. Navigation Back (Popstate) Global Handler
     window.addEventListener('popstate', () => {
         const loginOverlay = document.getElementById('loginOverlay');
         if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
@@ -938,7 +1044,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 7. Module Back Navigation
+    // 9. Module Back Navigation
     document.getElementById('moduleBackBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -953,7 +1059,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 8. Close PDF Viewer Button
+    // 10. Close PDF Viewer Button
     document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
