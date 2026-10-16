@@ -286,7 +286,8 @@ function initCommunityDualPopup() {
     }
 
     if (maybeLaterBtn) {
-        maybeLaterBtn.onclick = () => {
+        maybeLaterBtn.onclick = (e) => {
+            e.preventDefault();
             if (!hasClickedWA || !hasClickedTG || !hasClickedIG) {
                 showToast("Please follow all channels to continue", "error");
                 return;
@@ -1169,7 +1170,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     const downloadModal = document.getElementById("downloadModal");
     if (downloadModal) {
         downloadModal.style.display = "flex";
-        // Force reset scroll top to 0 for every book open
         downloadModal.scrollTop = 0;
         const innerContent = downloadModal.querySelector('.dl-content-wrapper') || downloadModal.firstElementChild;
         if (innerContent) innerContent.scrollTop = 0;
@@ -1306,7 +1306,7 @@ function checkAndOpenTargetPost() {
 }
 
 // ==========================================
-// 11. EVENT LISTENERS & MOBILE BACK HIERARCHY
+// 11. EVENT LISTENERS & SERVERLESS FORM SUBMIT
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
     // 1. Initialize Sub-modules
@@ -1390,7 +1390,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 3. Support Modal Listeners
+    // 3. Support Modal Listeners & Vercel API Email Send
     document.getElementById('menu-contact')?.addEventListener('click', (e) => {
         e.preventDefault();
         document.getElementById('sidebar')?.classList.remove('active');
@@ -1440,8 +1440,10 @@ document.addEventListener("DOMContentLoaded", () => {
             option.classList.add('selected');
             
             const selectedValue = option.getAttribute('data-value');
-            document.getElementById('selectedSubjectInput').value = selectedValue;
-            document.getElementById('selectedSubjectDisplay').innerText = selectedValue;
+            const subInput = document.getElementById('selectedSubjectInput');
+            const subDisplay = document.getElementById('selectedSubjectDisplay');
+            if (subInput) subInput.value = selectedValue;
+            if (subDisplay) subDisplay.innerText = selectedValue;
             
             setTimeout(() => {
                 document.getElementById('issueModal')?.classList.remove('active');
@@ -1449,7 +1451,145 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // 4. Global Infinite Scroll Observer
+    // Vercel Serverless /api/contact Email Dispatch
+    document.getElementById('supportContactForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const btn = document.getElementById('supSubmitBtn');
+        const btnText = document.getElementById('supBtnText');
+        const btnIcon = document.getElementById('supBtnIcon');
+        
+        const originalText = btnText ? btnText.innerText : "Send Message";
+        const originalIcon = btnIcon ? btnIcon.innerHTML : "";
+
+        if (btnText) btnText.innerText = "Sending...";
+        if (btnIcon) {
+            btnIcon.innerHTML = `<circle cx="12" cy="12" r="10" stroke-width="3" stroke="currentColor" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="1s" values="0 12 12;360 12 12"/></circle>`;
+        }
+        if (btn) btn.style.pointerEvents = "none";
+
+        const userEmail = (auth.currentUser && auth.currentUser.email) 
+            ? auth.currentUser.email 
+            : (document.getElementById('supEmail')?.value.trim() || "");
+
+        const formData = {
+            firstName: document.getElementById('supFirstName')?.value.trim() || "",
+            lastName: document.getElementById('supLastName')?.value.trim() || "",
+            email: userEmail,
+            subject: document.getElementById('selectedSubjectInput')?.value.trim() || "General Inquiry",
+            message: document.getElementById('supMessage')?.value.trim() || "",
+            timestamp: Date.now()
+        };
+
+        try {
+            const response = await fetch('/api/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                if (btn) btn.classList.add('btn-success-active');
+                if (btnText) btnText.innerText = "Sent";
+                if (btnIcon) btnIcon.innerHTML = `<polyline points="20 6 9 17 4 12"></polyline>`;
+                
+                const fName = document.getElementById('supFirstName');
+                const lName = document.getElementById('supLastName');
+                const msg = document.getElementById('supMessage');
+                if (fName) fName.value = "";
+                if (lName) lName.value = "";
+                if (msg) msg.value = "";
+
+                showToast("Message sent successfully!", "success");
+
+                setTimeout(() => {
+                    if (btn) {
+                        btn.classList.remove('btn-success-active');
+                        btn.style.pointerEvents = "auto";
+                    }
+                    if (btnText) btnText.innerText = originalText;
+                    if (btnIcon) btnIcon.innerHTML = originalIcon;
+                    
+                    if (history.state && history.state.popup === 'support') {
+                        history.back();
+                    } else {
+                        document.getElementById('supportModalOverlay')?.classList.remove('active');
+                    }
+                }, 1800);
+            } else {
+                throw new Error(data.error || "Failed to send message");
+            }
+        } catch (error) {
+            showToast(error.message || "Failed to send message", "error");
+            if (btn) btn.style.pointerEvents = "auto";
+            if (btnText) btnText.innerText = originalText;
+            if (btnIcon) btnIcon.innerHTML = originalIcon;
+        }
+    });
+
+    // 4. Report Broken Link Button & Modal Logic
+    document.getElementById('reportLinkBtn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const reportModal = document.getElementById('reportModalOverlay');
+        if (reportModal) {
+            reportModal.classList.add('active');
+        }
+    });
+
+    document.getElementById('closeReportBtn')?.addEventListener('click', () => {
+        document.getElementById('reportModalOverlay')?.classList.remove('active');
+    });
+
+    document.getElementById('reportModalOverlay')?.addEventListener('click', (e) => {
+        if (e.target === document.getElementById('reportModalOverlay')) {
+            document.getElementById('reportModalOverlay').classList.remove('active');
+        }
+    });
+
+    const reportOptions = document.querySelectorAll('.rm-option');
+    const submitReportBtn = document.getElementById('submitReportBtn');
+
+    reportOptions.forEach(opt => {
+        opt.addEventListener('click', () => {
+            reportOptions.forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+            if (submitReportBtn) submitReportBtn.classList.add('enabled');
+        });
+    });
+
+    submitReportBtn?.addEventListener('click', async () => {
+        const selectedOption = document.querySelector('.rm-option.selected');
+        if (selectedOption) {
+            const issueType = selectedOption.querySelector('span')?.innerText || "General Issue";
+            try {
+                await addDoc(collection(db, "reports"), {
+                    bookTitle: activeBookTitle || "Unknown",
+                    bookSlug: activeBookSlug || "Unknown",
+                    issueType: issueType,
+                    status: 'Pending',
+                    reportedBy: (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : 'Unknown User',
+                    createdAt: serverTimestamp()
+                });
+            } catch (error) {}
+
+            submitReportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Successfully Reported';
+            submitReportBtn.style.background = '#10b981';
+            
+            setTimeout(() => {
+                document.getElementById('reportModalOverlay')?.classList.remove('active');
+                setTimeout(() => {
+                    submitReportBtn.innerHTML = 'Submit Report';
+                    submitReportBtn.style.background = '#ef4444';
+                    submitReportBtn.classList.remove('enabled');
+                    reportOptions.forEach(o => o.classList.remove('selected'));
+                }, 400);
+            }, 1200);
+        }
+    });
+
+    // 5. Global Infinite Scroll Observer
     const sentinel = document.getElementById('scroll-sentinel');
     if (sentinel) {
         const infiniteScrollObserver = new IntersectionObserver((entries) => {
@@ -1462,7 +1602,7 @@ document.addEventListener("DOMContentLoaded", () => {
         infiniteScrollObserver.observe(sentinel);
     }
 
-    // 5. Book Selection & Bookmark Clicks
+    // 6. Book Selection & Bookmark Clicks
     document.getElementById('bookContainer')?.addEventListener('click', (e) => {
         const card = e.target.closest('.book-card');
         if(card) {
@@ -1483,7 +1623,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 6. Download Modal Actions
+    // 7. Download Modal Actions
     document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
     document.getElementById('shareBookBtn')?.addEventListener('click', () => {
         const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
@@ -1495,7 +1635,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 7. Sidebar & Navigation
+    // 8. Sidebar & Navigation
     const sidebar = document.getElementById('sidebar'); 
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     document.getElementById('open-menu')?.addEventListener('click', () => { 
@@ -1522,7 +1662,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // 8. Mobile Native Step-by-Step Back Navigation (Strict Hierarchy Fix)
+    // 9. Mobile Native Step-by-Step Back Navigation
     window.addEventListener('popstate', (e) => {
         // Step 1: Login Overlay
         const loginOverlay = document.getElementById('loginOverlay');
@@ -1536,11 +1676,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const tokenModal = document.getElementById('tokenModalOverlay');
         if (tokenModal && tokenModal.style.display === 'flex') {
             tokenModal.style.display = 'none';
-            // Agar module list me se token modal khula tha toh module view intact rahega
             return;
         }
 
-        // Step 3: PDF Reader View (Wapas usi module/book page par aayega jahan se khula tha)
+        // Step 3: PDF Reader View
         const pdfViewer = document.getElementById('pdfViewerOverlay');
         if (pdfViewer && pdfViewer.style.display === 'flex') {
             pdfViewer.style.display = 'none';
@@ -1550,7 +1689,14 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Step 4: Sub-filter & Filter Overlays
+        // Step 4: Report Issue Modal
+        const reportModal = document.getElementById('reportModalOverlay');
+        if (reportModal && reportModal.classList.contains('active')) {
+            reportModal.classList.remove('active');
+            return;
+        }
+
+        // Step 5: Sub-filter & Filter Overlays
         const subFilterModal = document.getElementById('subFilterModalOverlay');
         if (subFilterModal && subFilterModal.classList.contains('active')) {
             closeSubFilterModal();
@@ -1563,7 +1709,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Step 5: Support & Issues Modal
+        // Step 6: Support & Issues Modal
         const issueModal = document.getElementById('issueModal');
         if (issueModal && issueModal.classList.contains('active')) {
             issueModal.classList.remove('active');
@@ -1576,7 +1722,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Step 6: Upload Hub (Prompts Tab se wapas Add Book tab par aayega)
+        // Step 7: Upload Hub (Prompts Tab se wapas Add Book tab)
         const uploadModal = document.getElementById('uploadModalOverlay');
         if (uploadModal && uploadModal.classList.contains('active')) {
             const sectionPrompt = document.getElementById('sectionPrompt');
@@ -1588,7 +1734,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Step 7: Module Packs (Module List -> Subject List -> Home)
+        // Step 8: Module Packs (Module List -> Subject List -> Home)
         const bannerModal = document.getElementById('moduleBannerModal');
         if (bannerModal && bannerModal.classList.contains('active')) {
             const modulesView = document.getElementById('bannerModulesView');
@@ -1607,7 +1753,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Step 8: Book Download Detail Page
+        // Step 9: Book Download Detail Page
         const downloadModal = document.getElementById("downloadModal");
         if (downloadModal && downloadModal.style.display === "flex") {
             downloadModal.style.display = "none";
@@ -1615,7 +1761,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Step 9: Notifications Panel
+        // Step 10: Notifications Panel
         const notiPanel = document.getElementById('noti-panel');
         if (notiPanel && notiPanel.classList.contains('active')) {
             notiPanel.classList.remove('active');
@@ -1625,7 +1771,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Step 10: Sidebar Navigation
+        // Step 11: Sidebar Navigation
         const sidebar = document.getElementById('sidebar');
         if (sidebar && sidebar.classList.contains('active')) {
             sidebar.classList.remove('active');
@@ -1633,14 +1779,14 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Step 11: Saved Books Panel
+        // Step 12: Saved Books Panel
         const bookmarksPanel = document.getElementById('bookmarks-panel');
         if (bookmarksPanel && bookmarksPanel.classList.contains('active')) {
             bookmarksPanel.classList.remove('active');
             return;
         }
 
-        // Step 12: Search Expanded
+        // Step 13: Search Expanded
         const searchBox = document.getElementById('search-box');
         if (searchBox && searchBox.classList.contains('active')) {
             searchBox.classList.remove('active');
@@ -1650,7 +1796,7 @@ document.addEventListener("DOMContentLoaded", () => {
         applyMasterFilter();
     });
 
-    // 9. Module Custom Back Button (Header Chevron)
+    // 10. Module Custom Back Button (Header Chevron)
     document.getElementById('moduleBackBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1673,7 +1819,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 10. Close PDF Viewer Button
+    // 11. Close PDF Viewer Button
     document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
