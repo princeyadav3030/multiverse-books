@@ -9,7 +9,7 @@ import {
     getSecureAssetUrl, generateCleanSlug, sanitizeHTML, escapeHTML, 
     stripMarkdown, parseMarkdown, formatViewsCount, formatTime, 
     formatDateDivider, normalizeDate, showToast, DEFAULT_AVATAR, 
-    getHighQualityAvatar, generateDeviceFingerprint 
+    getHighQualityAvatar, generateDeviceFingerprint, formatReactionCount 
 } from "./modules/helpers.js";
 
 import { 
@@ -70,6 +70,14 @@ let loaderInterval;
 const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
+
+// Channel elements
+const chatBody = document.getElementById('chatBody');
+const contextOverlay = document.getElementById('contextOverlay');
+const scrollDownWrapper = document.getElementById('scrollDownWrapper');
+const scrollDownBtn = document.getElementById('scrollDownBtn');
+const unreadBadge = document.getElementById('unreadBadge');
+const closeNotiBtn = document.getElementById('close-noti-btn');
 
 // ==========================================
 // 2. LOADER & TRANSITION ENGINE
@@ -153,7 +161,381 @@ function syncAndSanitizeBookmarks() {
 }
 
 // ==========================================
-// 4. MASTER FILTER APPLIER & UI RENDER
+// 4. CHANNEL POSTS & LIVE NOTIFICATIONS ENGINE
+// ==========================================
+function renderChannelLoader() {
+    if (!chatBody) return;
+    chatBody.innerHTML = `
+        <div class="empty-loading" id="channelLoader">
+            <div class="orbit-spinner">
+                <div class="orbit-ring"></div>
+                <div class="orbit-inner-ring"></div>
+                <div class="orbit-core"></div>
+            </div>
+            Connecting to live updates...
+        </div>`;
+}
+
+function getUserReaction(postId) { return localStorage.getItem(`reaction_${postId}`); }
+function setUserReaction(postId, emoji) {
+    if (emoji) localStorage.setItem(`reaction_${postId}`, emoji);
+    else localStorage.removeItem(`reaction_${postId}`);
+}
+
+function forceScrollChatToBottom() {
+    if (!chatBody) return;
+    unreadPostsCount = 0;
+    if (unreadBadge) {
+        unreadBadge.innerText = '0';
+        unreadBadge.classList.remove('active');
+    }
+    if (scrollDownWrapper) {
+        scrollDownWrapper.classList.remove('show');
+    }
+
+    chatBody.scrollTop = chatBody.scrollHeight + 1000;
+    requestAnimationFrame(() => {
+        chatBody.scrollTop = chatBody.scrollHeight + 1000;
+    });
+}
+
+function scrollToBottomSmooth() {
+    unreadPostsCount = 0;
+    if (unreadBadge) {
+        unreadBadge.innerText = '0';
+        unreadBadge.classList.remove('active');
+    }
+    chatBody.scrollTo({ top: chatBody.scrollHeight + 1000, behavior: 'smooth' });
+}
+
+if (scrollDownBtn) scrollDownBtn.addEventListener('click', scrollToBottomSmooth);
+
+if (chatBody) {
+    chatBody.addEventListener('scroll', () => {
+        const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
+        if (distanceFromBottom > 140) {
+            scrollDownWrapper?.classList.add('show');
+        } else {
+            scrollDownWrapper?.classList.remove('show');
+            unreadPostsCount = 0;
+            if (unreadBadge) {
+                unreadBadge.innerText = '0';
+                unreadBadge.classList.remove('active');
+            }
+        }
+    }, { passive: true });
+}
+
+window.scrollToChannelPost = function(postId) {
+    if (!postId) return;
+    const target = document.getElementById(`post_${postId}`);
+    if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.remove('highlight-post');
+        void target.offsetWidth; 
+        target.classList.add('highlight-post');
+        setTimeout(() => target.classList.remove('highlight-post'), 2900);
+    }
+};
+
+function buildReactionsHTML(reactionsObj, userSelectedEmoji) {
+    if (!reactionsObj) return '';
+    const sortedReactions = Object.entries(reactionsObj)
+        .filter(([_, count]) => count > 0)
+        .sort((a, b) => b[1] - a[1]);
+
+    let pillsHTML = '';
+    sortedReactions.forEach(([emoji, count]) => {
+        const isActive = userSelectedEmoji === emoji ? 'active' : '';
+        pillsHTML += `
+            <div class="reaction-pill ${isActive}" data-emoji="${emoji}">
+                <span class="emoji">${emoji}</span>
+                <span class="count">${formatReactionCount(count)}</span>
+            </div>`;
+    });
+    return pillsHTML;
+}
+
+function updateReactionInDOM(postId) {
+    const post = livePosts.find(p => p.id === postId);
+    const bubble = document.getElementById(`post_${postId}`);
+    if (!post || !bubble) return;
+
+    const userSelectedEmoji = getUserReaction(postId);
+    const reactionsContainer = bubble.querySelector('.inline-reactions');
+    if (reactionsContainer) {
+        reactionsContainer.innerHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
+        reactionsContainer.querySelectorAll('.reaction-pill').forEach(pill => {
+            pill.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                applyReaction(post.id, pill.dataset.emoji);
+            });
+        });
+    }
+}
+
+async function registerUniqueView(postId) {
+    if (!auth.currentUser) return;
+    try {
+        const token = await auth.currentUser.getIdToken(false);
+        await fetch('/api/channel-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'view', postId, userToken: token })
+        });
+    } catch (err) {}
+}
+
+const postViewObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            const postId = entry.target.dataset.postId;
+            if (postId) registerUniqueView(postId);
+        }
+    });
+}, { threshold: 0.5 });
+
+function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
+    if (!chatBody) return;
+
+    if (!posts || posts.length === 0) {
+        chatBody.innerHTML = `
+            <div class="empty-loading">
+                <i class="fas fa-bullhorn" style="font-size:26px; color:var(--text-secondary); opacity:0.6;"></i>
+                No channel updates posted yet.
+            </div>`;
+        return;
+    }
+
+    if (postViewObserver) postViewObserver.disconnect();
+
+    const fragment = document.createDocumentFragment();
+    let lastDateStr = '';
+
+    posts.forEach(post => {
+        const dateObj = normalizeDate(post.createdAt);
+        const dateStr = formatDateDivider(dateObj);
+
+        if (dateStr !== lastDateStr) {
+            const divider = document.createElement('div');
+            divider.className = 'date-divider';
+            divider.innerText = dateStr;
+            fragment.appendChild(divider);
+            lastDateStr = dateStr;
+        }
+
+        const userSelectedEmoji = getUserReaction(post.id);
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        bubble.id = `post_${post.id}`;
+        bubble.dataset.postId = post.id;
+
+        let imageHTML = post.imageUrl 
+            ? `<img src="${getSecureAssetUrl(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image">` 
+            : '';
+
+        let quoteHTML = '';
+        if (post.quote) {
+            const targetId = post.quote.targetPostId || '';
+            const cleanSnippet = sanitizeHTML(stripMarkdown(post.quote.text || ''));
+            quoteHTML = `
+            <div class="msg-quote" onclick="event.stopPropagation(); window.scrollToChannelPost('${targetId}')">
+                 <div class="quote-author">SPIDY BOOK HUB</div>
+                 <div class="quote-text">${cleanSnippet}</div>
+            </div>`;
+        }
+
+        const reactionPillsHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
+
+        bubble.innerHTML = `
+            ${quoteHTML}
+            ${imageHTML}
+            <div class="msg-text">${parseMarkdown(post.text)}</div>
+            <div class="post-footer">
+                <div class="inline-reactions">${reactionPillsHTML}</div>
+                <div class="msg-meta">
+                    <i class="fas fa-eye"></i> ${formatViewsCount(post.views || 1)} &nbsp; ${formatTime(dateObj)}
+                </div>
+            </div>
+        `;
+
+        bubble.querySelectorAll('.reaction-pill').forEach(pill => {
+            pill.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                applyReaction(post.id, pill.dataset.emoji);
+            });
+        });
+
+        bubble.addEventListener('click', (e) => {
+            if (
+                e.target.tagName === 'A' || 
+                e.target.closest('.tg-copy-action-btn') || 
+                e.target.closest('.telegram-copy-btn') ||
+                e.target.closest('.reaction-pill') ||
+                e.target.closest('.tg-copy-card')
+            ) {
+                return;
+            }
+            if (!isUserLoggedIn || !auth.currentUser) {
+                triggerLoginModal();
+                return;
+            }
+            activePost = post;
+            if (contextOverlay) contextOverlay.classList.add('show');
+            if (navigator.vibrate) navigator.vibrate(20);
+        });
+
+        fragment.appendChild(bubble);
+        postViewObserver.observe(bubble);
+    });
+
+    const hasTargetPost = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
+
+    if (isInitialOrPanelOpen && !hasTargetPost) {
+        chatBody.style.visibility = 'hidden';
+        chatBody.innerHTML = '';
+        chatBody.appendChild(fragment);
+
+        requestAnimationFrame(() => {
+            chatBody.scrollTop = chatBody.scrollHeight + 1000;
+            requestAnimationFrame(() => {
+                chatBody.scrollTop = chatBody.scrollHeight + 1000;
+                chatBody.style.visibility = 'visible';
+            });
+        });
+    } else {
+        const prevScrollTop = chatBody.scrollTop;
+        chatBody.innerHTML = '';
+        chatBody.appendChild(fragment);
+        chatBody.style.visibility = 'visible';
+        if (!hasTargetPost) {
+            chatBody.scrollTop = prevScrollTop;
+        }
+    }
+}
+
+async function applyReaction(postId, newEmoji) {
+    if (!isUserLoggedIn || !auth.currentUser) {
+        triggerLoginModal();
+        return;
+    }
+    
+    const existing = getUserReaction(postId);
+    if (existing === newEmoji) return;
+
+    setUserReaction(postId, newEmoji);
+    const pIdx = livePosts.findIndex(p => p.id === postId);
+    if (pIdx !== -1) {
+        livePosts[pIdx].reactions = livePosts[pIdx].reactions || {};
+        if (existing && livePosts[pIdx].reactions[existing]) {
+            livePosts[pIdx].reactions[existing] = Math.max(0, livePosts[pIdx].reactions[existing] - 1);
+        }
+        livePosts[pIdx].reactions[newEmoji] = (livePosts[pIdx].reactions[newEmoji] || 0) + 1;
+        updateReactionInDOM(postId);
+    }
+    if (navigator.vibrate) navigator.vibrate(15);
+
+    try {
+        const token = await auth.currentUser.getIdToken(false);
+        const res = await fetch('/api/channel-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'reaction', postId, emoji: newEmoji, userToken: token })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showToast(data.error || "Reaction failed", "error");
+        }
+    } catch (e) {}
+}
+
+// Context Menu Listeners for Posts
+if (contextOverlay) {
+    contextOverlay.addEventListener('click', (e) => {
+        if (e.target === contextOverlay) contextOverlay.classList.remove('show');
+    });
+
+    document.querySelectorAll('.cm-emoji').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const emoji = el.getAttribute('data-emoji');
+            if (activePost && emoji) {
+                applyReaction(activePost.id, emoji);
+                contextOverlay.classList.remove('show');
+                activePost = null;
+            }
+        });
+    });
+
+    document.getElementById('cmCopyText')?.addEventListener('click', () => {
+        if (!activePost) return;
+        navigator.clipboard.writeText(stripMarkdown(activePost.text));
+        contextOverlay.classList.remove('show');
+    });
+
+    document.getElementById('cmCopyLink')?.addEventListener('click', () => {
+        if (!activePost) return;
+        const cleanBase = window.location.origin + window.location.pathname;
+        const url = `${cleanBase}#/post/${activePost.id}`;
+        navigator.clipboard.writeText(url);
+        contextOverlay.classList.remove('show');
+    });
+
+    document.getElementById('cmForward')?.addEventListener('click', () => {
+        if (!activePost) return;
+        const cleanBase = window.location.origin + window.location.pathname;
+        const url = `${cleanBase}#/post/${activePost.id}`;
+        const cleanText = stripMarkdown(activePost.text);
+        if (navigator.share) {
+            navigator.share({ title: 'SPIDY BOOK HUB', text: cleanText, url: url }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(url);
+        }
+        contextOverlay.classList.remove('show');
+    });
+
+    document.getElementById('cmReport')?.addEventListener('click', () => {
+        contextOverlay.classList.remove('show');
+    });
+}
+
+// Telegram Copy Button Delegation
+document.addEventListener('click', (e) => {
+    const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
+    if (copyBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        let copyTargetText = "";
+        const rawData = copyBtn.getAttribute('data-clipboard');
+        if (rawData) copyTargetText = decodeURIComponent(rawData);
+
+        if (!copyTargetText) {
+            const card = copyBtn.closest('.tg-copy-card, .telegram-prompt-card');
+            if (card) {
+                const bodyEl = card.querySelector('.telegram-prompt-body, .tg-copy-body');
+                if (bodyEl) copyTargetText = bodyEl.textContent.trim();
+            }
+        }
+
+        if (copyTargetText) {
+            navigator.clipboard.writeText(copyTargetText).then(() => {
+                copyBtn.classList.add('copied-active');
+                const orig = copyBtn.innerHTML;
+                copyBtn.innerHTML = `<i class="fas fa-check"></i> COPIED!`;
+                setTimeout(() => {
+                    copyBtn.classList.remove('copied-active');
+                    copyBtn.innerHTML = orig;
+                }, 2000);
+            });
+        }
+    }
+}, true);
+
+// ==========================================
+// 5. MASTER FILTER APPLIER & UI RENDER
 // ==========================================
 function applyMasterFilter(isAppending = false, newBatchData = []) {
     const searchInputRaw = (document.getElementById('app-search-input')?.value || "").trim();
@@ -245,7 +627,7 @@ function renderSavedBooksUI() {
 }
 
 // ==========================================
-// 5. REALTIME PAGINATION & DATA FETCH
+// 6. REALTIME PAGINATION & DATA FETCH
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -336,7 +718,7 @@ async function loadNextBooksBatch() {
 }
 
 // ==========================================
-// 6. PROMO CAROUSEL & MODULE PACKS
+// 7. PROMO CAROUSEL & MODULE PACKS
 // ==========================================
 let currentPromoIndex = 0;
 let promoAutoSlideInterval = null;
@@ -640,7 +1022,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 7. BOOK DETAIL & READ ONLINE
+// 8. BOOK DETAIL & READ ONLINE
 // ==========================================
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
@@ -763,7 +1145,7 @@ function closeDownloadPageLocal() {
 }
 
 // ==========================================
-// 8. COMMUNITY & SUPPORT HELPERS
+// 9. COMMUNITY & SUPPORT HELPERS
 // ==========================================
 function initCommunityDualPopup() {
     const popup = document.getElementById('communityPopup');
@@ -799,7 +1181,7 @@ function checkAndOpenTargetPost() {
 }
 
 // ==========================================
-// 9. EVENT LISTENERS & HEADER CONTROLS
+// 10. EVENT LISTENERS & HEADER CONTROLS
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
     // 1. Initialize Sub-modules
@@ -837,6 +1219,18 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const blinkDot = document.querySelector('.blink-dot');
         if (blinkDot) blinkDot.style.display = 'none'; 
+
+        if (livePosts.length > 0) {
+            const hasTarget = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
+            renderChannelFeed(livePosts, !hasTarget);
+            if (!hasTarget) {
+                setTimeout(forceScrollChatToBottom, 60);
+            } else {
+                checkAndOpenTargetPost();
+            }
+        } else {
+            renderChannelLoader();
+        }
     });
 
     document.getElementById('close-noti-btn')?.addEventListener('click', () => {
@@ -844,6 +1238,9 @@ document.addEventListener("DOMContentLoaded", () => {
             history.back();
         } else {
             document.getElementById('noti-panel')?.classList.remove('active');
+        }
+        if (window.location.hash.includes('post/')) {
+            history.replaceState(null, '', window.location.pathname);
         }
     });
 
@@ -1072,7 +1469,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================================
-// 10. AUTH STATE & INITIAL LOAD
+// 11. AUTH STATE & LIVE SYNC PIPELINE
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -1125,6 +1522,66 @@ onAuthStateChanged(auth, async (user) => {
             dynamicBannersList.push(b);
         });
         renderDynamicBanners(dynamicBannersList);
+    });
+
+    // Realtime Channel Posts Listener
+    renderChannelLoader();
+    const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
+    onSnapshot(channelQuery, (snapshot) => {
+        const dataArr = [];
+        snapshot.forEach(docSnap => {
+            dataArr.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        const prevCount = livePosts.length;
+        livePosts = dataArr;
+
+        if (chatBody && livePosts.length === 0) {
+            chatBody.innerHTML = `
+                <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
+                    <i class="fas fa-bullhorn" style="font-size: 28px; margin-bottom: 10px; color: #64748b;"></i>
+                    <p style="font-size: 14px; margin: 0;">No updates yet. Check back soon!</p>
+                </div>`;
+            return;
+        }
+
+        const notiPanel = document.getElementById('noti-panel');
+        const isNotiPanelOpen = notiPanel && notiPanel.classList.contains('active');
+        const blinkDot = document.querySelector('.blink-dot');
+        const hasTargetPost = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
+
+        if (isInitialChannelLoad) {
+            renderChannelFeed(livePosts, !hasTargetPost);
+            isInitialChannelLoad = false;
+            checkAndOpenTargetPost();
+        } else if (livePosts.length !== prevCount) {
+            if (!isNotiPanelOpen && blinkDot && livePosts.length > prevCount) {
+                blinkDot.style.display = 'block';
+            }
+
+            const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
+            if (distanceFromBottom > 140 && livePosts.length > prevCount) {
+                unreadPostsCount += (livePosts.length - prevCount);
+                if (unreadBadge) {
+                    unreadBadge.innerText = unreadPostsCount > 99 ? '99+' : unreadPostsCount;
+                    unreadBadge.classList.add('active');
+                }
+                if (scrollDownWrapper) scrollDownWrapper.classList.add('show');
+                renderChannelFeed(livePosts, false);
+            } else {
+                renderChannelFeed(livePosts, !hasTargetPost);
+            }
+        } else {
+            livePosts.forEach(p => updateReactionInDOM(p.id));
+        }
+    }, (error) => {
+        if (chatBody) {
+            chatBody.innerHTML = `
+                <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
+                    <i class="fas fa-circle-exclamation" style="font-size: 28px; margin-bottom: 10px; color: #ef4444;"></i>
+                    <p style="font-size: 14px; margin: 0;">Updates unavailable.</p>
+                </div>`;
+        }
     });
 
     // Books & Metadata loader
