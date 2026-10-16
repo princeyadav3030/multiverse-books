@@ -61,8 +61,13 @@ export function generateDeviceFingerprint(uid = "guest_session") {
 }
 
 // ==========================================
-// SANITIZATION & MARKDOWN
+// SANITIZATION & SEARCH NORMALIZER
 // ==========================================
+export function normalizeTextForSearch(str) {
+    if (!str) return '';
+    return str.toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').trim();
+}
+
 export function sanitizeHTML(str) {
     if (typeof str !== 'string') return str;
     return str.replace(/[&<>'"]/g, function(match) {
