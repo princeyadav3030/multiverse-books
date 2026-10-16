@@ -112,6 +112,8 @@ async function syncUserProfileToFirestore(user) {
 // 3. GLOBAL STATE & PAGINATION
 // ==========================================
 let booksData = [];
+let allAuthorsCache = new Set();
+let allYearsCache = new Set();
 let mainFilteredData = [];
 let lastVisibleBookDoc = null;
 let hasMoreBooksToFetch = true;
@@ -280,7 +282,7 @@ function showToast(message, type = 'success') {
 
     pillToastTimer = setTimeout(() => {
         toast.classList.remove('active');
-    }, 4000);
+    }, 3200);
 }
 
 function generateDeviceFingerprint() {
@@ -1233,7 +1235,7 @@ async function applyReaction(postId, newEmoji) {
         });
         const data = await res.json();
         if (!res.ok) {
-            showToast(data.error || "Could not save reaction", "error");
+            showToast(data.error || "Reaction failed", "error");
         }
     } catch (e) {}
 }
@@ -1333,7 +1335,6 @@ onAuthStateChanged(auth, async (user) => {
         isUserLoggedIn = true;
         localStorage.setItem('isUserLoggedIn', 'true');
 
-        // Background Profile Sync to Firestore
         syncUserProfileToFirestore(user);
 
         let dName = user.displayName || (user.email ? user.email.split('@')[0] : "User");
@@ -1433,6 +1434,7 @@ onAuthStateChanged(auth, async (user) => {
     });
 
     await loadInitialBooksBatch();
+    fetchGlobalFilterMetadata(); // Global meta loader for all authors & years
     
     renderChannelLoader();
     const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
@@ -1488,44 +1490,44 @@ onAuthStateChanged(auth, async (user) => {
             chatBody.innerHTML = `
                 <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
                     <i class="fas fa-circle-exclamation" style="font-size: 28px; margin-bottom: 10px; color: #ef4444;"></i>
-                    <p style="font-size: 14px; margin: 0;">Updates load nahi ho sake.</p>
+                    <p style="font-size: 14px; margin: 0;">Updates unavailable.</p>
                 </div>`;
         }
     });
 });
 
 // ==========================================
-// FORGOT PASSWORD (STRICT ADMIN VERIFICATION)
+// FORGOT PASSWORD
 // ==========================================
 document.getElementById('forgotPasswordBtn')?.addEventListener('click', async () => {
     const emailInput = document.getElementById('loginEmail');
     let targetEmail = emailInput ? emailInput.value.trim().toLowerCase() : "";
 
     if (!targetEmail || !targetEmail.includes('@')) {
-        showToast("Please enter your registered admin email address!", "error");
+        showToast("Enter registered email", "error");
         emailInput?.focus();
         return;
     }
 
     try {
-        showToast("Verifying admin account...", "success");
+        showToast("Verifying admin...", "success");
         const adminDocRef = doc(db, "admins", targetEmail);
         const adminDocSnap = await getDoc(adminDocRef);
 
         if (!adminDocSnap.exists()) {
-            showToast("Access Denied: Please enter a valid admin email address!", "error");
+            showToast("Admin access denied", "error");
             return;
         }
 
         await sendPasswordResetEmail(auth, targetEmail);
-        showToast("Password reset link has been sent to your email!", "success");
+        showToast("Reset link sent!", "success");
     } catch (err) {
-        showToast(err.message || "Failed to send password reset email.", "error");
+        showToast("Reset link failed", "error");
     }
 });
 
 // ========================================================
-// 10. MULTI-COLOR 4-BOX FILTER ENGINE
+// 10. MULTI-COLOR 4-BOX FILTER ENGINE & STRICT REGEX
 // ========================================================
 const filterState = {
     language: 'All',
@@ -1567,30 +1569,41 @@ const EXAM_CATEGORY_MAP = {
     "General Reading": ["GENERAL", "NOVEL", "STORY", "MAGAZINE", "SELF HELP", "READING", "HISTORY", "MOTIVATION"]
 };
 
-function getDynamicAuthorList() {
-    const authorsSet = new Set();
-    const sortedAuthors = [];
+// Global metadata preloader for complete author & year lists
+async function fetchGlobalFilterMetadata() {
+    try {
+        const booksRef = collection(db, "books");
+        const snap = await getDocs(query(booksRef, limit(300)));
+        snap.forEach(d => {
+            const val = d.data();
+            const a = (val.author || "").trim();
+            if (a && a.toLowerCase() !== "unknown") allAuthorsCache.add(a);
+            const y = (val.year || "").toString().trim();
+            if (y && !isNaN(parseInt(y, 10))) allYearsCache.add(y);
+        });
+    } catch (e) {}
+}
 
+function getDynamicAuthorList() {
+    const authorsSet = new Set(allAuthorsCache);
     booksData.forEach(book => {
         const aName = (book.author || "").trim();
-        if (aName && aName.toLowerCase() !== "unknown" && !authorsSet.has(aName)) {
+        if (aName && aName.toLowerCase() !== "unknown") {
             authorsSet.add(aName);
-            sortedAuthors.push(aName);
         }
     });
-
-    return ["All", ...sortedAuthors];
+    const sorted = Array.from(authorsSet).sort((a, b) => a.localeCompare(b));
+    return ["All", ...sorted];
 }
 
 function getDynamicYearList() {
-    const yearsSet = new Set();
+    const yearsSet = new Set(allYearsCache);
     booksData.forEach(book => {
-        const y = (book.year || "").trim();
+        const y = (book.year || "").toString().trim();
         if (y && !isNaN(parseInt(y, 10))) {
             yearsSet.add(y);
         }
     });
-
     const sortedYears = Array.from(yearsSet).sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
     return ["All", ...sortedYears];
 }
@@ -1665,6 +1678,7 @@ function openSubFilterModal(type) {
         const isSelected = filterState[type] === optText;
         btn.className = `pill-btn ${isSelected ? 'active-selected' : ''}`;
         btn.innerText = optText;
+        btn.title = optText;
 
         btn.onclick = (e) => {
             e.stopPropagation();
@@ -1744,12 +1758,18 @@ function normalizeTextForSearch(str) {
     return str.toString().toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').trim();
 }
 
+// Strict and high-precision exam tag filtering
 function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords) {
     let matchesCategory = true;
     if (filterState.class !== "All") {
-        let bookExamsString = (book.exams || "").toUpperCase();
-        let targetKeywords = EXAM_CATEGORY_MAP[filterState.class] || [filterState.class.toUpperCase()];
-        matchesCategory = targetKeywords.some(kw => bookExamsString.includes(kw));
+        const bookExams = (book.exams || "").toUpperCase();
+        const targetKeywords = EXAM_CATEGORY_MAP[filterState.class] || [filterState.class.toUpperCase()];
+
+        // Strict tag check using token/comma splitting and word-boundaries
+        const tags = bookExams.split(/[,/|\n]+/).map(t => t.trim()).filter(Boolean);
+        matchesCategory = targetKeywords.some(kw => {
+            return tags.some(tag => tag === kw || new RegExp(`\\b${kw}\\b`, 'i').test(tag));
+        });
     }
 
     let matchesLanguage = true;
@@ -1847,6 +1867,8 @@ async function loadInitialBooksBatch() {
                 data.slug = generateCleanSlug(data.title, data.id);
             }
             booksData.push(data);
+            if (data.author) allAuthorsCache.add(data.author.trim());
+            if (data.year) allYearsCache.add(data.year.toString().trim());
         });
 
         if (snapshot.docs.length > 0) {
@@ -1876,7 +1898,7 @@ async function loadNextBooksBatch() {
     if (infiniteLoader) infiniteLoader.style.display = 'flex';
 
     try {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
         const booksRef = collection(db, "books");
         const q = query(booksRef, orderBy("createdAt", "desc"), startAfter(lastVisibleBookDoc), limit(BATCH_SIZE));
@@ -1898,6 +1920,8 @@ async function loadNextBooksBatch() {
             }
             booksData.push(data);
             newItems.push(data);
+            if (data.author) allAuthorsCache.add(data.author.trim());
+            if (data.year) allYearsCache.add(data.year.toString().trim());
         });
 
         lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
@@ -2001,7 +2025,7 @@ document.getElementById('savedBooksContainer')?.addEventListener('click', (e) =>
 });
 
 // ==========================================
-// 12. LOGIN & LOGOUT
+// 12. LOGIN & LOGOUT (AUTHENTICATION ACTIONS)
 // ==========================================
 function closeLoginOverlayLocal() {
     const loginOverlay = document.getElementById('loginOverlay');
@@ -2047,14 +2071,14 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
         e.target.reset(); 
         btn.innerHTML = originalContent; 
         closeLoginOverlayLocal();
-        showToast("Logged in successfully! ✨", "success");
+        showToast("Login Successfully", "success");
         if (isDeepLinkLoad && pendingBookSlug) {
             document.getElementById('mainAppWrapper').style.display = 'block';
             setTimeout(() => { openDownloadPageLocal(pendingBookSlug, true); }, 300);
         }
     } catch(err) { 
         btn.innerHTML = originalContent; 
-        showToast(err.message || "Invalid Email or Password", "error");
+        showToast("Invalid credentials", "error");
     } 
 });
 
@@ -2068,14 +2092,14 @@ document.getElementById('googleSignInBtn')?.addEventListener('click', async () =
         await syncUserProfileToFirestore(result.user);
         btn.innerHTML = originalContent; 
         closeLoginOverlayLocal();
-        showToast("Logged in successfully! ✨", "success");
+        showToast("Google Login Successfully", "success");
         if (isDeepLinkLoad && pendingBookSlug) {
             document.getElementById('mainAppWrapper').style.display = 'block';
             setTimeout(() => { openDownloadPageLocal(pendingBookSlug, true); }, 300);
         }
     } catch(err) { 
         btn.innerHTML = originalContent; 
-        showToast("Google sign in failed, please retry", "error");
+        showToast("Sign in failed", "error");
     } 
 });
 
@@ -2137,7 +2161,7 @@ if (confirmLogoutBtn) {
         } catch (error) {
             confirmLogoutBtn.innerHTML = 'Yes, Log Out';
             confirmLogoutBtn.style.pointerEvents = 'auto';
-            showToast("Logout failed, please retry", "error");
+            showToast("Logout failed", "error");
         }
     });
 }
@@ -2151,7 +2175,6 @@ document.getElementById('open-search')?.addEventListener('click', () => {
     setTimeout(() => { searchInputEl?.focus(); }, 300); 
 });
 
-// LOGIN-PROTECTED NOTIFICATION PANEL
 document.getElementById('open-noti')?.addEventListener('click', () => { 
     if (!isUserLoggedIn || !auth.currentUser) {
         triggerLoginModal();
@@ -2190,7 +2213,6 @@ if (closeNotiBtn) {
     });
 }
 
-// UPLOAD FOR ALL LOGGED-IN USERS
 document.getElementById('open-upload-btn')?.addEventListener('click', () => {
     if (!isUserLoggedIn || !auth.currentUser) {
         triggerLoginModal();
@@ -2260,7 +2282,7 @@ document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
 });
 
 // ==========================================
-// 13.5 SUPPORT MODAL LOGIC (LOGIN PROTECTED)
+// 13.5 SUPPORT MODAL LOGIC
 // ==========================================
 document.getElementById('menu-contact')?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -2358,7 +2380,7 @@ document.getElementById('supportContactForm')?.addEventListener('submit', async 
 
         if (response.ok && data.success) {
             btn.classList.add('btn-success-active');
-            btnText.innerText = "Successfully Sent";
+            btnText.innerText = "Sent";
             btnIcon.innerHTML = `<polyline points="20 6 9 17 4 12"></polyline>`;
             
             document.getElementById('supFirstName').value = "";
@@ -2384,13 +2406,13 @@ document.getElementById('supportContactForm')?.addEventListener('submit', async 
                 } else {
                     document.getElementById('supportModalOverlay')?.classList.remove('active');
                 }
-            }, 2500);
+            }, 2000);
 
         } else {
-            throw new Error(data.error || "Failed to send message.");
+            throw new Error(data.error || "Failed to send");
         }
     } catch (error) {
-        showToast(error.message || "Network error. Please try again.", "error");
+        showToast("Sending failed", "error");
         btnText.innerText = originalText;
         btnIcon.innerHTML = originalIcon;
         btn.style.pointerEvents = "auto";
@@ -2968,7 +2990,7 @@ function executeGoToPage() {
         if (goToPageModal) goToPageModal.style.display = 'none';
         jumpToPdfPage(val);
     } else {
-        showToast(`Please enter a page between 1 and ${pdfTotalPagesCount}`, "error");
+        showToast(`Invalid page range (1-${pdfTotalPagesCount})`, "error");
     }
 }
 
@@ -3096,7 +3118,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
                     const tModal = document.getElementById('tokenModalOverlay');
                     if (tModal) tModal.style.display = 'flex';
                 } else {
-                    showToast(data.error || "Limit reached!", "error");
+                    showToast(data.error || "Access limit reached", "error");
                 }
             }
 
@@ -3104,7 +3126,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
             btn.disabled = false;
 
         } catch (error) { 
-            showToast("Network Error: Could not load the book.", "error"); 
+            showToast("Failed to load book", "error"); 
             btn.innerHTML = originalText; 
             btn.disabled = false; 
         }
@@ -3304,11 +3326,11 @@ verifyBtn?.addEventListener('click', async () => {
     
     if (tokenValue.length < 5) {
         inputBox?.classList.add('error-state');
-        showToast('Please enter a valid token!', 'error');
+        showToast('Invalid token format', 'error');
         setTimeout(() => {
             inputBox?.classList.remove('error-state');
             updateInputState();
-        }, 2500);
+        }, 2000);
         return;
     }
 
@@ -3325,7 +3347,7 @@ verifyBtn?.addEventListener('click', async () => {
 
         if (response.ok && data.success) {
             inputBox?.classList.add('success-state');
-            showToast('Access Granted! Valid for 10 Days.', 'success');
+            showToast('Access Granted! 10 Days.', 'success');
             
             localStorage.removeItem('spidy_pending_generated_key');
             localStorage.removeItem('spidy_pending_key_time');
@@ -3345,21 +3367,21 @@ verifyBtn?.addEventListener('click', async () => {
             }, 1000);
         } else {
             inputBox?.classList.add('error-state');
-            showToast(data.error || 'Invalid or Expired Token!', 'error');
+            showToast('Token expired or invalid', 'error');
             verifyBtn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
             setTimeout(() => {
                 inputBox?.classList.remove('error-state');
                 updateInputState();
-            }, 2500);
+            }, 2000);
         }
     } catch (err) {
         inputBox?.classList.add('error-state');
-        showToast('Server Error! Cannot verify token.', 'error');
+        showToast('Verification failed', 'error');
         verifyBtn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
         setTimeout(() => {
             inputBox?.classList.remove('error-state');
             updateInputState();
-        }, 2500);
+        }, 2000);
     }
 });
 
@@ -3550,14 +3572,14 @@ document.getElementById('filePdfSelect')?.addEventListener('change', async (e) =
 
         const maxAllowed = IS_SUPER_ADMIN ? (1024 * 1024 * 1024) : (250 * 1024 * 1024);
         if (selectedPdfFile.size > maxAllowed) {
-            showToast(`File size limit exceeded! Maximum allowed: ${IS_SUPER_ADMIN ? '1GB' : '250MB'}`, "error");
+            showToast(`File too large (Max ${IS_SUPER_ADMIN ? '1GB' : '250MB'})`, "error");
             selectedPdfFile = null;
             statusText.innerText = "Drag & Drop PDF File";
             e.target.value = "";
             return;
         }
 
-        statusText.innerText = `Counting exact pages...`;
+        statusText.innerText = `Calculating Pages...`;
 
         try {
             const sampleSlice = selectedPdfFile.slice(0, Math.min(selectedPdfFile.size, 262144));
@@ -3618,7 +3640,7 @@ function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRet
                 } else if (attempts < maxRetries) {
                     setTimeout(attemptUpload, 1500);
                 } else {
-                    reject(new Error(`Storage transfer failed with status ${xhr.status}.`));
+                    reject(new Error(`Storage error (${xhr.status})`));
                 }
             };
 
@@ -3626,7 +3648,7 @@ function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRet
                 if (attempts < maxRetries) {
                     setTimeout(attemptUpload, 2000);
                 } else {
-                    reject(new Error("Worker connection lost. Check network connection."));
+                    reject(new Error("Network connection error"));
                 }
             };
 
@@ -3634,7 +3656,7 @@ function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRet
                 if (attempts < maxRetries) {
                     setTimeout(attemptUpload, 2000);
                 } else {
-                    reject(new Error("Upload connection timed out."));
+                    reject(new Error("Connection timed out"));
                 }
             };
 
@@ -3671,7 +3693,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     });
     const createData = await createRes.json();
     if (!createRes.ok || !createData.success) {
-        throw new Error(createData.error || "Failed to initialize upload session.");
+        throw new Error(createData.error || "Upload init failed");
     }
 
     const uploadId = createData.uploadId;
@@ -3695,7 +3717,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
         });
 
         if (!partResult || !partResult.etag) {
-            throw new Error(`Part ${partNumber} write failed on storage.`);
+            throw new Error(`Part ${partNumber} write failed`);
         }
 
         uploadedParts.push({
@@ -3715,7 +3737,7 @@ async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     });
     const completeData = await completeRes.json();
     if (!completeRes.ok || !completeData.success) {
-        throw new Error(completeData.error || "Failed to finalize file upload.");
+        throw new Error(completeData.error || "Upload finalize failed");
     }
 
     if (onProgress) onProgress(fileSize, fileSize);
@@ -3728,8 +3750,8 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     if (!auth.currentUser) {
         return triggerLoginModal();
     }
-    if (!selectedCoverFile) return showToast("Please select a cover image!", "error");
-    if (!selectedPdfFile) return showToast("Please select a book PDF file!", "error");
+    if (!selectedCoverFile) return showToast("Select a cover image", "error");
+    if (!selectedPdfFile) return showToast("Select book PDF", "error");
 
     const pipeline = document.getElementById('uploadPipelineOverlay');
     const percentDisplay = document.getElementById('syncPercentDisplay');
@@ -3757,11 +3779,11 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
     let coverLoaded = 0, pdfLoaded = 0, lastLoaded = 0, lastTime = Date.now();
 
     pipeline.style.display = 'flex';
-    stageTitle.innerText = "Checking quota & eligibility...";
+    stageTitle.innerText = "Checking quota...";
     percentDisplay.innerHTML = `0<span class="percent-symbol">%</span>`;
     progressFill.style.width = `0%`;
     transferredBytes.innerText = `0.00 MB / ${totalMB} MB`;
-    speedVal.innerText = "Authenticating...";
+    speedVal.innerText = "Connecting...";
 
     function updateTelemetry() {
         const loaded = coverLoaded + pdfLoaded;
@@ -3800,7 +3822,7 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
         const coverAuthData = await coverAuthRes.json();
         if (!coverAuthRes.ok || !coverAuthData.success) {
-            throw new Error(coverAuthData.error || "Permission denied for cover upload.");
+            throw new Error(coverAuthData.error || "Permission denied");
         }
 
         const pdfAuthRes = await fetch('/api/generate-upload-url', {
@@ -3817,25 +3839,25 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
         const pdfAuthData = await pdfAuthRes.json();
         if (!pdfAuthRes.ok || !pdfAuthData.success) {
-            throw new Error(pdfAuthData.error || "Permission denied for PDF upload.");
+            throw new Error(pdfAuthData.error || "Permission denied");
         }
 
-        stageTitle.innerText = "⚡ Syncing Cover Artwork...";
+        stageTitle.innerText = "Syncing Cover Artwork...";
         await uploadFileSmart(coverAuthData.fileKey, selectedCoverFile, coverMime, (loaded) => {
             coverLoaded = loaded;
             updateTelemetry();
         });
 
-        stageTitle.innerText = "⚡ Ultra-Speed Encrypted Cloud Sync...";
+        stageTitle.innerText = "Encrypted Cloud Upload...";
         const subMsg = pipeline.querySelector('.sync-subtext') || pipeline.querySelector('p');
-        if (subMsg) subMsg.innerText = "Optimizing pages for HD reader view...";
+        if (subMsg) subMsg.innerText = "Processing pages...";
 
         await uploadFileSmart(pdfAuthData.fileKey, selectedPdfFile, pdfMime, (loaded) => {
             pdfLoaded = loaded;
             updateTelemetry();
         });
 
-        stageTitle.innerText = "Finalizing book registration...";
+        stageTitle.innerText = "Registering book...";
         percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
         progressFill.style.width = `99%`;
 
@@ -3876,16 +3898,18 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
         }
 
         booksData.unshift(newBook);
+        if (newBook.author) allAuthorsCache.add(newBook.author);
+        if (newBook.year) allYearsCache.add(newBook.year);
         applyMasterFilter();
 
         percentDisplay.innerHTML = `100<span class="percent-symbol">%</span>`;
         progressFill.style.width = `100%`;
-        stageTitle.innerText = "Book Published Successfully! ✨";
+        stageTitle.innerText = "Published Successfully! ✨";
 
         setTimeout(() => {
             pipeline.style.display = 'none';
             resetUploadFormState();
-            showToast("Book Published Successfully!", "success");
+            showToast("Book Published!", "success");
 
             if (history.state && history.state.popup === 'uploadModal') {
                 history.back();
@@ -3896,6 +3920,6 @@ document.getElementById('addBookForm')?.addEventListener('submit', async (e) => 
 
     } catch (error) {
         pipeline.style.display = 'none';
-        showToast(error.message || "Upload failed. Please try again.", "error");
+        showToast("Upload failed", "error");
     }
 });
