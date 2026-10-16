@@ -817,6 +817,8 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .contact-card input[readonly], .contact-card input:read-only { cursor: default !important; background: rgba(255, 255, 255, 0.05) !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; font-weight: 700 !important; opacity: 1 !important; border-color: rgba(255, 255, 255, 0.22) !important; box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5) !important; }
 .contact-card textarea { height: 82px; resize: none; line-height: 1.45; }
 .submit-btn { width: 100%; padding: 13px 16px; background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 40%, #cbd5e1 100%); border: 1px solid rgba(255, 255, 255, 0.8); border-radius: 12px; color: #050508; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px; }
+.submit-btn.btn-success-active { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; border-color: rgba(52, 211, 153, 0.8) !important; color: #ffffff !important; box-shadow: 0 0 25px rgba(16, 185, 129, 0.55), inset 0 0 10px rgba(255, 255, 255, 0.3) !important; transform: scale(1.02); }
+.submit-btn.btn-success-active svg { stroke: #ffffff !important; filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6)); }
 .encryption-note { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 14px; font-size: 10px !important; color: #94a3b8; font-weight: 600; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; width: 100%; box-sizing: border-box; letter-spacing: 0.1px; }
 .encryption-note svg { width: 11px; height: 11px; fill: #94a3b8; flex-shrink: 0; }
 .encryption-note .green-text { color: #25D366; font-weight: 700; }
