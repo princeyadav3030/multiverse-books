@@ -37,189 +37,142 @@
 
     <!-- Main External CSS File -->
     <link rel="stylesheet" href="./style.css">
-
-    <style>
-        /* Study & Creative Dark Doodle Wallpaper - Fixed Channel Background */
-        .notifications-panel {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 999;
-            display: flex;
-            flex-direction: column;
-            transform: translateX(100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
-            background-color: #090c12 !important;
-            background-image: 
-                radial-gradient(ellipse 75% 55% at 20% 20%, rgba(28, 58, 98, 0.28) 0%, transparent 70%),
-                radial-gradient(ellipse 65% 50% at 80% 80%, rgba(76, 42, 118, 0.20) 0%, transparent 75%),
-                radial-gradient(circle at 50% 50%, transparent 40%, rgba(4, 6, 9, 0.90) 100%),
-                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 900' width='480' height='480'%3E%3Cdefs%3E%3Cstyle%3E.d%7Bstroke:%235a7392;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;fill:none;opacity:0.35;%7D.f%7Bfill:%235a7392;opacity:0.35;stroke:none;%7D.g%7Bstroke:%237ea5d1;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;fill:none;opacity:0.55;%7D%3C/style%3E%3C/defs%3E%3Cg class='d'%3E%3Cpath d='M60,80 Q100,95 140,80 Q180,95 220,80 L220,135 Q180,150 140,135 Q100,150 60,135 Z'/%3E%3Cpath d='M140,80 L140,135'/%3E%3Cpath d='M75,98 Q100,108 125,98 M75,112 Q100,122 125,112 M155,98 Q180,108 205,98 M155,112 Q180,122 205,112'/%3E%3Cpolygon points='500,60 550,40 600,60 550,80'/%3E%3Cpath d='M525,70 L525,95 Q550,110 575,95 L575,70'/%3E%3Cpath d='M585,65 L605,85 L605,110'/%3E%3Ccircle cx='605' cy='112' r='2.5' class='f'/%3E%3Cpath d='M730,40 L765,75 L745,95 L710,60 Z'/%3E%3Cpath d='M710,60 L695,65 L690,50 L705,45 Z'/%3E%3Cpolygon points='690,50 675,50 685,60'/%3E%3Ccircle cx='683' cy='53' r='1.5' class='f'/%3E%3Cpath d='M800,160 L820,160 M805,160 L805,185 L785,230 Q780,245 800,245 L830,245 Q850,245 845,230 L825,185 L825,160'/%3E%3Cpath d='M795,215 Q815,225 835,215'/%3E%3Ccircle cx='810' cy='230' r='2' class='f'/%3E%3Ccircle cx='822' cy='224' r='3' class='f'/%3E%3Cpath d='M60,240 L160,240 L160,265 L60,265 Z'/%3E%3Cpath d='M50,265 L170,265 L170,295 L50,295 Z'/%3E%3Cpath d='M40,295 L180,295 L180,330 L40,330 Z'/%3E%3Cpath d='M65,307 L140,307 M65,317 L110,317'/%3E%3Cpath d='M250,200 L320,270 L305,285 L235,215 Z'/%3E%3Cpolygon points='235,215 225,215 235,225'/%3E%3Cpath d='M280,180 L350,250'/%3E%3Cpath d='M295,195 L302,188 M310,210 L317,203 M325,225 L332,218 M340,240 L347,233'/%3E%3Cpath d='M480,200 Q455,220 465,250 Q475,265 475,280 L505,280 Q505,265 515,250 Q525,220 500,200 Z'/%3E%3Cpath d='M478,280 L502,280 M480,287 L500,287 M485,294 L495,294'/%3E%3Cpath d='M485,240 L490,225 L495,240 M490,225 L490,255' class='g'/%3E%3Cpath d='M450,215 L440,210 M530,215 L540,210 M490,185 L490,175' class='g'/%3E%3Ccircle cx='670,220' r='5'/%3E%3Cpath d='M667,225 L645,290 M673,225 L695,290 M653,260 Q670,265 687,260'/%3E%3Cpath d='M100,430 L155,475 L145,488 L90,442 Z M128,463 L103,535 M128,463 L153,535 M128,463 L128,540'/%3E%3Ccircle cx='250' cy='430' r='25'/%3E%3Cellipse cx='250' cy='430' rx='45' ry='12' transform='rotate(-20 250 430)'/%3E%3Crect x='380' y='380' width='80' height='110' rx='6'/%3E%3Cpath d='M400,380 L400,490'/%3E%3Cpath d='M375,395 L385,395 M375,415 L385,415 M375,435 L385,435 M375,455 L385,455 M375,475 L385,475'/%3E%3Cpath d='M415,405 L445,405 M415,425 L445,425 M415,445 L435,445'/%3E%3Cpath d='M580,410 Q620,380 660,410 L665,490 Q620,510 575,490 Z'/%3E%3Cpath d='M600,390 Q620,370 640,390'/%3E%3Crect x='595' y='430' width='50' height='40' rx='4'/%3E%3Cpath d='M790,390 C750,390 740,450 780,470 C800,480 840,470 850,430 C860,390 820,390 790,390 Z'/%3E%3Ccircle cx='765' cy='420' r='4' class='f'/%3E%3Ccircle cx='785' cy='405' r='4' class='f'/%3E%3Ccircle cx='810' cy='410' r='4' class='f'/%3E%3Ccircle cx='830' cy='430' r='4' class='f'/%3E%3Cpath d='M750,470 L720,510 M720,510 L715,520 L725,515 Z'/%3E%3Cpath d='M80,640 C60,610 110,590 140,610 C160,600 180,620 175,645 C170,665 130,670 95,660 Z'/%3E%3Cpath d='M95,620 L100,605 L110,618 M125,615 L135,602 L140,615 M130,635 Q140,630 150,635'/%3E%3Ctext x='160' y='605' font-size='14' font-family='sans-serif' class='f'%3Ez%3C/text%3E%3Ctext x='175' y='588' font-size='18' font-family='sans-serif' class='f'%3EZ%3C/text%3E%3Ctext x='270' y='600' font-size='24' font-family='sans-serif' class='f'%3E%CF%80%3C/text%3E%3Ctext x='320' y='610' font-size='20' font-family='sans-serif' class='f'%3E%E2%88%9A%3C/text%3E%3Ctext x='340' y='605' font-size='16' font-family='sans-serif' class='f'%3Ex%3C/text%3E%3Ctext x='280' y='650' font-size='18' font-family='sans-serif' class='f'%3EE=mc%C2%B2%3C/text%3E%3Cpath d='M480,630 C470,570 530,570 520,630 Q510,640 500,630 Q490,640 480,630 Z'/%3E%3Ccircle cx='490' cy='600' r='3' class='f'/%3E%3Ccircle cx='510' cy='600' r='3' class='f'/%3E%3Cpath d='M475,625 L500,635 L525,625'/%3E%3Ccircle cx='700' cy='610' r='20'/%3E%3Cpath d='M715,625 L745,655' stroke-width='4'/%3E%3Cpath d='M630,730 L690,700 L650,750 L640,735 Z M690,700 L640,735'/%3E%3Cpath d='M800,720 Q815,685 830,680 Q845,685 860,720 Q850,740 830,745 Q810,740 800,720 Z'/%3E%3Ccircle cx='830' cy='710' r='8'/%3E%3Cpath d='M805,725 L785,745 L805,740 M855,725 L875,745 L855,740 M820,745 L815,760 M840,745 L845,760'/%3E%3Cpath d='M110,780 L120,840 L160,840 L170,780 Z M168,795 Q185,795 180,820 Q175,830 163,830'/%3E%3Cpath d='M130,765 Q135,755 130,745 M145,765 Q150,755 145,745'/%3E%3Ccircle cx='280' cy='820' r='8'/%3E%3Ccircle cx='280' cy='845' r='8'/%3E%3Cpath d='M286,823 L325,850 M286,842 L325,815'/%3E%3Cpath d='M440,780 L440,840 Q440,855 455,855 Q470,855 470,840 L470,800 Q470,790 460,790 Q450,790 450,800 L450,835'/%3E%3Ccircle cx='560' cy='800' r='24' class='g'/%3E%3Ctext x='548' y='808' font-size='22' font-weight='bold' font-family='sans-serif' class='f'%3EA+%3C/text%3E%3Cpath d='M60,490 L64,500 L74,504 L64,508 L60,518 L56,508 L46,504 L56,500 Z' class='g'/%3E%3Cpath d='M350,80 L353,88 L361,91 L353,94 L350,102 L347,94 L339,91 L347,88 Z' class='g'/%3E%3Cpath d='M750,280 L753,288 L761,291 L753,294 L750,302 L747,294 L739,291 L747,288 Z' class='g'/%3E%3Cpath d='M480,510 L483,516 L489,519 L483,522 L480,528 L477,522 L471,519 L477,516 Z'/%3E%3Cpath d='M850,560 L853,568 L861,571 L853,574 L850,582 L847,574 L839,571 L847,568 Z' class='g'/%3E%3Ccircle cx='220' cy='360' r='2.5' class='f'/%3E%3Ccircle cx='540' cy='330' r='2.5' class='f'/%3E%3Ccircle cx='700' cy='480' r='3' class='f'/%3E%3Ccircle cx='390' cy='700' r='2.5' class='f'/%3E%3C/g%3E%3C/svg%3E") !important;
-            background-repeat: repeat !important;
-            background-size: 440px 440px !important;
-            background-position: center top !important;
-            background-attachment: fixed !important;
-        }
-
-        /* Fixed Button Icon Visual Balance */
-        .submit-btn {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 9px !important;
-            line-height: 1 !important;
-        }
-        .submit-btn svg#supBtnIcon {
-            width: 17px !important;
-            height: 17px !important;
-            margin-top: 2px !important;
-            display: inline-block !important;
-            flex-shrink: 0 !important;
-            vertical-align: middle !important;
-        }
-    </style>
 </head>
 <body>
+
+    <!-- REUSABLE SPIDER 3D SVG SYMBOL DEFINITION -->
+    <svg style="display: none;" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="scarletLit" x1="0%" y1="0%" x2="90%" y2="100%">
+                <stop offset="0%" stop-color="#ff2a2a" />
+                <stop offset="45%" stop-color="#e60000" />
+                <stop offset="100%" stop-color="#b00000" />
+            </linearGradient>
+
+            <linearGradient id="headNeckShine" x1="0%" y1="0%" x2="85%" y2="100%">
+                <stop offset="0%" stop-color="#ff4747" />
+                <stop offset="50%" stop-color="#e60000" />
+                <stop offset="100%" stop-color="#a30000" />
+            </linearGradient>
+
+            <linearGradient id="rubyMid" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#cc0000" />
+                <stop offset="55%" stop-color="#990000" />
+                <stop offset="100%" stop-color="#5e0000" />
+            </linearGradient>
+
+            <linearGradient id="rubyDeepShadow" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#8a0000" />
+                <stop offset="50%" stop-color="#5c0000" />
+                <stop offset="100%" stop-color="#2e0000" />
+            </linearGradient>
+
+            <linearGradient id="armorBlack" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1f0505" />
+                <stop offset="50%" stop-color="#120000" />
+                <stop offset="100%" stop-color="#050000" />
+            </linearGradient>
+
+            <linearGradient id="trenchBlack" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#050000" />
+                <stop offset="50%" stop-color="#140202" />
+                <stop offset="100%" stop-color="#000000" />
+            </linearGradient>
+
+            <linearGradient id="coreSpearLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ff2e2e" />
+                <stop offset="40%" stop-color="#e60000" />
+                <stop offset="100%" stop-color="#9e0000" />
+            </linearGradient>
+
+            <linearGradient id="coreSpearRight" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#b80000" />
+                <stop offset="50%" stop-color="#850000" />
+                <stop offset="100%" stop-color="#470000" />
+            </linearGradient>
+
+            <g id="exact-legs-left">
+                <path d="M 412,334 L 194,292 Q 250,128 385,15 Q 322,128 298,236 L 418,318 Z" fill="url(#armorBlack)" />
+                <polygon points="418,318 292,232 258,248 415,326" fill="url(#scarletLit)" />
+                <polygon points="292,232 248,236 198,288 258,248" fill="url(#scarletLit)" />
+                <polygon points="415,326 258,248 198,288 412,334" fill="url(#rubyDeepShadow)" />
+                <path d="M 198,288 Q 250,128 385,15 Q 296,128 248,236 Z" fill="url(#scarletLit)" />
+                <path d="M 248,236 Q 296,128 385,15 Q 318,130 292,232 Z" fill="url(#rubyDeepShadow)" />
+
+                <path d="M 404,348 L 150,336 Q 164,205 242,88 Q 84,212 60,402 Q 56,435 66,466 L 146,422 L 402,374 Z" fill="url(#armorBlack)" />
+                <polygon points="404,348 150,336 114,366 402,358" fill="url(#scarletLit)" />
+                <polygon points="402,358 114,366 66,466 138,418 402,370" fill="url(#rubyDeepShadow)" />
+                <polygon points="114,366 60,402 66,466" fill="url(#rubyMid)" />
+                <path d="M 60,402 Q 84,212 242,88 Q 126,212 90,378 Z" fill="url(#rubyDeepShadow)" />
+                <path d="M 90,378 Q 126,212 242,88 Q 148,210 114,366 Z" fill="url(#scarletLit)" />
+                <path d="M 114,366 Q 148,210 242,88 Q 162,206 144,338 Z" fill="url(#rubyMid)" />
+
+                <path d="M 404,380 L 56,520 Q 76,712 282,898 Q 164,715 156,546 L 406,402 Z" fill="url(#armorBlack)" />
+                <polygon points="404,380 56,520 98,536 405,390" fill="url(#scarletLit)" />
+                <polygon points="405,390 98,536 148,542 406,400" fill="url(#rubyDeepShadow)" />
+                <path d="M 56,520 Q 76,712 282,898 Q 128,720 98,536 Z" fill="url(#rubyDeepShadow)" />
+                <path d="M 98,536 Q 128,720 282,898 Q 158,715 148,542 Z" fill="url(#scarletLit)" />
+
+                <path d="M 414,404 L 206,550 Q 254,755 458,975 Q 320,750 288,564 L 422,422 Z" fill="url(#armorBlack)" />
+                <polygon points="414,404 206,550 242,560 418,413" fill="url(#scarletLit)" />
+                <polygon points="418,413 242,560 280,560 421,420" fill="url(#rubyDeepShadow)" />
+                <path d="M 206,550 Q 254,755 458,975 Q 288,755 242,560 Z" fill="url(#rubyDeepShadow)" />
+                <path d="M 242,560 Q 288,755 458,975 Q 312,750 280,560 Z" fill="url(#scarletLit)" />
+
+                <path d="M 432,306 L 382,260 Q 396,192 456,164 Q 428,214 436,246 L 466,274 Z" fill="url(#armorBlack)" />
+                <path d="M 382,260 Q 396,192 456,164 Q 412,210 410,250 Z" fill="url(#scarletLit)" />
+                <path d="M 410,250 Q 412,210 456,164 Q 428,214 434,246 Z" fill="url(#rubyMid)" />
+                <polygon points="410,250 434,246 462,272 442,278" fill="url(#scarletLit)" />
+                <polygon points="382,260 410,250 442,278 432,304" fill="url(#rubyDeepShadow)" />
+                <polygon points="432,304 442,278 462,272 456,294" fill="url(#trenchBlack)" />
+            </g>
+
+            <g id="spider-pro-3d-symbol">
+                <use href="#exact-legs-left" />
+                <g transform="translate(1000, 0) scale(-1, 1)">
+                    <use href="#exact-legs-left" />
+                </g>
+
+                <polygon points="434,424 342,534 384,706 500,806 616,706 658,534 566,424" fill="url(#armorBlack)" />
+                <polygon points="434,424 342,534 368,538 448,434" fill="url(#scarletLit)" />
+                <polygon points="566,424 658,534 632,538 552,434" fill="url(#rubyMid)" />
+                <polygon points="342,534 368,538 404,690 384,706" fill="url(#rubyMid)" />
+                <polygon points="658,534 632,538 596,690 616,706" fill="url(#rubyDeepShadow)" />
+                <polygon points="384,706 404,690 500,774 500,806" fill="url(#scarletLit)" />
+                <polygon points="616,706 596,690 500,774 500,806" fill="url(#rubyDeepShadow)" />
+
+                <polygon points="448,434 368,538 404,690 500,774 596,690 632,538 552,434 534,438 608,538 576,672 500,746 424,672 392,538 466,438" fill="url(#trenchBlack)" />
+
+                <polygon points="468,382 392,538 424,672 500,746 500,662 416,538" fill="url(#rubyMid)" />
+                <polygon points="532,382 608,538 576,672 500,746 500,662 584,538" fill="url(#rubyDeepShadow)" />
+
+                <polygon points="444,296 410,310 394,358 408,414 444,436 472,382 528,382 556,436 592,414 606,358 590,310 556,296 500,312" fill="url(#armorBlack)" />
+                <polygon points="444,302 414,314 400,358 412,410 444,430 470,380 500,352 530,380 556,430 588,410 600,358 586,314 556,302 500,312" fill="#e00000" />
+
+                <polygon points="466,384 500,352 534,384 584,538 500,666 416,538" fill="url(#trenchBlack)" />
+
+                <polygon points="500,360 472,386 424,536 500,654" fill="url(#coreSpearLeft)" />
+                <polygon points="500,360 528,386 576,536 500,654" fill="url(#coreSpearRight)" />
+
+                <polygon points="432,304 454,280 500,304 546,280 568,304 556,302 500,314 444,302" fill="url(#trenchBlack)" />
+                <polygon points="500,230 452,255 450,284 500,308 550,284 548,255" fill="url(#armorBlack)" />
+                <polygon points="500,235 456,257 476,270 500,254" fill="url(#headNeckShine)" />
+                <polygon points="500,235 544,257 524,270 500,254" fill="url(#scarletLit)" />
+                <polygon points="500,254 476,270 500,302" fill="url(#scarletLit)" />
+                <polygon points="500,254 524,270 500,302" fill="url(#rubyMid)" />
+                <polygon points="456,257 454,282 476,270" fill="url(#rubyMid)" />
+                <polygon points="544,257 546,282 524,270" fill="url(#rubyDeepShadow)" />
+                <polygon points="454,282 476,270 500,302 466,294" fill="url(#rubyDeepShadow)" />
+                <polygon points="546,282 524,270 500,302 534,294" fill="url(#rubyDeepShadow)" />
+            </g>
+        </defs>
+    </svg>
 
     <!-- Loader Screen with Original Grey Border & Pure White Inner Background -->
     <div class="loader-screen" id="loaderScreen" style="display: flex; opacity: 1;">
         <div class="loader-logo" style="width: 108px !important; height: 108px !important; border-radius: 26px !important; border: 4.2px solid #52525b !important; background: #ffffff !important; box-shadow: 0 12px 35px rgba(0, 0, 0, 0.95), inset 0 0 10px rgba(0, 0, 0, 0.05) !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 6px !important; box-sizing: border-box !important;">
-            <svg id="spider-pro-3d-no-white-blur" 
-                 viewBox="45 5 910 985" 
-                 width="88" 
-                 height="88" 
-                 preserveAspectRatio="xMidYMid meet" 
-                 shape-rendering="geometricPrecision"
-                 style="max-width: 100%; height: auto; display: block; margin: auto; overflow: visible;" 
-                 xmlns="http://www.w3.org/2000/svg">
-                
-                <defs>
-                    <linearGradient id="scarletLit" x1="0%" y1="0%" x2="90%" y2="100%">
-                        <stop offset="0%" stop-color="#ff2a2a" />
-                        <stop offset="45%" stop-color="#e60000" />
-                        <stop offset="100%" stop-color="#b00000" />
-                    </linearGradient>
-
-                    <linearGradient id="headNeckShine" x1="0%" y1="0%" x2="85%" y2="100%">
-                        <stop offset="0%" stop-color="#ff4747" />
-                        <stop offset="50%" stop-color="#e60000" />
-                        <stop offset="100%" stop-color="#a30000" />
-                    </linearGradient>
-
-                    <linearGradient id="rubyMid" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#cc0000" />
-                        <stop offset="55%" stop-color="#990000" />
-                        <stop offset="100%" stop-color="#5e0000" />
-                    </linearGradient>
-
-                    <linearGradient id="rubyDeepShadow" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#8a0000" />
-                        <stop offset="50%" stop-color="#5c0000" />
-                        <stop offset="100%" stop-color="#2e0000" />
-                    </linearGradient>
-
-                    <linearGradient id="armorBlack" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#1f0505" />
-                        <stop offset="50%" stop-color="#120000" />
-                        <stop offset="100%" stop-color="#050000" />
-                    </linearGradient>
-
-                    <linearGradient id="trenchBlack" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#050000" />
-                        <stop offset="50%" stop-color="#140202" />
-                        <stop offset="100%" stop-color="#000000" />
-                    </linearGradient>
-
-                    <linearGradient id="coreSpearLeft" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#ff2e2e" />
-                        <stop offset="40%" stop-color="#e60000" />
-                        <stop offset="100%" stop-color="#9e0000" />
-                    </linearGradient>
-
-                    <linearGradient id="coreSpearRight" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#b80000" />
-                        <stop offset="50%" stop-color="#850000" />
-                        <stop offset="100%" stop-color="#470000" />
-                    </linearGradient>
-
-                    <g id="exact-legs-left">
-                        <path d="M 412,334 L 194,292 Q 250,128 385,15 Q 322,128 298,236 L 418,318 Z" fill="url(#armorBlack)" />
-                        <polygon points="418,318 292,232 258,248 415,326" fill="url(#scarletLit)" />
-                        <polygon points="292,232 248,236 198,288 258,248" fill="url(#scarletLit)" />
-                        <polygon points="415,326 258,248 198,288 412,334" fill="url(#rubyDeepShadow)" />
-                        <path d="M 198,288 Q 250,128 385,15 Q 296,128 248,236 Z" fill="url(#scarletLit)" />
-                        <path d="M 248,236 Q 296,128 385,15 Q 318,130 292,232 Z" fill="url(#rubyDeepShadow)" />
-
-                        <path d="M 404,348 L 150,336 Q 164,205 242,88 Q 84,212 60,402 Q 56,435 66,466 L 146,422 L 402,374 Z" fill="url(#armorBlack)" />
-                        <polygon points="404,348 150,336 114,366 402,358" fill="url(#scarletLit)" />
-                        <polygon points="402,358 114,366 66,466 138,418 402,370" fill="url(#rubyDeepShadow)" />
-                        <polygon points="114,366 60,402 66,466" fill="url(#rubyMid)" />
-                        <path d="M 60,402 Q 84,212 242,88 Q 126,212 90,378 Z" fill="url(#rubyDeepShadow)" />
-                        <path d="M 90,378 Q 126,212 242,88 Q 148,210 114,366 Z" fill="url(#scarletLit)" />
-                        <path d="M 114,366 Q 148,210 242,88 Q 162,206 144,338 Z" fill="url(#rubyMid)" />
-
-                        <path d="M 404,380 L 56,520 Q 76,712 282,898 Q 164,715 156,546 L 406,402 Z" fill="url(#armorBlack)" />
-                        <polygon points="404,380 56,520 98,536 405,390" fill="url(#scarletLit)" />
-                        <polygon points="405,390 98,536 148,542 406,400" fill="url(#rubyDeepShadow)" />
-                        <path d="M 56,520 Q 76,712 282,898 Q 128,720 98,536 Z" fill="url(#rubyDeepShadow)" />
-                        <path d="M 98,536 Q 128,720 282,898 Q 158,715 148,542 Z" fill="url(#scarletLit)" />
-
-                        <path d="M 414,404 L 206,550 Q 254,755 458,975 Q 320,750 288,564 L 422,422 Z" fill="url(#armorBlack)" />
-                        <polygon points="414,404 206,550 242,560 418,413" fill="url(#scarletLit)" />
-                        <polygon points="418,413 242,560 280,560 421,420" fill="url(#rubyDeepShadow)" />
-                        <path d="M 206,550 Q 254,755 458,975 Q 288,755 242,560 Z" fill="url(#rubyDeepShadow)" />
-                        <path d="M 242,560 Q 288,755 458,975 Q 312,750 280,560 Z" fill="url(#scarletLit)" />
-
-                        <path d="M 432,306 L 382,260 Q 396,192 456,164 Q 428,214 436,246 L 466,274 Z" fill="url(#armorBlack)" />
-                        <path d="M 382,260 Q 396,192 456,164 Q 412,210 410,250 Z" fill="url(#scarletLit)" />
-                        <path d="M 410,250 Q 412,210 456,164 Q 428,214 434,246 Z" fill="url(#rubyMid)" />
-                        <polygon points="410,250 434,246 462,272 442,278" fill="url(#scarletLit)" />
-                        <polygon points="382,260 410,250 442,278 432,304" fill="url(#rubyDeepShadow)" />
-                        <polygon points="432,304 442,278 462,272 456,294" fill="url(#trenchBlack)" />
-                    </g>
-                </defs>
-
-                <g>
-                    <use href="#exact-legs-left" />
-                    <g transform="translate(1000, 0) scale(-1, 1)">
-                        <use href="#exact-legs-left" />
-                    </g>
-
-                    <polygon points="434,424 342,534 384,706 500,806 616,706 658,534 566,424" fill="url(#armorBlack)" />
-                    <polygon points="434,424 342,534 368,538 448,434" fill="url(#scarletLit)" />
-                    <polygon points="566,424 658,534 632,538 552,434" fill="url(#rubyMid)" />
-                    <polygon points="342,534 368,538 404,690 384,706" fill="url(#rubyMid)" />
-                    <polygon points="658,534 632,538 596,690 616,706" fill="url(#rubyDeepShadow)" />
-                    <polygon points="384,706 404,690 500,774 500,806" fill="url(#scarletLit)" />
-                    <polygon points="616,706 596,690 500,774 500,806" fill="url(#rubyDeepShadow)" />
-
-                    <polygon points="448,434 368,538 404,690 500,774 596,690 632,538 552,434 534,438 608,538 576,672 500,746 424,672 392,538 466,438" fill="url(#trenchBlack)" />
-
-                    <polygon points="468,382 392,538 424,672 500,746 500,662 416,538" fill="url(#rubyMid)" />
-                    <polygon points="532,382 608,538 576,672 500,746 500,662 584,538" fill="url(#rubyDeepShadow)" />
-
-                    <polygon points="444,296 410,310 394,358 408,414 444,436 472,382 528,382 556,436 592,414 606,358 590,310 556,296 500,312" fill="url(#armorBlack)" />
-                    <polygon points="444,302 414,314 400,358 412,410 444,430 470,380 500,352 530,380 556,430 588,410 600,358 586,314 556,302 500,312" fill="#e00000" />
-
-                    <polygon points="466,384 500,352 534,384 584,538 500,666 416,538" fill="url(#trenchBlack)" />
-
-                    <polygon points="500,360 472,386 424,536 500,654" fill="url(#coreSpearLeft)" />
-                    <polygon points="500,360 528,386 576,536 500,654" fill="url(#coreSpearRight)" />
-
-                    <polygon points="432,304 454,280 500,304 546,280 568,304 556,302 500,314 444,302" fill="url(#trenchBlack)" />
-                    <polygon points="500,230 452,255 450,284 500,308 550,284 548,255" fill="url(#armorBlack)" />
-                    <polygon points="500,235 456,257 476,270 500,254" fill="url(#headNeckShine)" />
-                    <polygon points="500,235 544,257 524,270 500,254" fill="url(#scarletLit)" />
-                    <polygon points="500,254 476,270 500,302" fill="url(#scarletLit)" />
-                    <polygon points="500,254 524,270 500,302" fill="url(#rubyMid)" />
-                    <polygon points="456,257 454,282 476,270" fill="url(#rubyMid)" />
-                    <polygon points="544,257 546,282 524,270" fill="url(#rubyDeepShadow)" />
-                    <polygon points="454,282 476,270 500,302 466,294" fill="url(#rubyDeepShadow)" />
-                    <polygon points="546,282 524,270 500,302 534,294" fill="url(#rubyDeepShadow)" />
-                </g>
+            <svg viewBox="45 5 910 985" width="88" height="88" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" style="max-width: 100%; height: auto; display: block; margin: auto; overflow: visible;">
+                <use href="#spider-pro-3d-symbol" />
             </svg>
         </div>
         <div class="loader-title">SPIDY BOOK HUB</div>
@@ -265,17 +218,15 @@
         <div class="loader-powered-text">POWERED BY SPIDYUNIVERSE</div>
     </div>
 
-    <!-- LOGIN OVERLAY -->
+    <!-- LOGIN OVERLAY WITH SPIDER 3D SVG IN CURVED TOP FRAME -->
     <div id="loginOverlay" class="login-container" style="display: none; opacity: 0;">
         <header class="top-curved-header">
             <div class="logo-frame">
                 <div class="logo-rotating-ring"></div>
-                <div class="logo-img-mask">
-                    <img 
-                        src="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png" 
-                        alt="SPIDY BOOK HUB Logo" 
-                        class="brand-logo-img" 
-                    />
+                <div class="logo-img-mask" style="background: #000000 !important; display: flex; align-items: center; justify-content: center;">
+                    <svg viewBox="45 5 910 985" width="62" height="62" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" style="max-width: 100%; height: auto; display: block; margin: auto;">
+                        <use href="#spider-pro-3d-symbol" />
+                    </svg>
                 </div>
             </div>
 
@@ -495,7 +446,11 @@
             <div class="sidebar-overlay" id="sidebar-overlay"></div>
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-header-new" id="sidebarHeader">
-                    <img src="https://i.postimg.cc/D0BF1b77/file-00000000e847207a64f6711d825a859.png" alt="Profile" class="profile-img" id="sidebarProfileImg" oncontextmenu="return false;" draggable="false">
+                    <div class="profile-img" style="display: flex; align-items: center; justify-content: center; background: #000000; overflow: hidden; border: 2px solid #ffffff;">
+                        <svg viewBox="45 5 910 985" width="34" height="34" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision">
+                            <use href="#spider-pro-3d-symbol" />
+                        </svg>
+                    </div>
                     <div class="profile-info">
                         <div class="profile-name" id="sidebarProfileName">SPIDY BOOK HUB</div>
                         <div style="font-size: 10px; color: #10b981; font-weight: bold; margin-top: 2px;" id="sidebarRoleText">Please Login</div>
@@ -589,7 +544,11 @@
                         <i class="fas fa-chevron-left"></i>
                     </div>
                     <div class="header-title-centered">UPLOAD BOOKS</div>
-                    <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
+                    <div class="header-right-logo" style="display: flex; align-items: center; justify-content: center; background: #000000; overflow: hidden;">
+                        <svg viewBox="45 5 910 985" width="28" height="28" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision">
+                            <use href="#spider-pro-3d-symbol" />
+                        </svg>
+                    </div>
                 </header>
 
                 <div class="adm-tabs-container">
@@ -741,7 +700,11 @@
                         <button class="back-btn back-chevron-btn" id="moduleBackBtn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
                         <h1 class="modal-title" id="moduleHeaderTitle">MODULE PACK</h1>
                     </div>
-                    <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
+                    <div class="header-right-logo" style="display: flex; align-items: center; justify-content: center; background: #000000; overflow: hidden;">
+                        <svg viewBox="45 5 910 985" width="28" height="28" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision">
+                            <use href="#spider-pro-3d-symbol" />
+                        </svg>
+                    </div>
                 </div>
 
                 <main class="module-view-screen" id="bannerSubjectsView">
@@ -901,7 +864,11 @@
                         <button class="back-btn back-chevron-btn" id="closeDlBtn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
                         <h1 class="modal-title">SPIDY BOOK HUB</h1>
                     </div>
-                    <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
+                    <div class="header-right-logo" style="display: flex; align-items: center; justify-content: center; background: #000000; overflow: hidden;">
+                        <svg viewBox="45 5 910 985" width="28" height="28" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision">
+                            <use href="#spider-pro-3d-symbol" />
+                        </svg>
+                    </div>
                 </div>
 
                 <div class="dl-content-wrapper">
@@ -1000,7 +967,11 @@
                         <button class="back-btn back-chevron-btn" id="close-bookmarks-btn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
                         <h1 class="modal-title">SAVED BOOKS</h1>
                     </div>
-                    <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
+                    <div class="header-right-logo" style="display: flex; align-items: center; justify-content: center; background: #000000; overflow: hidden;">
+                        <svg viewBox="45 5 910 985" width="28" height="28" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision">
+                            <use href="#spider-pro-3d-symbol" />
+                        </svg>
+                    </div>
                 </div>
                 <div class="dmca-content" style="display: flex; flex-direction: column; padding: 0;">
                     <div style="padding: 20px 20px 30px; flex: 1;">
@@ -1027,8 +998,10 @@
             <div class="notifications-panel" id="noti-panel">
                 <div class="noti-header-premium">
                     <div class="noti-header-left">
-                        <div class="noti-logo-wrapper">
-                            <img src="https://i.postimg.cc/90fM1bJ2/In-Shot-20260714-083628650.png" class="noti-logo" alt="Logo">
+                        <div class="noti-logo-wrapper" style="background: #000000 !important; border: 1.5px solid rgba(255, 255, 255, 0.2);">
+                            <svg viewBox="45 5 910 985" width="30" height="30" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision">
+                                <use href="#spider-pro-3d-symbol" />
+                            </svg>
                         </div>
                         <div class="noti-title-stack">
                             <div class="noti-main-title" id="dynTitle">
@@ -1087,7 +1060,9 @@
                     </button>
 
                     <div class="icon-hex">
-                        <img src="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png" alt="Logo" class="custom-logo-token" oncontextmenu="return false;" draggable="false">
+                        <svg viewBox="45 5 910 985" width="44" height="44" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" style="max-width: 100%; height: auto; display: block; margin: auto;">
+                            <use href="#spider-pro-3d-symbol" />
+                        </svg>
                     </div>
 
                     <h1 class="card-title">
@@ -1218,7 +1193,11 @@
                         </button>
                         <h1 class="modal-title">SUPPORT &amp; HELP</h1>
                     </div>
-                    <img src="https://i.postimg.cc/fygCB079/file-00000000d51c720780078a0d21adc0f6.png" class="header-right-logo" alt="Logo" oncontextmenu="return false;" draggable="false">
+                    <div class="header-right-logo" style="display: flex; align-items: center; justify-content: center; background: #000000; overflow: hidden;">
+                        <svg viewBox="45 5 910 985" width="28" height="28" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision">
+                            <use href="#spider-pro-3d-symbol" />
+                        </svg>
+                    </div>
                 </div>
 
                 <div class="support-scroll-content">
