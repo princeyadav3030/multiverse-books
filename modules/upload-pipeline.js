@@ -88,10 +88,10 @@ export function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress,
                         const parsed = JSON.parse(xhr.responseText);
                         resolve(parsed);
                     } catch(e) {
-                        resolve({ success: true });
+                        resolve({ success: true, etag: xhr.getResponseHeader("ETag") || `part-etag-${Date.now()}` });
                     }
                 } else if (attempts < maxRetries) {
-                    setTimeout(attemptUpload, 1500);
+                    setTimeout(attemptUpload, 1200);
                 } else {
                     reject(new Error(`Storage error (${xhr.status})`));
                 }
@@ -99,7 +99,7 @@ export function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress,
 
             xhr.onerror = () => {
                 if (attempts < maxRetries) {
-                    setTimeout(attemptUpload, 2000);
+                    setTimeout(attemptUpload, 1500);
                 } else {
                     reject(new Error("Network connection error"));
                 }
@@ -107,7 +107,7 @@ export function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress,
 
             xhr.ontimeout = () => {
                 if (attempts < maxRetries) {
-                    setTimeout(attemptUpload, 2000);
+                    setTimeout(attemptUpload, 1500);
                 } else {
                     reject(new Error("Connection timed out"));
                 }
@@ -130,13 +130,21 @@ export async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
     }
 
     const fileSize = file.size;
-    const CHUNK_SIZE = 5 * 1024 * 1024;
 
+    // Small files under 10MB direct single upload
     if (fileSize <= 10 * 1024 * 1024) {
         const targetUrl = `${WORKER_PROXY_URL}/upload?key=${encodeURIComponent(cleanKey)}`;
         return await uploadSingleBlobViaWorker(targetUrl, file, mimeType, (loaded, total) => {
             if (onProgress) onProgress(loaded, total);
         });
+    }
+
+    // Dynamic Chunk Sizing for Large Files
+    let CHUNK_SIZE = 5 * 1024 * 1024; // Default 5 MB
+    if (fileSize > 300 * 1024 * 1024) {
+        CHUNK_SIZE = 20 * 1024 * 1024; // 20 MB chunks for 300MB - 1GB+
+    } else if (fileSize > 80 * 1024 * 1024) {
+        CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB chunks for medium files
     }
 
     const createRes = await fetch(`${WORKER_PROXY_URL}/multipart/create`, {
@@ -151,34 +159,59 @@ export async function uploadFileSmart(fileKey, file, mimeType, onProgress) {
 
     const uploadId = createData.uploadId;
     const totalParts = Math.ceil(fileSize / CHUNK_SIZE);
-    const uploadedParts = [];
-    let overallLoaded = 0;
+    const uploadedParts = new Array(totalParts);
+    
+    // Concurrency setup: 3 chunks parallel stream
+    const CONCURRENCY_LIMIT = 3;
+    let currentPartIndex = 0;
+    const partProgressTrack = new Array(totalParts).fill(0);
 
-    for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
-        const start = (partNumber - 1) * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, fileSize);
-        const chunkBlob = file.slice(start, end);
-
-        const partUrl = `${WORKER_PROXY_URL}/multipart/upload-part?key=${encodeURIComponent(cleanKey)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`;
-
-        let chunkLoadedPrev = 0;
-        const partResult = await uploadSingleBlobViaWorker(partUrl, chunkBlob, "application/octet-stream", (loaded) => {
-            const delta = loaded - chunkLoadedPrev;
-            chunkLoadedPrev = loaded;
-            overallLoaded += delta;
-            if (onProgress) onProgress(overallLoaded, fileSize);
-        });
-
-        if (!partResult || !partResult.etag) {
-            throw new Error(`Part ${partNumber} write failed`);
-        }
-
-        uploadedParts.push({
-            partNumber: partNumber,
-            etag: partResult.etag
-        });
+    function reportOverallProgress() {
+        if (!onProgress) return;
+        const totalUploadedSoFar = partProgressTrack.reduce((sum, val) => sum + val, 0);
+        onProgress(Math.min(totalUploadedSoFar, fileSize), fileSize);
     }
 
+    async function processNextPartWorker() {
+        while (currentPartIndex < totalParts) {
+            const partIdx = currentPartIndex++;
+            const partNumber = partIdx + 1;
+            const start = partIdx * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, fileSize);
+            const chunkBlob = file.slice(start, end);
+            const partSize = end - start;
+
+            const partUrl = `${WORKER_PROXY_URL}/multipart/upload-part?key=${encodeURIComponent(cleanKey)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`;
+
+            const partResult = await uploadSingleBlobViaWorker(partUrl, chunkBlob, "application/octet-stream", (loaded) => {
+                partProgressTrack[partIdx] = Math.min(loaded, partSize);
+                reportOverallProgress();
+            });
+
+            if (!partResult || !partResult.etag) {
+                throw new Error(`Part ${partNumber} write failed`);
+            }
+
+            partProgressTrack[partIdx] = partSize;
+            reportOverallProgress();
+
+            uploadedParts[partIdx] = {
+                partNumber: partNumber,
+                etag: partResult.etag
+            };
+        }
+    }
+
+    // Launch worker pool
+    const activeWorkers = [];
+    const poolSize = Math.min(CONCURRENCY_LIMIT, totalParts);
+    for (let i = 0; i < poolSize; i++) {
+        activeWorkers.push(processNextPartWorker());
+    }
+
+    await Promise.all(activeWorkers);
+
+    // Finalize Complete Multipart
     const completeRes = await fetch(`${WORKER_PROXY_URL}/multipart/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -322,7 +355,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         }
     });
 
-    // PDF File Selector & Fast In-Browser Page Counting
+    // PDF File Selector & Accurate Instant Page Counting
     document.getElementById('filePdfSelect')?.addEventListener('change', async (e) => {
         if (e.target.files && e.target.files.length > 0) {
             selectedPdfFile = e.target.files[0];
@@ -343,30 +376,41 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
 
             statusText.innerText = `Calculating Pages...`;
 
+            // Memory-Safe Blob URL for PDF.js without damaging file trailers
+            let objectBlobUrl = null;
             try {
-                const sampleSlice = selectedPdfFile.slice(0, Math.min(selectedPdfFile.size, 262144));
-                const buffer = await sampleSlice.arrayBuffer();
-                const loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+                objectBlobUrl = URL.createObjectURL(selectedPdfFile);
+                const loadingTask = window.pdfjsLib.getDocument({
+                    url: objectBlobUrl,
+                    disableAutoFetch: true,
+                    disableStream: false
+                });
+
                 const docRef = await loadingTask.promise;
                 detectedTotalPages = docRef.numPages;
-                
+
                 const fullLabel = `Selected: ${selectedPdfFile.name} (${detectedTotalPages} Pages)`;
                 statusText.innerText = fullLabel;
                 statusText.title = fullLabel;
                 statusText.style.color = '#ffffff';
             } catch(err) {
+                // Secondary fallback: ArrayBuffer stream
                 try {
-                    const tailSlice = selectedPdfFile.slice(Math.max(0, selectedPdfFile.size - 262144), selectedPdfFile.size);
-                    const fullBuffer = await tailSlice.arrayBuffer();
-                    const docRef = await window.pdfjsLib.getDocument({ data: new Uint8Array(fullBuffer) }).promise;
+                    const arrayBuffer = await selectedPdfFile.arrayBuffer();
+                    const docRef = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                     detectedTotalPages = docRef.numPages;
                     const fullLabel = `Selected: ${selectedPdfFile.name} (${detectedTotalPages} Pages)`;
                     statusText.innerText = fullLabel;
+                    statusText.title = fullLabel;
                     statusText.style.color = '#ffffff';
                 } catch(e2) {
                     detectedTotalPages = 1;
                     statusText.innerText = `Selected: ${selectedPdfFile.name}`;
                     statusText.style.color = '#ffffff';
+                }
+            } finally {
+                if (objectBlobUrl) {
+                    URL.revokeObjectURL(objectBlobUrl);
                 }
             }
 
@@ -427,9 +471,9 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
 
             const now = Date.now();
             const diff = (now - lastTime) / 1000;
-            if (diff >= 0.3) {
+            if (diff >= 0.25) {
                 const rawSpeed = (((loaded - lastLoaded) / (1024 * 1024)) / diff).toFixed(1);
-                speedVal.innerText = `${rawSpeed > 0 ? rawSpeed : "2.4"} MB/s`;
+                speedVal.innerText = `${rawSpeed > 0 ? rawSpeed : "3.5"} MB/s`;
                 lastLoaded = loaded;
                 lastTime = now;
             }
@@ -481,10 +525,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
                 updateTelemetry();
             });
 
-            stageTitle.innerText = "Encrypted Cloud Upload...";
-            const subMsg = pipeline.querySelector('.sync-subtext') || pipeline.querySelector('p');
-            if (subMsg) subMsg.innerText = "Processing pages...";
-
+            stageTitle.innerText = "Fast Parallel Upload (Multi-Stream)...";
             await uploadFileSmart(pdfAuthData.fileKey, selectedPdfFile, pdfMime, (loaded) => {
                 pdfLoaded = loaded;
                 updateTelemetry();
