@@ -11,9 +11,6 @@ export let selectedPdfFile = null;
 export let detectedTotalPages = 0;
 export let detectedFileSizeMB = "0 MB";
 
-const CHUNK_SIZE = 8 * 1024 * 1024; // 8 MB optimal chunk size for fast streaming
-const MAX_CONCURRENT_CHUNKS = 3;    // 3 parallel chunks at a time for maximum speed
-
 export function autoScrollToElement(el, container) {
     if (!el || !container) return;
     setTimeout(() => {
@@ -67,9 +64,9 @@ export function resetUploadFormState() {
 }
 
 // ==========================================
-// FAST XHR STREAM & CHUNK UPLOAD ENGINE
+// BULLETPROOF DIRECT R2 STREAM ENGINE
 // ==========================================
-export function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress, maxRetries = 4) {
+export function uploadDirectStream(targetUrl, file, mimeType, onProgress, maxRetries = 3) {
     return new Promise((resolve, reject) => {
         let attempts = 0;
 
@@ -78,6 +75,9 @@ export function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress,
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", targetUrl, true);
             xhr.setRequestHeader("Content-Type", mimeType || "application/octet-stream");
+            
+            // Mobile network timeouts prevent karne ke liye timeout disable rakha hai
+            xhr.timeout = 0; 
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable && onProgress) {
@@ -87,144 +87,50 @@ export function uploadSingleBlobViaWorker(targetUrl, blob, mimeType, onProgress,
 
             xhr.onload = () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    try {
-                        const parsed = xhr.responseText ? JSON.parse(xhr.responseText) : { success: true };
-                        resolve(parsed);
-                    } catch (e) {
-                        resolve({ success: true });
-                    }
+                    resolve({ success: true });
                 } else if (attempts < maxRetries) {
-                    setTimeout(attemptUpload, 800 * attempts);
+                    setTimeout(attemptUpload, 1500 * attempts);
                 } else {
-                    reject(new Error(`Storage error (${xhr.status})`));
+                    reject(new Error(`Storage rejected upload (${xhr.status})`));
                 }
             };
 
             xhr.onerror = () => {
                 if (attempts < maxRetries) {
-                    setTimeout(attemptUpload, 1000 * attempts);
+                    setTimeout(attemptUpload, 2000 * attempts);
                 } else {
-                    reject(new Error("Network connection error"));
+                    reject(new Error("Network connection dropped during upload. Please check your internet."));
                 }
             };
 
             xhr.ontimeout = () => {
                 if (attempts < maxRetries) {
-                    setTimeout(attemptUpload, 1000 * attempts);
+                    setTimeout(attemptUpload, 1500 * attempts);
                 } else {
-                    reject(new Error("Connection timed out"));
+                    reject(new Error("Upload connection timed out"));
                 }
             };
 
-            xhr.send(blob);
+            xhr.send(file);
         }
 
         attemptUpload();
     });
 }
 
-// Smart Chunked + Direct R2 Presigned Upload Engine
 export async function uploadFileSmart(authData, file, mimeType, onProgress) {
-    const fileKey = typeof authData === 'string' ? authData : (authData?.fileKey || "");
     const directPresignedUrl = typeof authData === 'object' ? authData?.uploadUrl : null;
+    const fileKey = typeof authData === 'string' ? authData : (authData?.fileKey || "");
 
-    let cleanKey = fileKey.replace(/^\/+/, "");
-    if (cleanKey.startsWith("http://") || cleanKey.startsWith("https://")) {
-        try {
-            const u = new URL(cleanKey);
-            cleanKey = u.pathname.replace(/^\/+/, "");
-        } catch (e) {}
-    }
-
-    // 1. Primary Method: Direct Presigned URL Stream (Bypasses 100MB Worker limit, supports up to 5GB)
+    // 1. Direct High-Speed S3/R2 Stream (Bypasses any worker limits)
     if (directPresignedUrl) {
-        try {
-            return await uploadSingleBlobViaWorker(directPresignedUrl, file, mimeType, (loaded, total) => {
-                if (onProgress) onProgress(loaded, total);
-            }, 3);
-        } catch (presignedErr) {
-            console.warn("Direct presigned stream fallback to chunked worker:", presignedErr.message);
-        }
+        return await uploadDirectStream(directPresignedUrl, file, mimeType, onProgress);
     }
 
-    // 2. Small File Worker Upload (<= 20 MB)
-    if (file.size <= 20 * 1024 * 1024) {
-        const targetUrl = `${WORKER_PROXY_URL}/upload?key=${encodeURIComponent(cleanKey)}`;
-        return await uploadSingleBlobViaWorker(targetUrl, file, mimeType, (loaded, total) => {
-            if (onProgress) onProgress(loaded, total);
-        });
-    }
-
-    // 3. Large File Parallel Multi-Part Chunked Upload via Worker (8MB chunks, 3 parallel streams)
-    try {
-        const initUrl = `${WORKER_PROXY_URL}/mpu-create?key=${encodeURIComponent(cleanKey)}`;
-        const initRes = await fetch(initUrl, {
-            method: "POST",
-            headers: { "Content-Type": mimeType || "application/pdf" }
-        });
-
-        if (!initRes.ok) throw new Error("MPU init not supported");
-        const { uploadId } = await initRes.json();
-        if (!uploadId) throw new Error("No uploadId returned");
-
-        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-        const chunkLoadedBytes = new Array(totalChunks).fill(0);
-        const uploadedParts = new Array(totalChunks);
-        let currentPartIndex = 0;
-
-        const reportChunkProgress = () => {
-            if (!onProgress) return;
-            const sumLoaded = chunkLoadedBytes.reduce((acc, val) => acc + val, 0);
-            onProgress(Math.min(file.size, sumLoaded), file.size);
-        };
-
-        async function chunkWorker() {
-            while (currentPartIndex < totalChunks) {
-                const index = currentPartIndex++;
-                const partNumber = index + 1;
-                const start = index * CHUNK_SIZE;
-                const end = Math.min(start + CHUNK_SIZE, file.size);
-                const chunkBlob = file.slice(start, end);
-
-                const partUrl = `${WORKER_PROXY_URL}/mpu-part?key=${encodeURIComponent(cleanKey)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`;
-                const partData = await uploadSingleBlobViaWorker(partUrl, chunkBlob, "application/octet-stream", (loaded) => {
-                    chunkLoadedBytes[index] = loaded;
-                    reportChunkProgress();
-                });
-
-                chunkLoadedBytes[index] = chunkBlob.size;
-                reportChunkProgress();
-
-                uploadedParts[index] = {
-                    partNumber: partNumber,
-                    etag: partData.etag || partData.ETag || `${partNumber}`
-                };
-            }
-        }
-
-        const workers = [];
-        for (let i = 0; i < Math.min(MAX_CONCURRENT_CHUNKS, totalChunks); i++) {
-            workers.push(chunkWorker());
-        }
-        await Promise.all(workers);
-
-        const completeUrl = `${WORKER_PROXY_URL}/mpu-complete?key=${encodeURIComponent(cleanKey)}&uploadId=${encodeURIComponent(uploadId)}`;
-        const completeRes = await fetch(completeUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ parts: uploadedParts })
-        });
-
-        if (!completeRes.ok) throw new Error("MPU completion failed");
-        return await completeRes.json();
-
-    } catch (mpuError) {
-        // Final fallback to direct worker PUT
-        const fallbackUrl = `${WORKER_PROXY_URL}/upload?key=${encodeURIComponent(cleanKey)}`;
-        return await uploadSingleBlobViaWorker(fallbackUrl, file, mimeType, (loaded, total) => {
-            if (onProgress) onProgress(loaded, total);
-        });
-    }
+    // 2. Fallback to worker proxy if presigned url is absent
+    let cleanKey = fileKey.replace(/^\/+/, "");
+    const targetUrl = `${WORKER_PROXY_URL}/upload?key=${encodeURIComponent(cleanKey)}`;
+    return await uploadDirectStream(targetUrl, file, mimeType, onProgress);
 }
 
 // ==========================================
@@ -233,7 +139,6 @@ export async function uploadFileSmart(authData, file, mimeType, onProgress) {
 export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
     const uploadContentArea = document.getElementById('admContentArea');
 
-    // Input Icon Color Watcher
     function setupDynamicIconWatcher(inputId, wrapperId) {
         const input = document.getElementById(inputId);
         const wrapper = document.getElementById(wrapperId);
@@ -255,7 +160,6 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
     setupDynamicIconWatcher('inAuthor', 'wrapAuthor');
     setupDynamicIconWatcher('inExams', 'wrapExams');
 
-    // Dynamic Publish Year Picker
     function buildDynamicYearList() {
         const currentYear = new Date().getFullYear();
         const yearOptionsContainer = document.getElementById('yearOptionsList');
@@ -284,7 +188,6 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
     }
     buildDynamicYearList();
 
-    // Tabs Switcher: Add Book vs Prompts
     const admTabAdd = document.getElementById('admTabAdd');
     const admTabPrompt = document.getElementById('admTabPrompt');
     const switchTrack = document.getElementById('switchTrack');
@@ -311,7 +214,6 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         if (uploadContentArea) uploadContentArea.scrollTop = 0;
     });
 
-    // Language & Year Modal Overlay Triggers
     const yearOverlay = document.getElementById('yearPopupOverlay');
     const langOverlay = document.getElementById('langPopupOverlay');
 
@@ -338,7 +240,6 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         });
     });
 
-    // Cover File Selector
     document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
         if (e.target.files && e.target.files.length > 0) {
             selectedCoverFile = e.target.files[0];
@@ -352,7 +253,6 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         }
     });
 
-    // PDF File Selector & Non-Blocking Fast Page Counting
     document.getElementById('filePdfSelect')?.addEventListener('change', async (e) => {
         if (e.target.files && e.target.files.length > 0) {
             selectedPdfFile = e.target.files[0];
@@ -362,17 +262,16 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
             detectedFileSizeMB = `${sizeInMB} MB`;
 
             const isSuperAdmin = isSuperAdminCheck();
-            const maxAllowed = isSuperAdmin ? (1024 * 1024 * 1024) : (250 * 1024 * 1024);
+            const maxAllowed = isSuperAdmin ? (1024 * 1024 * 1024) : (350 * 1024 * 1024);
             if (selectedPdfFile.size > maxAllowed) {
-                showToast(`File too large (Max ${isSuperAdmin ? '1GB' : '250MB'})`, "error");
+                showToast(`File too large (Max ${isSuperAdmin ? '1GB' : '350MB'})`, "error");
                 selectedPdfFile = null;
                 statusText.innerText = "Drag & Drop PDF File";
                 e.target.value = "";
                 return;
             }
 
-            // Skip heavy arrayBuffer RAM parsing for huge PDFs (> 80MB) to prevent browser freeze
-            if (selectedPdfFile.size > 80 * 1024 * 1024) {
+            if (selectedPdfFile.size > 50 * 1024 * 1024) {
                 detectedTotalPages = 0;
                 const fastLabel = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB})`;
                 statusText.innerText = fastLabel;
@@ -401,7 +300,6 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         }
     });
 
-    // Form Submission & Parallel Upload Pipeline
     document.getElementById('addBookForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -438,7 +336,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         let coverLoaded = 0, pdfLoaded = 0, lastLoaded = 0, lastTime = Date.now();
 
         pipeline.style.display = 'flex';
-        stageTitle.innerText = "Initializing Fast Channels...";
+        stageTitle.innerText = "Connecting Secure Storage...";
         percentDisplay.innerHTML = `0<span class="percent-symbol">%</span>`;
         progressFill.style.width = `0%`;
         transferredBytes.innerText = `0.00 MB / ${totalMB} MB`;
@@ -468,7 +366,6 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
             const coverMime = selectedCoverFile.type || "image/jpeg";
             const pdfMime = selectedPdfFile.type || "application/pdf";
 
-            // 1. Fetch both Cover & PDF Upload URLs in Parallel (Zero Delay)
             const [coverAuthRes, pdfAuthRes] = await Promise.all([
                 fetch('/api/generate-upload-url', {
                     method: 'POST',
@@ -506,8 +403,9 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
                 throw new Error(pdfAuthData.error || "PDF permission denied");
             }
 
-            // 2. Upload Cover Image & PDF Simultaneously in Parallel
             stageTitle.innerText = "Direct Fast Uploading...";
+            
+            // Cover aur PDF ek sath reliable stream me bina timeout ke
             await Promise.all([
                 uploadFileSmart(coverAuthData, selectedCoverFile, coverMime, (loaded) => {
                     coverLoaded = loaded;
