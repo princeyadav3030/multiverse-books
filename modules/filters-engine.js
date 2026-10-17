@@ -24,29 +24,29 @@ export const ALL_EXAM_CATEGORIES = [
 ];
 
 export const EXAM_CATEGORY_MAP = {
-    "9th": ["CLASS 9", "CLASS 9TH", "9TH", "CBSE 9", "ICSE 9", "BOARD 9"],
-    "10th": ["CLASS 10", "CLASS 10TH", "10TH", "MATRIC", "CBSE 10", "ICSE 10", "BOARD 10"],
-    "11th": ["CLASS 11", "CLASS 11TH", "11TH", "CBSE 11", "ISC 11"],
-    "12th": ["CLASS 12", "CLASS 12TH", "12TH", "INTER", "INTERMEDIATE", "CBSE 12", "ISC 12", "BOARD 12"],
+    "9th": ["9", "9TH", "CLASS 9", "CBSE 9", "ICSE 9"],
+    "10th": ["10", "10TH", "CLASS 10", "MATRIC", "CBSE 10", "ICSE 10"],
+    "11th": ["11", "11TH", "CLASS 11", "CBSE 11", "ISC 11"],
+    "12th": ["12", "12TH", "CLASS 12", "INTER", "INTERMEDIATE", "CBSE 12", "ISC 12"],
     "SSC": ["SSC", "CGL", "CHSL", "MTS", "CPO", "GD", "STENOGRAPHER", "SELECTION POST"],
     "Railway": ["RAILWAY", "RRB", "NTPC", "GROUP D", "ALP", "TECHNICIAN", "RPF"],
-    "Defence": ["NDA", "CDS", "AFCAT", "NAVY", "ARMY", "AIRFORCE", "AGNIVEER"],
-    "Banking": ["BANK", "IBPS", "SBI", "PO", "CLERK", "RBI", "LIC"],
-    "Teaching": ["CTET", "STET", "UPTET", "KVS", "NVS", "BPSC TRE", "DSSSB"],
-    "UPSC": ["UPSC", "IAS", "IPS", "CIVIL SERVICES", "NDA UPSC", "CDS UPSC"],
+    "Defence": ["NDA", "CDS", "AFCAT", "NAVY", "ARMY", "AIRFORCE", "AGNIVEER", "DEFENCE"],
+    "Banking": ["BANK", "IBPS", "SBI", "PO", "CLERK", "RBI", "LIC", "BANKING"],
+    "Teaching": ["CTET", "STET", "UPTET", "KVS", "NVS", "BPSC TRE", "DSSSB", "TEACHING", "TET"],
+    "UPSC": ["UPSC", "IAS", "IPS", "CIVIL SERVICES"],
     "Police": ["POLICE", "UP POLICE", "DELHI POLICE", "BIHAR POLICE", "SI", "CONSTABLE", "DAROGA"],
-    "State PSC / PCS": ["BPSC", "UPPSC", "MPPSC", "STATE PSC", "PCS", "RAS", "JPSC", "WBPSC"],
+    "State PSC / PCS": ["BPSC", "UPPSC", "MPPSC", "STATE PSC", "PCS", "RAS", "JPSC", "WBPSC", "PSC"],
     "State SSC": ["BSSC", "UPSSSC", "HSSC", "UKSSSC", "OSSSC", "STATE SSC"],
     "JEE": ["JEE", "IIT", "MAINS", "ADVANCED", "BITSAT"],
     "NEET": ["NEET", "MEDICAL", "AIIMS"],
-    "CUET": ["CUET", "COMMON UNIVERSITY"],
-    "GATE": ["GATE", "ENGINEERING GRADUATE"],
+    "CUET": ["CUET"],
+    "GATE": ["GATE"],
     "CAT / MBA": ["CAT", "MBA", "XAT", "MAT", "SNAP", "CMAT"],
     "CLAT / Law": ["CLAT", "LAW", "AILET", "LL.B", "JUDICIARY"],
     "UGC NET / JRF": ["UGC NET", "NET", "JRF", "CSIR NET"],
-    "CA / CS / CMA": ["CA", "CS", "CMA", "FOUNDATION", "INTER CA", "FINAL CA"],
+    "CA / CS / CMA": ["CA", "CS", "CMA", "FOUNDATION"],
     "Insurance": ["LIC", "NIACL", "GIC", "OICL", "INSURANCE", "AAO", "ADO"],
-    "General Reading": ["GENERAL", "NOVEL", "STORY", "MAGAZINE", "SELF HELP", "READING", "HISTORY", "MOTIVATION"]
+    "General Reading": ["GENERAL", "NOVEL", "STORY", "MAGAZINE", "SELF HELP", "READING", "HISTORY", "MOTIVATION", "GK", "GS", "STATIC GK", "KNOWLEDGE"]
 };
 
 // ==========================================
@@ -190,13 +190,11 @@ export function openSubFilterModal(type, booksData, onFilterApplyCallback) {
                 }
             }
 
-            // Close sub-filter modal and clean up its history entry
             closeSubFilterModal();
             if (window.history.state && window.history.state.popup === 'subFilter') {
                 window.history.back();
             }
 
-            // Trigger master filter immediately
             if (onFilterApplyCallback) onFilterApplyCallback();
         };
 
@@ -210,25 +208,26 @@ export function openSubFilterModal(type, booksData, onFilterApplyCallback) {
 }
 
 // ==========================================
-// MATCHING LOGIC (HIGH PRECISION REGEX)
+// MATCHING LOGIC (ROBUST CATEGORY & SEARCH MATCH)
 // ==========================================
 export function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords) {
     let matchesCategory = true;
     if (filterState.class !== "All") {
-        const bookExams = (book.exams || "").toUpperCase();
+        const bookExams = `${book.exams || ''} ${book.title || ''}`.toUpperCase();
         const targetKeywords = EXAM_CATEGORY_MAP[filterState.class] || [filterState.class.toUpperCase()];
 
-        // Strict tag check using comma/slash splitting and regex boundary
-        const tags = bookExams.split(/[,/|\n]+/).map(t => t.trim()).filter(Boolean);
         matchesCategory = targetKeywords.some(kw => {
-            const escapedKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            return tags.some(tag => tag === kw || new RegExp(`\\b${escapedKw}\\b`, 'i').test(tag));
+            const cleanKw = kw.trim();
+            if (!cleanKw) return false;
+            return bookExams.includes(cleanKw);
         });
     }
 
     let matchesLanguage = true;
     if (filterState.language !== "All") {
-        matchesLanguage = (book.lang || "").toLowerCase().trim() === filterState.language.toLowerCase().trim();
+        const bookLang = (book.lang || "").toLowerCase().trim();
+        const targetLang = filterState.language.toLowerCase().trim();
+        matchesLanguage = bookLang === targetLang || bookLang.includes(targetLang);
     }
 
     let matchesAuthor = true;
@@ -308,7 +307,6 @@ export function initFiltersEngine(getBooksDataCallback, onFilterApplyCallback) {
         openSubFilterModal('year', getBooksDataCallback(), onFilterApplyCallback);
     });
 
-    // Real-time Search Input Listener
     const searchInputEl = document.getElementById('app-search-input'); 
     let searchTimeout;
     searchInputEl?.addEventListener('input', () => { 
