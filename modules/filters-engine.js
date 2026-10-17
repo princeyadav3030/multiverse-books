@@ -133,8 +133,10 @@ export function getFilterModalConfig(type, booksData = []) {
 export function openMainFilterModal() {
     const overlay = document.getElementById('mainFilterOverlay');
     if (!overlay) return;
-    window.history.pushState({ popup: 'mainFilter' }, '');
-    overlay.classList.add('active');
+    if (!overlay.classList.contains('active')) {
+        window.history.pushState({ popup: 'mainFilter' }, '');
+        overlay.classList.add('active');
+    }
 }
 
 export function closeMainFilterModal() {
@@ -155,7 +157,7 @@ export function openSubFilterModal(type, booksData, onFilterApplyCallback) {
     const centerCard = document.getElementById('centerModalCard');
     if (!subOverlay || !centerCard) return;
 
-    centerCard.className = 'center-modal-card ' + config.themeClass;
+    centerCard.className = 'center-modal-card compact-fit-card ' + config.themeClass;
     document.getElementById('modalTitleText').innerText = config.title;
     document.getElementById('modalSubtitleIcon').innerHTML = config.subIcon;
     document.getElementById('modalSubText').innerText = config.sub;
@@ -165,12 +167,14 @@ export function openSubFilterModal(type, booksData, onFilterApplyCallback) {
 
     config.options.forEach(optText => {
         const btn = document.createElement('button');
+        btn.type = 'button';
         const isSelected = filterState[type] === optText;
         btn.className = `pill-btn ${isSelected ? 'active-selected' : ''}`;
         btn.innerText = optText;
         btn.title = optText;
 
         btn.onclick = (e) => {
+            e.preventDefault();
             e.stopPropagation();
             filterState[type] = optText;
 
@@ -186,15 +190,23 @@ export function openSubFilterModal(type, booksData, onFilterApplyCallback) {
                 }
             }
 
+            // Close sub-filter modal and clean up its history entry
             closeSubFilterModal();
+            if (window.history.state && window.history.state.popup === 'subFilter') {
+                window.history.back();
+            }
+
+            // Trigger master filter immediately
             if (onFilterApplyCallback) onFilterApplyCallback();
         };
 
         grid.appendChild(btn);
     });
 
-    window.history.pushState({ popup: 'subFilter', filterType: type }, '');
-    subOverlay.classList.add('active');
+    if (!subOverlay.classList.contains('active')) {
+        window.history.pushState({ popup: 'subFilter', filterType: type }, '');
+        subOverlay.classList.add('active');
+    }
 }
 
 // ==========================================
@@ -209,7 +221,8 @@ export function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, sear
         // Strict tag check using comma/slash splitting and regex boundary
         const tags = bookExams.split(/[,/|\n]+/).map(t => t.trim()).filter(Boolean);
         matchesCategory = targetKeywords.some(kw => {
-            return tags.some(tag => tag === kw || new RegExp(`\\b${kw}\\b`, 'i').test(tag));
+            const escapedKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return tags.some(tag => tag === kw || new RegExp(`\\b${escapedKw}\\b`, 'i').test(tag));
         });
     }
 
