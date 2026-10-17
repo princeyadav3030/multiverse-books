@@ -469,7 +469,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         bubble.dataset.postId = post.id;
 
         let imageHTML = post.imageUrl 
-            ? `<img src="${getSecureAssetUrl(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image">` 
+            ? `<img src="${getSecureAssetUrl(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image" onload="window.handlePostImgLoaded()" onerror="this.style.display='none'; window.handlePostImgLoaded();">` 
             : '';
 
         let quoteHTML = '';
@@ -536,9 +536,9 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         chatBody.appendChild(fragment);
 
         requestAnimationFrame(() => {
-            chatBody.scrollTop = chatBody.scrollHeight + 1000;
+            forceScrollChatToBottom();
             requestAnimationFrame(() => {
-                chatBody.scrollTop = chatBody.scrollHeight + 1000;
+                forceScrollChatToBottom();
                 chatBody.style.visibility = 'visible';
             });
         });
@@ -552,6 +552,16 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
         }
     }
 }
+
+window.handlePostImgLoaded = function() {
+    const notiPanel = document.getElementById('noti-panel');
+    if (notiPanel && notiPanel.classList.contains('active')) {
+        const hasTargetPost = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
+        if (!hasTargetPost) {
+            setTimeout(forceScrollChatToBottom, 50);
+        }
+    }
+};
 
 async function applyReaction(postId, newEmoji) {
     if (!isUserLoggedIn || !auth.currentUser) {
@@ -705,6 +715,18 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
     }
 }
 
+window.handleBookCoverError = function(imgElement, originalUrl) {
+    if (!imgElement) return;
+    if (!imgElement.dataset.retried) {
+        imgElement.dataset.retried = "true";
+        setTimeout(() => {
+            imgElement.src = originalUrl + (originalUrl.includes('?') ? '&' : '?') + 'retry=' + Date.now();
+        }, 1200);
+    } else {
+        imgElement.src = DEFAULT_AVATAR;
+    }
+};
+
 function renderBooksUI(dataToRender, append = false) {
     const container = document.getElementById("bookContainer");
     if (!container) return;
@@ -715,7 +737,7 @@ function renderBooksUI(dataToRender, append = false) {
         let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
+        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
 
     if (append) {
@@ -756,7 +778,7 @@ function renderSavedBooksUI() {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="this.src='${DEFAULT_AVATAR}'" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
+        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
     if (container) container.innerHTML = htmlChunk;
 }
@@ -884,7 +906,7 @@ function renderDynamicBanners(banners) {
         const imageUrl = getSecureAssetUrl(banner.bannerImage);
         slidesHTML += `
             <div class="promo-slide" data-banner-id="${banner.id}" onclick="window.openBannerModules('${banner.id}')">
-                <img src="${imageUrl}" alt="${escapeHTML(banner.title || 'Module Banner')}" class="promo-banner-img" draggable="false">
+                <img src="${imageUrl}" alt="${escapeHTML(banner.title || 'Module Banner')}" class="promo-banner-img" draggable="false" onerror="this.src='https://i.postimg.cc/Pq0JLj3C/file-0000000027dc82119d3731d4bfe9bccf.png'">
             </div>`;
         dotsHTML += `<span class="promo-dot ${idx === 0 ? 'active' : ''}" data-slide="${idx}"></span>`;
     });
@@ -1177,8 +1199,9 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     
     const previewImg = document.getElementById("dlPreviewImage");
     if (previewImg) {
-        previewImg.src = getSecureAssetUrl(book.image); 
-        previewImg.onerror = () => { previewImg.src = DEFAULT_AVATAR; };
+        const fullCoverUrl = getSecureAssetUrl(book.image);
+        previewImg.src = fullCoverUrl; 
+        previewImg.onerror = () => { window.handleBookCoverError(previewImg, fullCoverUrl); };
     }
 
     document.getElementById("dlBookTitle").innerText = sanitizeHTML(book.title); 
@@ -1194,7 +1217,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     const totalPagesSub = document.getElementById('dlTotalPages');
     if (totalPagesSub) {
         const pNum = parseInt(book.totalPages, 10);
-        totalPagesSub.innerText = (!isNaN(pNum) && pNum > 0) ? `${pNum} Pages Included` : `${book.totalPages || "1"} Pages Included`;
+        totalPagesSub.innerText = (!isNaN(pNum) && pNum > 0) ? `${pNum} Pages Included` : `${book.totalPages || "Complete Book"} Included`;
     }
 
     document.getElementById("dlReadOnlineBtn").onclick = async function() {
