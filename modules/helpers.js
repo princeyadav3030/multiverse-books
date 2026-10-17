@@ -7,25 +7,37 @@ import { Timestamp } from "./firebase-config.js";
 // ==========================================
 export const WORKER_PROXY_URL = "https://spidy-proxy.spidybookhub-backend.workers.dev";
 export const DEFAULT_AVATAR = "https://i.postimg.cc/D0BF1b77/file-00000000e847207a64f6711d825a859.png";
+export const DEFAULT_BOOK_COVER = "https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png";
 
 export function getSecureAssetUrl(fileKeyOrUrl) {
-    if (!fileKeyOrUrl) return DEFAULT_AVATAR;
-    if (fileKeyOrUrl.startsWith("http://") || fileKeyOrUrl.startsWith("https://")) {
-        if (fileKeyOrUrl.includes("spidy-proxy.spidybookhub-backend.workers.dev")) {
-            return fileKeyOrUrl;
+    if (!fileKeyOrUrl) return DEFAULT_BOOK_COVER;
+    
+    const rawStr = fileKeyOrUrl.toString().trim();
+    if (!rawStr) return DEFAULT_BOOK_COVER;
+
+    // Handle full external URLs
+    if (rawStr.startsWith("http://") || rawStr.startsWith("https://")) {
+        // Direct worker proxy URL
+        if (rawStr.includes("spidy-proxy.spidybookhub-backend.workers.dev")) {
+            return rawStr;
         }
-        if (fileKeyOrUrl.includes(".r2.cloudflarestorage.com")) {
+        // Cloudflare R2 bucket endpoint conversion
+        if (rawStr.includes(".r2.cloudflarestorage.com")) {
             try {
-                const parsed = new URL(fileKeyOrUrl);
+                const parsed = new URL(rawStr);
                 const pathKey = parsed.pathname.replace(/^\/+/, '');
                 return `${WORKER_PROXY_URL}/${pathKey}`;
-            } catch(e) {
-                return fileKeyOrUrl;
+            } catch (e) {
+                return rawStr;
             }
         }
-        return fileKeyOrUrl;
+        return rawStr;
     }
-    const cleanKey = fileKeyOrUrl.replace(/^\/+/, '');
+
+    // Clean internal relative storage key
+    const cleanKey = rawStr.replace(/^\/+/, '');
+    if (!cleanKey) return DEFAULT_BOOK_COVER;
+    
     return `${WORKER_PROXY_URL}/${cleanKey}`;
 }
 
@@ -50,7 +62,7 @@ export function getHighQualityAvatar(url) {
 
 export function generateDeviceFingerprint(uid = "guest_session") {
     const nav = window.navigator;
-    const str = nav.userAgent + nav.language + uid;
+    const str = (nav.userAgent || "") + (nav.language || "") + (uid || "guest");
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         let char = str.charCodeAt(i);
