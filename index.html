@@ -53,7 +53,6 @@
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
             background-color: #090c12 !important;
-            /* Layer 1: Ambient Studio Lighting */
             background-image: 
                 radial-gradient(ellipse 75% 55% at 20% 20%, rgba(28, 58, 98, 0.28) 0%, transparent 70%),
                 radial-gradient(ellipse 65% 50% at 80% 80%, rgba(76, 42, 118, 0.20) 0%, transparent 75%),
@@ -85,9 +84,9 @@
 </head>
 <body>
 
-    <!-- Loader Screen with Pure 3D Facet Spider SVG -->
+    <!-- Loader Screen with Pure White Box Background for 3D Facet Spider SVG -->
     <div class="loader-screen" id="loaderScreen" style="display: flex; opacity: 1;">
-        <div class="loader-logo" style="display: flex; align-items: center; justify-content: center; background: #0b0c10; padding: 6px;">
+        <div class="loader-logo" style="display: flex; align-items: center; justify-content: center; background: #ffffff !important; border: 4.2px solid #ffffff !important; box-shadow: 0 12px 35px rgba(0, 0, 0, 0.95), 0 0 20px rgba(255, 255, 255, 0.25) !important; padding: 6px;">
             <svg id="spider-pro-3d-no-white-blur" 
                  viewBox="45 5 910 985" 
                  width="92" 
