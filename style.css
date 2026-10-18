@@ -5,6 +5,15 @@ img { -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select
 body { background-color: #000000; color: #ffffff; display: flex; justify-content: center; height: 100vh; height: 100dvh; position: relative; overflow: hidden; }
 .app-container { width: 100%; max-width: 414px; height: 100%; height: 100dvh; background-color: var(--bg-main); position: relative; overflow-x: hidden; overflow-y: hidden; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
 
+/* SVG LOGO PROPER FITTING & PURE WHITE BACKGROUND */
+.spidy-svg-icon { width: 100% !important; height: 100% !important; max-width: 100% !important; max-height: 100% !important; display: block !important; margin: auto !important; }
+.loader-logo { width: 108px !important; height: 108px !important; min-width: 108px !important; min-height: 108px !important; border-radius: 26px !important; border: 4.2px solid #52525b !important; background: #ffffff !important; box-shadow: 0 12px 35px rgba(0, 0, 0, 0.95), inset 0 0 10px rgba(0, 0, 0, 0.05) !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 10px !important; box-sizing: border-box !important; position: relative !important; z-index: 5 !important; overflow: hidden !important; }
+.header-right-logo { width: 36px !important; height: 36px !important; min-width: 36px !important; min-height: 36px !important; border-radius: 50% !important; background: #ffffff !important; border: none !important; box-shadow: 0 0 12px rgba(255, 255, 255, 0.25) !important; flex-shrink: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 4.5px !important; box-sizing: border-box !important; overflow: hidden !important; }
+.noti-logo-wrapper { width: 42px !important; height: 42px !important; min-width: 42px !important; min-height: 42px !important; border-radius: 50% !important; background: #ffffff !important; border: none !important; box-shadow: 0 4px 15px rgba(0,0,0,0.8) !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 5px !important; flex-shrink: 0 !important; overflow: hidden !important; box-sizing: border-box !important; }
+.logo-img-mask { position: relative !important; z-index: 2 !important; width: 78px !important; height: 78px !important; min-width: 78px !important; min-height: 78px !important; border-radius: 50% !important; overflow: hidden !important; display: flex !important; align-items: center !important; justify-content: center !important; background: #ffffff !important; border: 1.5px solid rgba(255, 255, 255, 0.25) !important; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important; padding: 9px !important; box-sizing: border-box !important; }
+.spidy-white-logo-box, .profile-img { width: 44px !important; height: 44px !important; min-width: 44px !important; min-height: 44px !important; border-radius: 12px !important; background: #ffffff !important; border: none !important; box-shadow: 0 0 15px rgba(255, 255, 255, 0.15) !important; flex-shrink: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 5px !important; box-sizing: border-box !important; overflow: hidden !important; }
+.custom-logo-token { width: 44px !important; height: 44px !important; min-width: 44px !important; min-height: 44px !important; border-radius: 13px !important; background: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.25) !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 5px !important; box-sizing: border-box !important; overflow: hidden !important; }
+
 /* 1. HEADER */
 header#main-header.modern-glow-header, header { display: flex; align-items: center; justify-content: space-between; padding: 13px 15px; background: rgba(10, 12, 16, 0.94) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; z-index: 100; gap: 10px; position: relative; flex-shrink: 0; transition: all 0.3s ease; border-bottom: 1px solid rgba(255, 255, 255, 0.09) !important; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75) !important; }
 .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
@@ -36,7 +45,6 @@ header#main-header.modern-glow-header, header { display: flex; align-items: cent
 .sidebar { position: absolute; top: 0; left: 0; width: 85%; max-width: 330px; height: 100%; height: 100dvh; background-color: var(--spidy-sidebar-bg); z-index: 1001; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; box-shadow: 5px 0 20px rgba(0,0,0,0.8); overflow: hidden; border-right: 1px solid var(--border-color); }
 .sidebar.active { transform: translateX(0); }
 .sidebar-header-new { display: flex; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
-.profile-img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; box-shadow: 0 0 15px rgba(255, 255, 255, 0.15); flex-shrink: 0; background: #fff; border: 2px solid #ffffff; }
 .profile-info { margin-left: 14px; flex-grow: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
 .profile-name { color: var(--text-primary); font-size: 17px; font-weight: 900; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: 15px; -webkit-overflow-scrolling: touch; transform: translateZ(0); will-change: transform; overscroll-behavior-y: contain; }
@@ -281,7 +289,6 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .modal-header-fixed .back-btn { width: 40px; height: 40px; border-radius: 50%; background-color: transparent; border: 1px solid rgba(255, 255, 255, 0.18); color: #ffffff; font-size: 16px; display: flex; justify-content: center; align-items: center; cursor: pointer; flex-shrink: 0; outline: none; transition: 0.2s ease; }
 .modal-header-fixed .back-btn:active { transform: scale(0.95); background-color: rgba(255, 255, 255, 0.1); }
 .modal-header-fixed .modal-title { position: absolute; left: 50%; transform: translateX(-50%); font-family: 'Poppins', sans-serif; font-size: 17px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0px; margin: 0; white-space: nowrap; }
-.header-right-logo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1.5px solid #ffffff; box-shadow: 0 0 10px rgba(255, 255, 255, 0.2); flex-shrink: 0; }
 .header-content-wrapper { display: flex; align-items: center; gap: 15px; flex-grow: 1; }
 
 /* 16. DOWNLOAD MODAL */
@@ -387,8 +394,6 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .notifications-panel.active { transform: translateX(0); }
 .noti-header-premium { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85); background-color: rgba(10, 12, 16, 0.96); backdrop-filter: blur(12px); flex-shrink: 0; z-index: 20; }
 .noti-header-left { display: flex; align-items: center; gap: 12px; }
-.noti-logo-wrapper { width: 42px; height: 42px; border-radius: 50%; padding: 2px; background: linear-gradient(135deg, #374151, #111827); display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.8); }
-.noti-logo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .noti-title-stack { display: flex; flex-direction: column; }
 .noti-main-title { font-size: 15.5px; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 6px; font-family: 'Poppins', sans-serif; letter-spacing: 0.3px; }
 .noti-sub-title { font-size: 11px; color: var(--text-secondary); font-weight: 500; margin-top: 2px; }
@@ -446,7 +451,6 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 
 /* 21. LOADER SCREEN */
 .loader-screen { position: fixed; inset: 0; display: flex; justify-content: center; align-items: center; flex-direction: column; background-color: #000000; z-index: 9999999; overflow: hidden; transition: opacity .3s ease; padding-bottom: 10vh; }
-.loader-logo { width: 108px !important; height: 108px !important; border-radius: 26px !important; overflow: hidden; border: 4.2px solid #52525b !important; box-shadow: 0 12px 35px rgba(0, 0, 0, 0.95), inset 0 0 10px rgba(255, 255, 255, 0.1) !important; z-index: 5; position: relative; background: #0b0c10; display: flex; align-items: center; justify-content: center; }
 .loader-title { margin-top: 20px; font-size: 20px !important; font-weight: 900 !important; letter-spacing: 1.8px !important; z-index: 5; font-family: 'Poppins', sans-serif; color: #ffffff; text-transform: uppercase; text-align: center; width: 240px; line-height: 1.2; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8), 0 0 8px rgba(255, 255, 255, 0.15); }
 .premium-tags { margin-top: 18px; display: flex; gap: 7px; flex-wrap: nowrap; justify-content: space-between; align-items: center; z-index: 5; padding: 0; width: 290px; max-width: 290px; box-sizing: border-box; }
 .tag { padding: 6.5px 8px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); display: inline-flex; align-items: center; justify-content: center; gap: 4.5px; font-size: 10px; font-weight: 800; color: #ffffff; backdrop-filter: blur(12px); font-family: 'Poppins', sans-serif; white-space: nowrap; flex: 1; }
@@ -526,8 +530,6 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .top-curved-header { width: 100% !important; background: linear-gradient(165deg, #2a2e37 0%, #1c1f26 60%, #13151b 100%) !important; border-bottom-right-radius: 65px !important; padding: 24px 20px 24px 20px !important; display: flex !important; flex-direction: column !important; align-items: center !important; text-align: center !important; position: relative !important; z-index: 5 !important; border-bottom: 1.5px solid #282c35 !important; border-right: 1.5px solid #282c35 !important; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.65) !important; }
 .logo-frame { position: relative; width: 88px; height: 88px; display: flex; justify-content: center; align-items: center; margin-bottom: 10px; }
 .logo-rotating-ring { position: absolute; width: 87px; height: 87px; border-radius: 50%; border: 1.8px dashed rgba(255, 255, 255, 0.7); box-shadow: 0 0 12px rgba(255, 255, 255, 0.25); animation: spinRing 8s linear infinite; z-index: 3; pointer-events: none; }
-.logo-img-mask { position: relative; z-index: 2; width: 78px; height: 78px; border-radius: 50%; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #111317; border: 1.5px solid rgba(255, 255, 255, 0.25); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); }
-.brand-logo-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: center; }
 .brand-title { font-size: 25px; font-weight: 900; letter-spacing: 2.2px; text-transform: uppercase; line-height: 1.1; display: flex; align-items: center; justify-content: center; gap: 7px; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4); font-family: 'Montserrat', sans-serif; }
 .brand-spidy { color: #ffffff; }
 .brand-hub { color: #cbd5e1; }
@@ -573,7 +575,6 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .icon-hex { width: 58px; height: 58px; margin: 0 auto 14px; background: rgba(255, 255, 255, 0.05); border: 1.5px solid rgba(255, 255, 255, 0.2); border-radius: 17px; display: flex; align-items: center; justify-content: center; position: relative; }
 .icon-hex::after { content: ''; position: absolute; inset: -4px; border-radius: 21px; border: 1.6px dashed rgba(255, 255, 255, 0.65); animation: rotatePerimeter 14s linear infinite; pointer-events: none; }
 @keyframes rotatePerimeter { 100% { transform: rotate(360deg); } }
-.custom-logo-token { width: 44px; height: 44px; border-radius: 13px; object-fit: cover; display: block; border: 1px solid rgba(255, 255, 255, 0.25); }
 .auth-card .card-title { font-size: 26px; font-weight: 900; letter-spacing: 1.2px; margin-bottom: 4px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 6px; }
 .brand-text-spidy { background: linear-gradient(180deg, #ffffff 20%, #e2e8f0 70%, #94a3b8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .brand-text-hub { background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 60%, #64748b 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -722,7 +723,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .btn-cancel-logout { flex: 1; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; }
 .btn-confirm-logout { flex: 1; background: #ef4444; color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; }
 
-/* 30. SUPPORT & CONTACT MODAL (FIXED SEND MESSAGE ICON POSITION) */
+/* 30. SUPPORT & CONTACT MODAL */
 .support-modal-fullscreen { position: fixed; top: 0; left: 0; right: 0; width: 100%; height: 100%; min-height: 100dvh; background-color: #030305 !important; background-image: radial-gradient(at 50% 0%, rgba(255, 255, 255, 0.08) 0px, transparent 60%), radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px); background-size: 100% 100%, 28px 28px; z-index: 100000; display: flex; flex-direction: column; overflow: hidden; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .support-modal-fullscreen.active { transform: translateX(0); }
 .support-header-fixed { background: transparent !important; backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important; border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: none !important; }
