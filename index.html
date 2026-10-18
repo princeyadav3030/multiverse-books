@@ -40,7 +40,7 @@
 </head>
 <body>
 
-    <!-- Global Master SVG Definition for 3D Spider Logo (Centered 1000x1000 ViewBox) -->
+    <!-- Global Master SVG Definition for Centered 3D Spider Logo -->
     <svg width="0" height="0" style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
         <defs>
             <linearGradient id="scarletLit" x1="0%" y1="0%" x2="90%" y2="100%">
@@ -448,10 +448,13 @@
             <div class="sidebar-overlay" id="sidebar-overlay"></div>
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-header-new" id="sidebarHeader">
-                    <div class="profile-img spidy-white-logo-box" id="sidebarProfileImg">
-                        <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
-                            <use href="#spidy-3d-spider-symbol"></use>
-                        </svg>
+                    <div class="profile-avatar-container" id="sidebarAvatarContainer">
+                        <img src="" alt="Profile" class="profile-img" id="sidebarProfileImg" style="display:none;" oncontextmenu="return false;" draggable="false">
+                        <div class="spidy-white-logo-box" id="sidebarDefaultSvgWrap">
+                            <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
+                                <use href="#spidy-3d-spider-symbol"></use>
+                            </svg>
+                        </div>
                     </div>
                     <div class="profile-info">
                         <div class="profile-name" id="sidebarProfileName">SPIDY BOOK HUB</div>
