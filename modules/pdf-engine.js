@@ -3,7 +3,7 @@
 import { showToast } from "./helpers.js";
 
 // ==========================================
-// PDF ENGINE STATE
+// 1. ENGINE STATE & PERFORMANCE CONSTANTS
 // ==========================================
 export let currentPdfDocument = null;
 export let pdfTotalPagesCount = 0;
@@ -16,29 +16,45 @@ export let basePageWidth = 0;
 export let basePageAspectRatio = 1.414;
 export let isDoubleTapBound = false;
 
+// Concurrency & Memory Controls (Adobe-Reader Style)
+const MAX_RENDERED_PAGES = 5; // Phone memory me ek time par max 5 canvas rahenge
+const RENDER_BUFFER_DISTANCE = 2; // Current page se aage-piche sirf 2 pages active rahenge
+let renderQueue = [];
+let isQueueProcessing = false;
+
 // ==========================================
-// CLEANUP & LOADER FUNCTIONS
+// 2. RESOURCE CLEANUP & MEMORY DESTROYER
 // ==========================================
 export function cleanupPdfResources() {
     if (pdfVirtualObserver) {
         pdfVirtualObserver.disconnect();
         pdfVirtualObserver = null;
     }
+
+    renderQueue = [];
+    isQueueProcessing = false;
+
     activeRenderTasks.forEach((task) => {
-        try { task.cancel(); } catch(e) {}
+        try { 
+            if (task && typeof task.cancel === 'function') task.cancel(); 
+        } catch(e) {}
     });
     activeRenderTasks.clear();
     
-    document.querySelectorAll('.pdf-page-wrapper canvas').forEach(canvas => {
-        const ctx = canvas.getContext('2d');
-        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-        canvas.width = 0;
-        canvas.height = 0;
-        canvas.remove();
+    document.querySelectorAll('.pdf-page-wrapper').forEach(wrapper => {
+        destroyCanvasInWrapper(wrapper);
     });
     
     renderedPagesMap.clear();
-    currentPdfDocument = null;
+
+    if (currentPdfDocument) {
+        try {
+            currentPdfDocument.cleanup();
+            currentPdfDocument.destroy();
+        } catch(e) {}
+        currentPdfDocument = null;
+    }
+
     currentZoomScale = 1.0;
     
     const badge = document.getElementById('pdfPageBadge');
@@ -50,6 +66,26 @@ export function cleanupPdfResources() {
         scroller.style.minWidth = '100%';
         scroller.style.margin = '0 auto';
     }
+}
+
+function destroyCanvasInWrapper(wrapper) {
+    if (!wrapper) return;
+    const canvases = wrapper.querySelectorAll('canvas');
+    canvases.forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.width = 0;
+        canvas.height = 0;
+        canvas.remove();
+    });
+
+    const pageNum = wrapper.dataset.pageNum;
+    wrapper.classList.add('page-placeholder');
+    wrapper.innerHTML = `
+        <div class="pdf-placeholder-box" style="display:flex; flex-direction:column; align-items:center; gap:8px; opacity:0.6; pointer-events:none;">
+            <i class="fas fa-book-open" style="font-size:18px;"></i>
+            <span>Page ${pageNum || ''}</span>
+        </div>`;
 }
 
 export function showCenteredPdfLoader(message = "Just a Moment… Your Book Is Almost Ready..!! 🚀📚") {
@@ -72,47 +108,72 @@ export function showCenteredPdfLoader(message = "Just a Moment… Your Book Is A
 }
 
 // ==========================================
-// PDF VIRTUALIZATION & RENDERING
+// 3. SMART SLIDING WINDOW & QUEUED RENDERER
 // ==========================================
-export function initVirtualizationObserver(pdf) {
-    if (pdfVirtualObserver) pdfVirtualObserver.disconnect();
+function recycleFarPages(activePage) {
+    const pagesToKeep = new Set();
+    for (let i = activePage - RENDER_BUFFER_DISTANCE; i <= activePage + RENDER_BUFFER_DISTANCE; i++) {
+        if (i >= 1 && i <= pdfTotalPagesCount) {
+            pagesToKeep.add(i);
+        }
+    }
 
-    pdfVirtualObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            const pageNum = parseInt(entry.target.dataset.pageNum, 10);
-            if (entry.isIntersecting) {
-                renderSingleHdPage(pdf, pageNum);
-                if (pageNum + 1 <= pdfTotalPagesCount && !renderedPagesMap.has(pageNum + 1)) {
-                    window.requestIdleCallback 
-                        ? window.requestIdleCallback(() => renderSingleHdPage(pdf, pageNum + 1)) 
-                        : setTimeout(() => renderSingleHdPage(pdf, pageNum + 1), 60);
-                }
-            } else {
-                if (Math.abs(pageNum - currentPdfPageInView) > 3) {
-                    unloadSinglePage(pageNum);
-                }
+    // Jo pages current view se door hain unhe turant RAM se delete karo
+    renderedPagesMap.forEach((_, pageNum) => {
+        if (!pagesToKeep.has(pageNum)) {
+            unloadSinglePage(pageNum);
+        }
+    });
+
+    // Agar kisi vajah se 5 se zyada canvas bache hon toh farthest remove karo
+    if (renderedPagesMap.size > MAX_RENDERED_PAGES) {
+        let farthestPage = null;
+        let maxDist = -1;
+
+        renderedPagesMap.forEach((_, pNum) => {
+            const dist = Math.abs(pNum - activePage);
+            if (dist > maxDist) {
+                maxDist = dist;
+                farthestPage = pNum;
             }
         });
-    }, {
-        root: document.getElementById('pdfContainer'),
-        rootMargin: '500px 0px 500px 0px',
-        threshold: 0.01
-    });
 
-    document.querySelectorAll('.pdf-page-wrapper').forEach(wrapper => {
-        pdfVirtualObserver.observe(wrapper);
-    });
+        if (farthestPage) unloadSinglePage(farthestPage);
+    }
 }
 
-export async function renderSingleHdPage(pdf, pageNum) {
-    if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return; 
-    activeRenderTasks.set(pageNum, true);
+async function processRenderQueue() {
+    if (isQueueProcessing || renderQueue.length === 0) return;
+    isQueueProcessing = true;
+
+    while (renderQueue.length > 0) {
+        const item = renderQueue.shift();
+        if (item && currentPdfDocument) {
+            // Check karein ki kya page abhi bhi current viewport buffer ke paas hai
+            if (Math.abs(item.pageNum - currentPdfPageInView) <= RENDER_BUFFER_DISTANCE + 1) {
+                await executePageRender(currentPdfDocument, item.pageNum);
+            }
+        }
+    }
+
+    isQueueProcessing = false;
+}
+
+export function queuePageRender(pageNum) {
+    if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return;
+    if (!renderQueue.some(q => q.pageNum === pageNum)) {
+        renderQueue.push({ pageNum });
+        processRenderQueue();
+    }
+}
+
+async function executePageRender(pdf, pageNum) {
+    if (!pdf || renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return;
 
     const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
-    if (!wrapper) {
-        activeRenderTasks.delete(pageNum);
-        return;
-    }
+    if (!wrapper) return;
+
+    activeRenderTasks.set(pageNum, true);
 
     try {
         const page = await pdf.getPage(pageNum);
@@ -120,7 +181,8 @@ export async function renderSingleHdPage(pdf, pageNum) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
-        const devicePR = Math.max(window.devicePixelRatio || 1, 1.8);
+        // Mobile RAM freeze se bachne ke liye safe DPR capping (max 2.0)
+        const devicePR = Math.min(window.devicePixelRatio || 1, 2.0);
         const viewport = page.getViewport({ scale: currentScale });
 
         const canvas = document.createElement('canvas');
@@ -130,6 +192,7 @@ export async function renderSingleHdPage(pdf, pageNum) {
         canvas.height = Math.floor(viewport.height * devicePR);
         canvas.style.width = `100%`;
         canvas.style.height = `100%`;
+        canvas.style.display = 'block';
 
         const renderTask = page.render({
             canvasContext: context,
@@ -139,6 +202,7 @@ export async function renderSingleHdPage(pdf, pageNum) {
 
         activeRenderTasks.set(pageNum, renderTask);
         await renderTask.promise;
+
         activeRenderTasks.delete(pageNum);
         renderedPagesMap.set(pageNum, true);
 
@@ -146,22 +210,7 @@ export async function renderSingleHdPage(pdf, pageNum) {
         wrapper.innerHTML = '';
         wrapper.appendChild(canvas);
 
-        const textContent = await page.getTextContent();
-        const textLayerDiv = document.createElement('div');
-        textLayerDiv.className = 'textLayer';
-        textLayerDiv.style.width = `100%`;
-        textLayerDiv.style.height = `100%`;
-        wrapper.appendChild(textLayerDiv);
-
-        if (window.pdfjsLib && window.pdfjsLib.renderTextLayer) {
-            await window.pdfjsLib.renderTextLayer({
-                textContentSource: textContent,
-                container: textLayerDiv,
-                viewport: viewport,
-                textDivs: []
-            }).promise;
-        }
-
+        page.cleanup(); // Clean up internal page operator memory
     } catch (e) {
         if (e.name !== 'RenderingCancelledException') {
             renderedPagesMap.delete(pageNum);
@@ -176,33 +225,52 @@ export function unloadSinglePage(pageNum) {
     if (!wrapper) return;
 
     if (activeRenderTasks.has(pageNum)) {
-        try { activeRenderTasks.get(pageNum).cancel(); } catch(e) {}
+        try { 
+            const task = activeRenderTasks.get(pageNum);
+            if (task && typeof task.cancel === 'function') task.cancel(); 
+        } catch(e) {}
         activeRenderTasks.delete(pageNum);
     }
 
-    const canvas = wrapper.querySelector('canvas');
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-        canvas.width = 0;
-        canvas.height = 0;
-        canvas.remove();
-    }
-
-    const textLayer = wrapper.querySelector('.textLayer');
-    if (textLayer) textLayer.remove();
-
-    wrapper.classList.add('page-placeholder');
-    wrapper.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; opacity:0.6;">
-            <i class="fas fa-book-open" style="font-size:18px;"></i>
-            <span>Page ${pageNum}</span>
-        </div>`;
+    destroyCanvasInWrapper(wrapper);
     renderedPagesMap.delete(pageNum);
 }
 
 // ==========================================
-// TARGET LOCKED ZOOM & DOUBLE TAP
+// 4. INTERSECTION OBSERVER VIRTUALIZER
+// ==========================================
+export function initVirtualizationObserver(pdf) {
+    if (pdfVirtualObserver) pdfVirtualObserver.disconnect();
+
+    pdfVirtualObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const pageNum = parseInt(entry.target.dataset.pageNum, 10);
+            if (entry.isIntersecting) {
+                queuePageRender(pageNum);
+                
+                // Pre-render agla page smoothly
+                if (pageNum + 1 <= pdfTotalPagesCount && !renderedPagesMap.has(pageNum + 1)) {
+                    queuePageRender(pageNum + 1);
+                }
+            } else {
+                if (Math.abs(pageNum - currentPdfPageInView) > RENDER_BUFFER_DISTANCE) {
+                    unloadSinglePage(pageNum);
+                }
+            }
+        });
+    }, {
+        root: document.getElementById('pdfContainer'),
+        rootMargin: '300px 0px 300px 0px',
+        threshold: 0.02
+    });
+
+    document.querySelectorAll('.pdf-page-wrapper').forEach(wrapper => {
+        pdfVirtualObserver.observe(wrapper);
+    });
+}
+
+// ==========================================
+// 5. TARGET LOCKED ZOOM & DOUBLE TAP
 // ==========================================
 export function applyTargetLockedZoom(scaleFactor, targetPageNum) {
     const container = document.getElementById('pdfContainer');
@@ -235,10 +303,12 @@ export function applyTargetLockedZoom(scaleFactor, targetPageNum) {
         wrappers[i].style.height = `${newHeight}px`;
     }
 
+    // Zoom badalne par sabhi pages ko refresh karo
+    renderedPagesMap.forEach((_, pNum) => unloadSinglePage(pNum));
     renderedPagesMap.clear();
+
     if (currentPdfDocument) {
-        initVirtualizationObserver(currentPdfDocument);
-        renderSingleHdPage(currentPdfDocument, pageToAnchor);
+        queuePageRender(pageToAnchor);
     }
 
     if (targetElement) {
@@ -307,7 +377,7 @@ export function initTargetLockedDoubleTapZoom() {
                 if (currentZoomScale > 1.1) {
                     applyTargetLockedZoom(1.0, activePage);
                 } else {
-                    applyTargetLockedZoom(2.2, activePage);
+                    applyTargetLockedZoom(2.0, activePage);
                 }
                 lastTapTime = 0;
                 return;
@@ -318,7 +388,7 @@ export function initTargetLockedDoubleTapZoom() {
 }
 
 // ==========================================
-// SCROLL TRACKER & PAGE JUMP
+// 6. SCROLL TRACKER & RECYCLER OBSERVER
 // ==========================================
 export function initPdfScrollTracker(activeBookSlug = "") {
     const container = document.getElementById('pdfContainer');
@@ -344,7 +414,10 @@ export function initPdfScrollTracker(activeBookSlug = "") {
                 if (rect.top <= containerCenter && rect.bottom >= containerCenter) {
                     const matchedNum = parseInt(wrap.dataset.pageNum, 10);
                     if (!isNaN(matchedNum)) {
-                        currentPdfPageInView = matchedNum;
+                        if (currentPdfPageInView !== matchedNum) {
+                            currentPdfPageInView = matchedNum;
+                            recycleFarPages(matchedNum); // Active page badalte hi door ke canvas recycle karo
+                        }
                         if (badge && badge.innerText !== String(matchedNum)) {
                             badge.innerText = String(matchedNum);
                         }
@@ -366,9 +439,10 @@ export async function jumpToPdfPage(pageNum) {
     let targetWrapper = document.getElementById(`page_wrapper_${pageNum}`);
     const pdfPageBadge = document.getElementById('pdfPageBadge');
     if (targetWrapper) {
-        if (currentPdfDocument) {
-            renderSingleHdPage(currentPdfDocument, pageNum);
-        }
+        currentPdfPageInView = pageNum;
+        recycleFarPages(pageNum);
+        queuePageRender(pageNum);
+
         targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
         const numEl = document.getElementById('pdfCurrentPageNum');
         if (numEl) numEl.innerText = pageNum.toString();
@@ -392,7 +466,7 @@ export function executeGoToPage() {
 }
 
 // ==========================================
-// RENDER PDF IN MODAL MAIN FUNCTION
+// 7. RENDER PDF IN MODAL MAIN FUNCTION
 // ==========================================
 export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docType = "book", activeBookSlug = "") {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -424,13 +498,14 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
     }
 
     try {
+        // Optimized PDF.js loading parameters: Byte Range Chunky Streaming for Cloudflare R2
         const loadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
             cMapPacked: true,
-            disableAutoFetch: true,
-            disableStream: false,
-            rangeChunkSize: 65536
+            disableAutoFetch: true,       // Puri file ek sath download hone se rokega (Saves Bandwidth)
+            disableStream: false,         // On-demand streaming allow karega
+            rangeChunkSize: 262144        // 256 KB Range Chunks (Optimal balance of speed & requests)
         });
 
         const pdf = await loadingTask.promise;
@@ -451,7 +526,10 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
         const firstViewport = firstPage.getViewport({ scale: 1.0 });
         basePageAspectRatio = (firstViewport.height / firstViewport.width) || 1.414;
         const defaultHeight = Math.round(basePageWidth * basePageAspectRatio);
+        firstPage.cleanup();
 
+        // Document fragment create karke DOM batch insert karein (Fastest Layout Creation)
+        const fragment = document.createDocumentFragment();
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const wrapper = document.createElement('div');
             wrapper.className = 'pdf-page-wrapper page-placeholder';
@@ -461,12 +539,13 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
             wrapper.style.width = `${basePageWidth}px`;
             wrapper.style.height = `${defaultHeight}px`;
             wrapper.innerHTML = `
-                <div style="display:flex; flex-direction:column; align-items:center; gap:8px; opacity:0.6;">
+                <div class="pdf-placeholder-box" style="display:flex; flex-direction:column; align-items:center; gap:8px; opacity:0.6; pointer-events:none;">
                     <i class="fas fa-book-open" style="font-size:18px;"></i>
                     <span>Page ${pageNum}</span>
                 </div>`;
-            scrollContainer.appendChild(wrapper);
+            fragment.appendChild(wrapper);
         }
+        scrollContainer.appendChild(fragment);
 
         const pageBadge = document.getElementById('pdfPageBadge');
         if (pageBadge) {
@@ -478,17 +557,17 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
         initPdfScrollTracker(activeBookSlug);
         initTargetLockedDoubleTapZoom();
 
-        await renderSingleHdPage(pdf, 1);
-        if (pdf.numPages >= 2) renderSingleHdPage(pdf, 2);
+        // Initial active pages queue karein
+        queuePageRender(1);
+        if (pdf.numPages >= 2) queuePageRender(2);
 
         const savedPage = localStorage.getItem(`last_read_${activeBookSlug}`);
         if (savedPage) {
             const targetPage = parseInt(savedPage, 10);
             if (targetPage > 1 && targetPage <= pdf.numPages) {
                 setTimeout(() => { 
-                    renderSingleHdPage(pdf, targetPage);
                     jumpToPdfPage(targetPage); 
-                }, 200);
+                }, 150);
             } else {
                 jumpToPdfPage(1);
             }
@@ -512,7 +591,7 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
 }
 
 // ==========================================
-// INITIALIZE PDF MODAL CONTROLS
+// 8. INITIALIZE PDF MODAL CONTROLS
 // ==========================================
 export function initPdfViewerUI() {
     const pdfPageBadge = document.getElementById('pdfPageBadge');
