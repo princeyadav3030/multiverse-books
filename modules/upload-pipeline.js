@@ -1,7 +1,7 @@
 // File: modules/upload-pipeline.js
 
 import { db, auth, collection, addDoc, doc, setDoc, serverTimestamp } from "./firebase-config.js";
-import { showToast, generateCleanSlug, WORKER_PROXY_URL } from "./helpers.js";
+import { showToast, generateCleanSlug, WORKER_PROXY_URL, DEFAULT_AVATAR } from "./helpers.js";
 
 // ==========================================
 // UPLOAD PIPELINE STATE & CONSTANTS
@@ -76,7 +76,7 @@ export function uploadDirectStream(targetUrl, file, mimeType, onProgress, maxRet
             xhr.open("PUT", targetUrl, true);
             xhr.setRequestHeader("Content-Type", mimeType || "application/octet-stream");
             
-            // Mobile network timeouts prevent karne ke liye timeout disable rakha hai
+            // Mobile network timeouts drop hone se bachane ke liye timeout zero rakha hai
             xhr.timeout = 0; 
 
             xhr.upload.onprogress = (e) => {
@@ -91,7 +91,7 @@ export function uploadDirectStream(targetUrl, file, mimeType, onProgress, maxRet
                 } else if (attempts < maxRetries) {
                     setTimeout(attemptUpload, 1500 * attempts);
                 } else {
-                    reject(new Error(`Storage rejected upload (${xhr.status})`));
+                    reject(new Error(`Storage rejected upload (HTTP ${xhr.status})`));
                 }
             };
 
@@ -99,7 +99,7 @@ export function uploadDirectStream(targetUrl, file, mimeType, onProgress, maxRet
                 if (attempts < maxRetries) {
                     setTimeout(attemptUpload, 2000 * attempts);
                 } else {
-                    reject(new Error("Network connection dropped during upload. Please check your internet."));
+                    reject(new Error("Network connection dropped during upload. Please check your internet connection."));
                 }
             };
 
@@ -122,12 +122,12 @@ export async function uploadFileSmart(authData, file, mimeType, onProgress) {
     const directPresignedUrl = typeof authData === 'object' ? authData?.uploadUrl : null;
     const fileKey = typeof authData === 'string' ? authData : (authData?.fileKey || "");
 
-    // 1. Direct High-Speed S3/R2 Stream (Bypasses any worker limits)
+    // 1. Direct High-Speed S3/R2 Stream (Bypasses worker body limit)
     if (directPresignedUrl) {
         return await uploadDirectStream(directPresignedUrl, file, mimeType, onProgress);
     }
 
-    // 2. Fallback to worker proxy if presigned url is absent
+    // 2. Fallback to worker proxy only if presigned url is absent
     let cleanKey = fileKey.replace(/^\/+/, "");
     const targetUrl = `${WORKER_PROXY_URL}/upload?key=${encodeURIComponent(cleanKey)}`;
     return await uploadDirectStream(targetUrl, file, mimeType, onProgress);
@@ -262,9 +262,9 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
             detectedFileSizeMB = `${sizeInMB} MB`;
 
             const isSuperAdmin = isSuperAdminCheck();
-            const maxAllowed = isSuperAdmin ? (1024 * 1024 * 1024) : (350 * 1024 * 1024);
+            const maxAllowed = isSuperAdmin ? (1024 * 1024 * 1024) : (250 * 1024 * 1024);
             if (selectedPdfFile.size > maxAllowed) {
-                showToast(`File too large (Max ${isSuperAdmin ? '1GB' : '350MB'})`, "error");
+                showToast(`File too large (Max ${isSuperAdmin ? '1GB' : '250MB'})`, "error");
                 selectedPdfFile = null;
                 statusText.innerText = "Drag & Drop PDF File";
                 e.target.value = "";
@@ -304,7 +304,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         e.preventDefault();
 
         if (!auth.currentUser) {
-            showToast("Please login first", "error");
+            showToast("Please login first to upload", "error");
             return;
         }
         if (!selectedCoverFile) return showToast("Select a cover image", "error");
@@ -323,6 +323,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         document.getElementById('syncDynamicTitle').innerText = inputTitle;
         document.getElementById('syncDynamicPdfSize').innerText = `PDF Size: ${(selectedPdfFile.size / (1024 * 1024)).toFixed(2)} MB`;
 
+        // Live cover preview during upload
         const reader = new FileReader();
         reader.onload = (evt) => {
             liveCoverImg.src = evt.target.result;
@@ -331,9 +332,13 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         };
         reader.readAsDataURL(selectedCoverFile);
 
+        // Combined Single Progress Tracker Calculation
         const totalBytes = selectedCoverFile.size + selectedPdfFile.size;
         const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
-        let coverLoaded = 0, pdfLoaded = 0, lastLoaded = 0, lastTime = Date.now();
+        let coverLoaded = 0;
+        let pdfLoaded = 0;
+        let lastLoaded = 0;
+        let lastTime = Date.now();
 
         pipeline.style.display = 'flex';
         stageTitle.innerText = "Connecting Secure Storage...";
@@ -344,6 +349,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
 
         function updateTelemetry() {
             const loaded = coverLoaded + pdfLoaded;
+            // 98% tak upload stream rahegi, baki 2% database registration ke liye reserve
             const percent = Math.min(98, Math.floor((loaded / totalBytes) * 98));
             percentDisplay.innerHTML = `${percent}<span class="percent-symbol">%</span>`;
             progressFill.style.width = `${percent}%`;
@@ -366,6 +372,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
             const coverMime = selectedCoverFile.type || "image/jpeg";
             const pdfMime = selectedPdfFile.type || "application/pdf";
 
+            // Authorize both upload slots with backend
             const [coverAuthRes, pdfAuthRes] = await Promise.all([
                 fetch('/api/generate-upload-url', {
                     method: 'POST',
@@ -404,26 +411,34 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
             }
 
             stageTitle.innerText = "Direct Fast Uploading...";
-            
-            // Cover aur PDF ek sath reliable stream me bina timeout ke
-            await Promise.all([
-                uploadFileSmart(coverAuthData, selectedCoverFile, coverMime, (loaded) => {
-                    coverLoaded = loaded;
-                    updateTelemetry();
-                }),
-                uploadFileSmart(pdfAuthData, selectedPdfFile, pdfMime, (loaded) => {
-                    pdfLoaded = loaded;
-                    updateTelemetry();
-                })
-            ]);
 
-            stageTitle.innerText = "Registering book...";
+            // Sequential Upload Execution:
+            // Mobile bandwidth drop se bachane ke liye pehle Cover (0.5s), turant baad PDF.
+            // Dono ka byte progress single smooth bar me display hoga.
+            await uploadFileSmart(coverAuthData, selectedCoverFile, coverMime, (loaded) => {
+                coverLoaded = loaded;
+                updateTelemetry();
+            });
+
+            await uploadFileSmart(pdfAuthData, selectedPdfFile, pdfMime, (loaded) => {
+                pdfLoaded = loaded;
+                updateTelemetry();
+            });
+
+            stageTitle.innerText = "Registering book & uploader profile...";
             percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
             progressFill.style.width = `99%`;
 
             const finalSlug = generateCleanSlug(inputTitle);
             const finalPagesCount = detectedTotalPages > 0 ? detectedTotalPages.toString() : "Complete Book";
 
+            // Get current logged-in user profile details accurately
+            const currentUser = auth.currentUser;
+            const uploaderName = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : "Verified Contributor");
+            const uploaderEmail = currentUser.email || "";
+            const uploaderPhoto = currentUser.photoURL || DEFAULT_AVATAR;
+
+            // Database Object with complete uploader identification
             const newBook = {
                 title: inputTitle,
                 author: document.getElementById('inAuthor')?.value.trim() || "Unknown",
@@ -439,15 +454,23 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
                 totalPages: finalPagesCount,
                 dateAdded: new Date().toLocaleDateString('en-GB').toUpperCase(),
                 createdAt: serverTimestamp(),
-                uploaderUid: auth.currentUser.uid
+                
+                // Uploader Identity Fields (Firestore Rules Guarded)
+                uploaderUid: currentUser.uid,
+                uploaderName: uploaderName,
+                uploaderEmail: uploaderEmail,
+                uploaderPhoto: uploaderPhoto
             };
 
+            // Save to Firestore books collection
             const docRef = await addDoc(collection(db, "books"), newBook);
             newBook.id = docRef.id;
 
+            // Set user 24-hr upload cooldown timestamp in users collection
             if (!isSuperAdminCheck()) {
-                await setDoc(doc(db, "users", auth.currentUser.uid), {
-                    lastBookUploadTime: Date.now()
+                await setDoc(doc(db, "users", currentUser.uid), {
+                    lastBookUploadTime: Date.now(),
+                    lastUploadedBookTitle: inputTitle
                 }, { merge: true });
             }
 
@@ -460,7 +483,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
             setTimeout(() => {
                 pipeline.style.display = 'none';
                 resetUploadFormState();
-                showToast("Book Published!", "success");
+                showToast("Book Published Successfully!", "success");
 
                 if (window.history.state && window.history.state.popup === 'uploadModal') {
                     window.history.back();
@@ -471,7 +494,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
 
         } catch (error) {
             pipeline.style.display = 'none';
-            showToast(error.message || "Upload failed", "error");
+            showToast(error.message || "Upload failed. Please try again.", "error");
         }
     });
 }
