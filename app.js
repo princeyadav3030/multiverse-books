@@ -71,7 +71,7 @@ const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
 
-// Channel elements
+// Channel UI elements
 const chatBody = document.getElementById('chatBody');
 const contextOverlay = document.getElementById('contextOverlay');
 const scrollDownWrapper = document.getElementById('scrollDownWrapper');
@@ -298,7 +298,7 @@ function initCommunityDualPopup() {
 }
 
 // ==========================================
-// 5. CHANNEL POSTS & LIVE NOTIFICATIONS ENGINE
+// 5. CHANNEL POSTS & USER-SPECIFIC REACTIONS
 // ==========================================
 function renderChannelLoader() {
     if (!chatBody) return;
@@ -313,10 +313,17 @@ function renderChannelLoader() {
         </div>`;
 }
 
-function getUserReaction(postId) { return localStorage.getItem(`reaction_${postId}`); }
+// User-Bound Reaction Storage (Har user/email ke hisaab se alag glow karega)
+function getUserReaction(postId) { 
+    const uid = auth.currentUser ? auth.currentUser.uid : 'guest';
+    return localStorage.getItem(`reaction_${uid}_${postId}`); 
+}
+
 function setUserReaction(postId, emoji) {
-    if (emoji) localStorage.setItem(`reaction_${postId}`, emoji);
-    else localStorage.removeItem(`reaction_${postId}`);
+    const uid = auth.currentUser ? auth.currentUser.uid : 'guest';
+    const key = `reaction_${uid}_${postId}`;
+    if (emoji) localStorage.setItem(key, emoji);
+    else localStorage.removeItem(key);
 }
 
 function forceScrollChatToBottom() {
@@ -412,9 +419,17 @@ function updateReactionInDOM(postId) {
     }
 }
 
+// Optimized View Register (Server request spam rokne ke liye localStorage debounced)
 async function registerUniqueView(postId) {
-    if (!auth.currentUser) return;
+    if (!auth.currentUser || !postId) return;
+    const uid = auth.currentUser.uid;
+    const viewKey = `viewed_post_${uid}_${postId}`;
+    
+    // Agar user ne post pehle dekh liya hai toh server call mat bhejo (Saves Vercel/Firebase Limits)
+    if (localStorage.getItem(viewKey)) return;
+
     try {
+        localStorage.setItem(viewKey, '1');
         const token = await auth.currentUser.getIdToken(false);
         await fetch('/api/channel-action', {
             method: 'POST',
@@ -680,7 +695,7 @@ document.addEventListener('click', (e) => {
 }, true);
 
 // ==========================================
-// 6. MASTER FILTER APPLIER & UI RENDER (FIXED)
+// 6. MASTER FILTER APPLIER & UI RENDER
 // ==========================================
 function applyMasterFilter(isAppending = false, newBatchData = []) {
     const searchInputRaw = (document.getElementById('app-search-input')?.value || "").trim();
@@ -699,7 +714,6 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
         mainFilteredData.push(...filteredNewItems);
         renderBooksUI(filteredNewItems, true);
 
-        // Strict Check: agar total filtered books > 0 hai toh no results msg kabhi nahi aayega
         if (mainFilteredData.length > 0) {
             if (noResultsMsg) noResultsMsg.style.display = 'none';
         } else {
@@ -710,7 +724,6 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
         return;
     }
 
-    // Full fresh filter
     mainFilteredData = booksData.filter(book => 
         matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords)
     );
@@ -886,7 +899,7 @@ async function loadNextBooksBatch() {
 }
 
 // ==========================================
-// 8. PROMO CAROUSEL & MODULE PACKS
+// 8. PROMO CAROUSEL & DISTINCT MODULE PACKS
 // ==========================================
 let currentPromoIndex = 0;
 let promoAutoSlideInterval = null;
@@ -1092,10 +1105,11 @@ window.openSubjectModulesList = function(subjectKey) {
         container.innerHTML = `<div style="text-align:center; padding:35px 20px; color:#a1a1aa;">No modules found.</div>`;
     } else {
         let html = "";
-        modules.forEach(mod => {
+        modules.forEach((mod, modIdx) => {
             const rawPdfUrl = mod.pdfLink || "";
             const safeEncodedKey = encodeURIComponent(rawPdfUrl);
-            const encodedTitle = encodeURIComponent(mod.name || "Module Document");
+            const rawModTitle = mod.name || `Module ${modIdx + 1}`;
+            const encodedTitle = encodeURIComponent(rawModTitle);
             let pageLabel = mod.pages ? (mod.pages.includes("Page") ? mod.pages : `${mod.pages} Pages`) : "Complete Document";
 
             html += `
@@ -1111,7 +1125,7 @@ window.openSubjectModulesList = function(subjectKey) {
                     </svg>
                 </div>
                 <div class="module-details-wrap">
-                    <div class="module-title-h3">${escapeHTML(mod.name || 'Module')}</div>
+                    <div class="module-title-h3">${escapeHTML(rawModTitle)}</div>
                     <span class="module-tag-pages"><i class="fas fa-layer-group"></i> ${escapeHTML(pageLabel)}</span>
                 </div>
                 <div class="pod-round-arrow-wrap"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
@@ -1125,6 +1139,7 @@ window.openSubjectModulesList = function(subjectKey) {
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
+// Distinct Module Opener (Module 1 vs 2 Collision Fixed)
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
         triggerLoginModal();
@@ -1160,8 +1175,11 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 
     showCenteredPdfLoader("Just a Moment… Your Module Is Almost Ready..!! 🚀📚");
 
+    // Module-specific unique cache slug
+    const distinctModuleSlug = generateCleanSlug(title || pdfKeyOrUrl || "module-pack");
+
     if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
-        renderPdfInModal("", true, "module", activeBannerData?.id); 
+        renderPdfInModal("", true, "module", distinctModuleSlug); 
         return;
     }
 
@@ -1172,7 +1190,8 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 pdfKey: pdfKeyOrUrl,
-                bookSlug: (activeBannerData ? activeBannerData.id : "module-pack"),
+                bookSlug: distinctModuleSlug,
+                docType: "module",
                 userToken: userToken,
                 fingerprint: generateDeviceFingerprint(auth.currentUser?.uid)
             })
@@ -1180,12 +1199,12 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 
         const data = await response.json();
         if (response.ok && data.success) {
-            renderPdfInModal(data.pdfLink, true, "module", activeBannerData?.id);
+            renderPdfInModal(data.pdfLink, true, "module", distinctModuleSlug);
         } else {
-            renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true, "module", activeBannerData?.id);
+            renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true, "module", distinctModuleSlug);
         }
     } catch (err) {
-        renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true, "module", activeBannerData?.id);
+        renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true, "module", distinctModuleSlug);
     }
 };
 
@@ -1268,7 +1287,8 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     bookId: book.id, 
-                    bookSlug: book.slug || book.id, 
+                    bookSlug: book.slug || book.id,
+                    docType: "book",
                     userToken: userToken 
                 })
             });
@@ -1280,7 +1300,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
                 if (title) title.innerText = sanitizeHTML(book.title);
                 history.pushState({ popup: 'pdfViewer', from: 'book' }, '');
                 if (pdfViewer) pdfViewer.style.display = 'flex';
-                renderPdfInModal(data.pdfLink, false, "book", book.slug);
+                renderPdfInModal(data.pdfLink, false, "book", book.slug || book.id);
             } else {
                 showToast(data.error || "Access denied", "error");
             }
@@ -1622,12 +1642,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 5. Global Infinite Scroll Observer (Strict Filter Boundary Check)
+    // 5. Global Infinite Scroll Observer
     const sentinel = document.getElementById('scroll-sentinel');
     if (sentinel) {
         const infiniteScrollObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
-                // Agar user ne filter lagaya hua hai aur local search match limited hai toh trigger hone se roko
                 const hasActiveFilters = filterState.language !== 'All' || filterState.class !== 'All' || filterState.author !== 'All' || filterState.year !== 'All';
                 if (entry.isIntersecting && hasMoreBooksToFetch && !isFetchingBooksBatch && !hasActiveFilters) {
                     loadNextBooksBatch();
@@ -1893,6 +1912,11 @@ onAuthStateChanged(auth, async (user) => {
         CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
         const sidebarAvatar = document.getElementById('sidebarProfileImg');
         if (sidebarAvatar) sidebarAvatar.src = DEFAULT_AVATAR;
+    }
+
+    // Refresh Channel Reactions for the current user session (Active glow sync)
+    if (livePosts.length > 0) {
+        livePosts.forEach(post => updateReactionInDOM(post.id));
     }
 
     isAppReady.auth = true; 
