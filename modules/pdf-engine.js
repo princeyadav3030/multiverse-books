@@ -16,11 +16,12 @@ export let basePageWidth = 0;
 export let basePageAspectRatio = 1.414;
 export let isDoubleTapBound = false;
 
-// Concurrency & Memory Controls (Adobe-Reader Style)
-const MAX_RENDERED_PAGES = 5; // Phone memory me ek time par max 5 canvas rahenge
-const RENDER_BUFFER_DISTANCE = 2; // Current page se aage-piche sirf 2 pages active rahenge
+// Concurrency, Memory & Scroll-Lock Controls
+const MAX_RENDERED_PAGES = 5; 
+const RENDER_BUFFER_DISTANCE = 2; 
 let renderQueue = [];
 let isQueueProcessing = false;
+let lastContainerScrollTime = 0; // Fast scroll ke waqt accidental zoom rokne ke liye
 
 // ==========================================
 // 2. RESOURCE CLEANUP & MEMORY DESTROYER
@@ -108,7 +109,7 @@ export function showCenteredPdfLoader(message = "Just a Moment… Your Book Is A
 }
 
 // ==========================================
-// 3. SMART SLIDING WINDOW & QUEUED RENDERER
+// 3. SMART SLIDING WINDOW & ULTRA-HD RENDERER
 // ==========================================
 function recycleFarPages(activePage) {
     const pagesToKeep = new Set();
@@ -118,14 +119,12 @@ function recycleFarPages(activePage) {
         }
     }
 
-    // Jo pages current view se door hain unhe turant RAM se delete karo
     renderedPagesMap.forEach((_, pageNum) => {
         if (!pagesToKeep.has(pageNum)) {
             unloadSinglePage(pageNum);
         }
     });
 
-    // Agar kisi vajah se 5 se zyada canvas bache hon toh farthest remove karo
     if (renderedPagesMap.size > MAX_RENDERED_PAGES) {
         let farthestPage = null;
         let maxDist = -1;
@@ -149,9 +148,8 @@ async function processRenderQueue() {
     while (renderQueue.length > 0) {
         const item = renderQueue.shift();
         if (item && currentPdfDocument) {
-            // Check karein ki kya page abhi bhi current viewport buffer ke paas hai
             if (Math.abs(item.pageNum - currentPdfPageInView) <= RENDER_BUFFER_DISTANCE + 1) {
-                await executePageRender(currentPdfDocument, item.pageNum);
+                await executePageRender(currentPdfDocument, item.pageNum, item.forceRedraw);
             }
         }
     }
@@ -159,19 +157,34 @@ async function processRenderQueue() {
     isQueueProcessing = false;
 }
 
-export function queuePageRender(pageNum) {
-    if (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return;
-    if (!renderQueue.some(q => q.pageNum === pageNum)) {
-        renderQueue.push({ pageNum });
-        processRenderQueue();
+export function queuePageRender(pageNum, forceRedraw = false) {
+    if (!forceRedraw && (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum))) return;
+    
+    // Agar forceRedraw hai (jaise zoom ke waqt), toh sabse aage priority me rakho
+    renderQueue = renderQueue.filter(q => q.pageNum !== pageNum);
+    if (forceRedraw) {
+        renderQueue.unshift({ pageNum, forceRedraw: true });
+    } else {
+        renderQueue.push({ pageNum, forceRedraw: false });
     }
+    processRenderQueue();
 }
 
-async function executePageRender(pdf, pageNum) {
-    if (!pdf || renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum)) return;
+export async function executePageRender(pdf, pageNum, isSeamlessSwap = false) {
+    if (!pdf) return;
+    if (!isSeamlessSwap && (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum))) return;
 
     const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
     if (!wrapper) return;
+
+    // Agar pehle se koi adhura render chal raha hai toh use cancel karo
+    if (activeRenderTasks.has(pageNum)) {
+        try {
+            const prevTask = activeRenderTasks.get(pageNum);
+            if (prevTask && typeof prevTask.cancel === 'function') prevTask.cancel();
+        } catch (e) {}
+        activeRenderTasks.delete(pageNum);
+    }
 
     activeRenderTasks.set(pageNum, true);
 
@@ -181,39 +194,64 @@ async function executePageRender(pdf, pageNum) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
-        // Mobile RAM freeze se bachne ke liye safe DPR capping (max 2.0)
-        const devicePR = Math.min(window.devicePixelRatio || 1, 2.0);
+        // ULTRA-HD ORIGINAL QUALITY DPI:
+        // Normal view me minimum 2.5x super-sampling taaki original PDF jaisi crisp HD quality dikhe.
+        // Zoomed view me safe pixel ceiling taaki mobile GPU crash na ho.
+        const rawDpr = window.devicePixelRatio || 2;
+        const targetDpr = currentZoomScale > 1.1 
+            ? Math.min(Math.max(rawDpr, 2.0), 2.4) 
+            : Math.min(Math.max(rawDpr * 1.35, 2.5), 3.0);
+
         const viewport = page.getViewport({ scale: currentScale });
 
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d', { alpha: false });
+        const newCanvas = document.createElement('canvas');
+        const context = newCanvas.getContext('2d', { alpha: false });
         
-        canvas.width = Math.floor(viewport.width * devicePR);
-        canvas.height = Math.floor(viewport.height * devicePR);
-        canvas.style.width = `100%`;
-        canvas.style.height = `100%`;
-        canvas.style.display = 'block';
+        newCanvas.width = Math.floor(viewport.width * targetDpr);
+        newCanvas.height = Math.floor(viewport.height * targetDpr);
+        newCanvas.style.width = `100%`;
+        newCanvas.style.height = `100%`;
+        newCanvas.style.display = 'block';
+
+        // Crisp high-quality smoothing
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = 'high';
 
         const renderTask = page.render({
             canvasContext: context,
             viewport: viewport,
-            transform: [devicePR, 0, 0, devicePR, 0, 0]
+            transform: [targetDpr, 0, 0, targetDpr, 0, 0]
         });
 
         activeRenderTasks.set(pageNum, renderTask);
         await renderTask.promise;
 
         activeRenderTasks.delete(pageNum);
-        renderedPagesMap.set(pageNum, true);
+        renderedPagesMap.set(pageNum, currentZoomScale);
 
+        // SEAMLESS DOUBLE-BUFFER SWAP:
+        // Jab naya HD canvas 100% ban kar ready ho jaye, tabhi purane canvas ko hatao!
+        // Isse zoom in/out par kabhi black/loading placeholder nahi aayega!
+        const oldCanvases = wrapper.querySelectorAll('canvas');
+        const placeholders = wrapper.querySelectorAll('.pdf-placeholder-box');
+        
         wrapper.classList.remove('page-placeholder');
-        wrapper.innerHTML = '';
-        wrapper.appendChild(canvas);
+        wrapper.appendChild(newCanvas);
 
-        page.cleanup(); // Clean up internal page operator memory
+        oldCanvases.forEach(oldCanvas => {
+            if (oldCanvas !== newCanvas) {
+                const ctx = oldCanvas.getContext('2d');
+                if (ctx) ctx.clearRect(0, 0, oldCanvas.width, oldCanvas.height);
+                oldCanvas.width = 0;
+                oldCanvas.height = 0;
+                oldCanvas.remove();
+            }
+        });
+        placeholders.forEach(p => p.remove());
+
+        page.cleanup();
     } catch (e) {
         if (e.name !== 'RenderingCancelledException') {
-            renderedPagesMap.delete(pageNum);
             activeRenderTasks.delete(pageNum);
         }
     }
@@ -246,11 +284,16 @@ export function initVirtualizationObserver(pdf) {
         entries.forEach(entry => {
             const pageNum = parseInt(entry.target.dataset.pageNum, 10);
             if (entry.isIntersecting) {
-                queuePageRender(pageNum);
+                const renderedScale = renderedPagesMap.get(pageNum);
+                if (!renderedScale) {
+                    queuePageRender(pageNum, false);
+                } else if (Math.abs(renderedScale - currentZoomScale) > 0.05) {
+                    // Agar zoom scale badal chuka hai toh bina unload kiye background me sharp karo
+                    queuePageRender(pageNum, true);
+                }
                 
-                // Pre-render agla page smoothly
                 if (pageNum + 1 <= pdfTotalPagesCount && !renderedPagesMap.has(pageNum + 1)) {
-                    queuePageRender(pageNum + 1);
+                    queuePageRender(pageNum + 1, false);
                 }
             } else {
                 if (Math.abs(pageNum - currentPdfPageInView) > RENDER_BUFFER_DISTANCE) {
@@ -260,8 +303,8 @@ export function initVirtualizationObserver(pdf) {
         });
     }, {
         root: document.getElementById('pdfContainer'),
-        rootMargin: '300px 0px 300px 0px',
-        threshold: 0.02
+        rootMargin: '350px 0px 350px 0px',
+        threshold: 0.01
     });
 
     document.querySelectorAll('.pdf-page-wrapper').forEach(wrapper => {
@@ -270,16 +313,31 @@ export function initVirtualizationObserver(pdf) {
 }
 
 // ==========================================
-// 5. TARGET LOCKED ZOOM & DOUBLE TAP
+// 5. INSTANT TARGET-LOCKED ZOOM & ANTI-SCROLL DOUBLE TAP
 // ==========================================
-export function applyTargetLockedZoom(scaleFactor, targetPageNum) {
+export function applyTargetLockedZoom(scaleFactor, targetPageNum, tapClientX = null, tapClientY = null) {
     const container = document.getElementById('pdfContainer');
     const scroller = document.getElementById('pdfScrollContainer');
     if (!container || !scroller) return;
 
     const pageToAnchor = targetPageNum || currentPdfPageInView;
     const targetElement = document.getElementById(`page_wrapper_${pageToAnchor}`);
-    const initialOffsetTop = targetElement ? (targetElement.getBoundingClientRect().top - container.getBoundingClientRect().top) : 0;
+    if (!targetElement) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = targetElement.getBoundingClientRect();
+
+    // Calculate exact relative tap ratio (0.0 to 1.0) on the tapped page
+    const relX = tapClientX !== null 
+        ? Math.max(0, Math.min(1, (tapClientX - targetRect.left) / targetRect.width)) 
+        : 0.5;
+    const relY = tapClientY !== null 
+        ? Math.max(0, Math.min(1, (tapClientY - targetRect.top) / targetRect.height)) 
+        : 0.35;
+
+    const viewportClickOffsetY = tapClientY !== null 
+        ? (tapClientY - containerRect.top) 
+        : (container.clientHeight * 0.35);
 
     currentZoomScale = scaleFactor;
     const newWidth = Math.round(basePageWidth * currentZoomScale);
@@ -289,42 +347,48 @@ export function applyTargetLockedZoom(scaleFactor, targetPageNum) {
         scroller.style.width = `${newWidth}px`;
         scroller.style.minWidth = `${newWidth}px`;
         container.style.overflowX = "auto";
-        container.style.touchAction = "pan-x pan-y pinch-zoom";
+        container.style.touchAction = "pan-x pan-y";
     } else {
         scroller.style.width = '100%';
         scroller.style.minWidth = '100%';
         container.style.overflowX = "hidden";
-        container.style.touchAction = "pan-y pinch-zoom";
+        container.style.touchAction = "pan-y";
     }
 
+    // Resize all wrappers INSTANTLY without deleting existing canvases!
+    // Existing canvas stretches smoothly in 0ms while sharp HD canvas renders in background.
     const wrappers = scroller.children;
     for (let i = 0; i < wrappers.length; i++) {
         wrappers[i].style.width = `${newWidth}px`;
         wrappers[i].style.height = `${newHeight}px`;
     }
 
-    // Zoom badalne par sabhi pages ko refresh karo
-    renderedPagesMap.forEach((_, pNum) => unloadSinglePage(pNum));
-    renderedPagesMap.clear();
+    // Anchor scroll position immediately to the exact tapped point
+    const newElementTop = targetElement.offsetTop;
+    if (currentZoomScale > 1.05) {
+        const targetScrollTop = newElementTop + (relY * newHeight) - viewportClickOffsetY;
+        container.scrollTop = Math.max(0, targetScrollTop);
 
-    if (currentPdfDocument) {
-        queuePageRender(pageToAnchor);
+        const maxScrollLeft = container.scrollWidth - container.clientWidth;
+        if (maxScrollLeft > 0) {
+            const targetScrollLeft = (relX * newWidth) - (container.clientWidth / 2);
+            container.scrollLeft = Math.max(0, Math.min(maxScrollLeft, targetScrollLeft));
+        }
+    } else {
+        const targetScrollTop = newElementTop + (relY * newHeight) - viewportClickOffsetY;
+        container.scrollTop = Math.max(0, targetScrollTop);
+        container.scrollLeft = 0;
     }
 
-    if (targetElement) {
-        requestAnimationFrame(() => {
-            const newElementTop = targetElement.offsetTop;
-            if (currentZoomScale > 1.05) {
-                container.scrollTop = newElementTop - 10;
-                const maxScrollLeft = container.scrollWidth - container.clientWidth;
-                if (maxScrollLeft > 0) {
-                    container.scrollLeft = maxScrollLeft / 2;
-                }
-            } else {
-                container.scrollTop = newElementTop - Math.max(0, initialOffsetTop);
-                container.scrollLeft = 0;
-            }
-        });
+    // Queue seamless background HD re-render for active page and neighbors (NO UNLOAD / NO BLACK FLASH)
+    if (currentPdfDocument) {
+        queuePageRender(pageToAnchor, true);
+        if (pageToAnchor - 1 >= 1 && renderedPagesMap.has(pageToAnchor - 1)) {
+            queuePageRender(pageToAnchor - 1, true);
+        }
+        if (pageToAnchor + 1 <= pdfTotalPagesCount && renderedPagesMap.has(pageToAnchor + 1)) {
+            queuePageRender(pageToAnchor + 1, true);
+        }
     }
 }
 
@@ -335,14 +399,23 @@ export function initTargetLockedDoubleTapZoom() {
 
     isDoubleTapBound = true;
     let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
     let touchStartX = 0;
     let touchStartY = 0;
+    let touchStartTime = 0;
     let isMovingGesture = false;
 
     container.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1) {
+            isMovingGesture = true;
+            lastTapTime = 0;
+            return;
+        }
         if (e.touches.length === 1) {
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
+            touchStartTime = Date.now();
             isMovingGesture = false;
         }
     }, { passive: true });
@@ -351,38 +424,61 @@ export function initTargetLockedDoubleTapZoom() {
         if (e.touches.length === 1) {
             const diffX = Math.abs(e.touches[0].clientX - touchStartX);
             const diffY = Math.abs(e.touches[0].clientY - touchStartY);
-            if (diffX > 8 || diffY > 8) {
+            // Strict 6px threshold: thoda sa bhi finger drag/scroll hua toh tap cancel
+            if (diffX > 6 || diffY > 6) {
                 isMovingGesture = true;
+                lastTapTime = 0;
             }
+        } else {
+            isMovingGesture = true;
+            lastTapTime = 0;
         }
     }, { passive: true });
 
     container.addEventListener('touchend', (e) => {
-        if (isMovingGesture) {
+        const now = Date.now();
+
+        // 1. Agar finger hili thi ya long press tha, toh zoom bilkul trigger mat karo
+        if (isMovingGesture || (now - touchStartTime) > 220) {
             lastTapTime = 0;
             return; 
         }
 
+        // 2. ANTI-FAST-SCROLL GUARD:
+        // Agar container abhi-abhi scroll ho raha tha (momentum scroll), toh zoom block rakho!
+        if (now - lastContainerScrollTime < 280) {
+            lastTapTime = 0;
+            return;
+        }
+
         if (e.changedTouches.length === 1) {
-            const now = Date.now();
+            const touch = e.changedTouches[0];
+            const tapX = touch.clientX;
+            const tapY = touch.clientY;
             const timeDiff = now - lastTapTime;
 
-            if (timeDiff > 0 && timeDiff < 280) {
+            // Dono taps ke beech ka distance check (max 28px radius ke andar hi double tap maana jayega)
+            const tapDistance = Math.hypot(tapX - lastTapX, tapY - lastTapY);
+
+            if (timeDiff > 40 && timeDiff < 300 && tapDistance < 28) {
                 if (e.cancelable) e.preventDefault();
-                const touch = e.changedTouches[0];
-                const touchedEl = document.elementFromPoint(touch.clientX, touch.clientY);
+                
+                const touchedEl = document.elementFromPoint(tapX, tapY);
                 const pageWrapper = touchedEl ? touchedEl.closest('.pdf-page-wrapper') : null;
                 const activePage = pageWrapper ? parseInt(pageWrapper.dataset.pageNum, 10) : currentPdfPageInView;
 
                 if (currentZoomScale > 1.1) {
-                    applyTargetLockedZoom(1.0, activePage);
+                    applyTargetLockedZoom(1.0, activePage, tapX, tapY);
                 } else {
-                    applyTargetLockedZoom(2.0, activePage);
+                    applyTargetLockedZoom(2.15, activePage, tapX, tapY);
                 }
                 lastTapTime = 0;
                 return;
             }
+
             lastTapTime = now;
+            lastTapX = tapX;
+            lastTapY = tapY;
         }
     });
 }
@@ -397,6 +493,9 @@ export function initPdfScrollTracker(activeBookSlug = "") {
 
     let scrollRafId = null;
     container?.addEventListener('scroll', () => {
+        // Record exact scroll timestamp so fast scrolling never triggers accidental zoom
+        lastContainerScrollTime = Date.now();
+
         if (scrollRafId) return;
 
         scrollRafId = requestAnimationFrame(() => {
@@ -416,7 +515,7 @@ export function initPdfScrollTracker(activeBookSlug = "") {
                     if (!isNaN(matchedNum)) {
                         if (currentPdfPageInView !== matchedNum) {
                             currentPdfPageInView = matchedNum;
-                            recycleFarPages(matchedNum); // Active page badalte hi door ke canvas recycle karo
+                            recycleFarPages(matchedNum);
                         }
                         if (badge && badge.innerText !== String(matchedNum)) {
                             badge.innerText = String(matchedNum);
@@ -441,7 +540,7 @@ export async function jumpToPdfPage(pageNum) {
     if (targetWrapper) {
         currentPdfPageInView = pageNum;
         recycleFarPages(pageNum);
-        queuePageRender(pageNum);
+        queuePageRender(pageNum, false);
 
         targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
         const numEl = document.getElementById('pdfCurrentPageNum');
@@ -498,14 +597,13 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
     }
 
     try {
-        // Optimized PDF.js loading parameters: Byte Range Chunky Streaming for Cloudflare R2
         const loadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
             cMapPacked: true,
-            disableAutoFetch: true,       // Puri file ek sath download hone se rokega (Saves Bandwidth)
-            disableStream: false,         // On-demand streaming allow karega
-            rangeChunkSize: 262144        // 256 KB Range Chunks (Optimal balance of speed & requests)
+            disableAutoFetch: true,
+            disableStream: false,
+            rangeChunkSize: 262144
         });
 
         const pdf = await loadingTask.promise;
@@ -528,7 +626,6 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
         const defaultHeight = Math.round(basePageWidth * basePageAspectRatio);
         firstPage.cleanup();
 
-        // Document fragment create karke DOM batch insert karein (Fastest Layout Creation)
         const fragment = document.createDocumentFragment();
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
             const wrapper = document.createElement('div');
@@ -557,9 +654,8 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
         initPdfScrollTracker(activeBookSlug);
         initTargetLockedDoubleTapZoom();
 
-        // Initial active pages queue karein
-        queuePageRender(1);
-        if (pdf.numPages >= 2) queuePageRender(2);
+        await executePageRender(pdf, 1, false);
+        if (pdf.numPages >= 2) queuePageRender(2, false);
 
         const savedPage = localStorage.getItem(`last_read_${activeBookSlug}`);
         if (savedPage) {
