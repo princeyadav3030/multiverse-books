@@ -1,4 +1,7 @@
+// File: api/get-book.js
+
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 
 // ==========================================
 // 1. BULLETPROOF FIREBASE PRIVATE KEY PARSER
@@ -7,10 +10,7 @@ function getCleanPrivateKey() {
   let key = process.env.FIREBASE_PRIVATE_KEY || "";
   if (!key) return undefined;
   
-  // Shuru aur aakhiri ke double/single quotes hatayein
   key = key.trim().replace(/^["']|["']$/g, '');
-  
-  // Literal '\n' characters ko real line breaks mein badlein
   if (key.includes('\\n')) {
     key = key.replace(/\\n/g, '\n');
   }
@@ -54,7 +54,6 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
 
   try {
-    // Body parsing safe check
     let bodyData = req.body;
     if (typeof bodyData === 'string') {
       try {
@@ -64,7 +63,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    let { bookId, userToken, bookSlug, pdfKey } = bodyData || {};
+    let { bookId, userToken, bookSlug, pdfKey, docType } = bodyData || {};
 
     // 1. Validation Checks
     if (!userToken) {
@@ -75,15 +74,9 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ success: false, error: 'Missing parameters: Either bookId or pdfKey must be provided' });
     }
 
-    // Slug Fallback Handling
-    if (!bookSlug || String(bookSlug).trim() === "") {
-      bookSlug = bookId || (pdfKey ? String(pdfKey).replace(/[^a-zA-Z0-9_-]/g, '_').slice(-25) : "module-doc");
-    }
-
+    // 2. Verify User Token
     let uid = null;
     let userEmail = "";
-
-    // 2. Verify User Token
     try {
       const decodedToken = await admin.auth().verifyIdToken(userToken);
       uid = decodedToken.uid;
@@ -103,7 +96,51 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 4. User History & 24 Hours Retention Calculation
+    // 4. Resolve File Key & Distinct Unique Tracking Key
+    let fileKey = pdfKey;
+
+    if (!fileKey && bookId) {
+      const bookDoc = await db.collection('books').doc(bookId).get();
+      if (!bookDoc.exists) {
+        return res.status(404).json({ success: false, error: 'Book not found in database!' });
+      }
+      fileKey = bookDoc.data().pdfLink;
+      if (!bookSlug) bookSlug = bookDoc.data().slug || bookId;
+    }
+
+    if (!fileKey || String(fileKey).trim() === "") {
+      return res.status(404).json({ success: false, error: 'PDF file link missing!' });
+    }
+
+    // Sanitize Key Path
+    let cleanKey = String(fileKey).trim().replace(/^\/+/, '');
+
+    if (cleanKey.startsWith('http://') || cleanKey.startsWith('https://')) {
+      try {
+        const parsedUrl = new URL(cleanKey);
+        cleanKey = parsedUrl.pathname.replace(/^\/+/, '');
+      } catch (e) {}
+    }
+
+    // Isolate Folder Hierarchies strictly
+    const isModule = docType === 'module' || cleanKey.includes('module_pdfs') || (!bookId && pdfKey);
+    
+    if (!cleanKey.includes('/')) {
+      if (isModule) {
+        cleanKey = `module_pdfs/${cleanKey}`;
+      } else {
+        cleanKey = `pdfs/${cleanKey}`;
+      }
+    }
+
+    // Generate Guaranteed Unique Resource Key (prevents Module 1 & Module 2 collision)
+    let uniqueTrackingKey = bookSlug;
+    if (!uniqueTrackingKey || isModule) {
+      const hash = crypto.createHash('md5').update(cleanKey).digest('hex').slice(0, 12);
+      uniqueTrackingKey = isModule ? `module_${hash}` : (bookId || `book_${hash}`);
+    }
+
+    // 5. 24-Hours Unique Book Limit Logic
     const userRef = db.collection('users').doc(uid);
     const userSnap = await userRef.get();
     
@@ -121,7 +158,7 @@ module.exports = async function handler(req, res) {
         let itemTime = typeof item === 'number' ? item : item.time;
         let itemSlug = typeof item === 'number' ? null : item.slug;
 
-        // Exactly last 24 hours retention check
+        // 24 ghante ke andar ke reads retain karein
         if (itemTime && (now - itemTime < 24 * 60 * 60 * 1000)) {
           validHistory.push({ slug: itemSlug, time: itemTime });
           if (itemSlug) uniqueAccessedSlugs.add(itemSlug);
@@ -129,20 +166,20 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const isAlreadyOpened = uniqueAccessedSlugs.has(bookSlug);
+    const isAlreadyOpened = uniqueAccessedSlugs.has(uniqueTrackingKey);
 
-    // 20 unique books daily limit check (Regular users only)
+    // Limit Check (Admin bypass, 20 unique items daily)
     if (!isAlreadyOpened && !isSuperAdmin && uniqueAccessedSlugs.size >= 20) {
       return res.status(403).json({ 
         success: false,
-        error: 'Aapka 24 ghante ka limit (20 books) pura ho gaya hai!' 
+        error: 'Daily reading limit reached (20 items). You can still re-read your already opened books/modules today!' 
       });
     }
 
-    // Agar nayi unique book/module open hua toh DB me update karo
+    // Update DB (Nayi book open hone par count badhao, purani open par extra limit mat kaato)
     if (!isAlreadyOpened) {
-      validHistory.push({ slug: bookSlug, time: now });
-      uniqueAccessedSlugs.add(bookSlug);
+      validHistory.push({ slug: uniqueTrackingKey, time: now });
+      uniqueAccessedSlugs.add(uniqueTrackingKey);
       currentLifetimeDownloads += 1;
 
       await userRef.set({
@@ -150,46 +187,13 @@ module.exports = async function handler(req, res) {
         lifetimeDownloads: admin.firestore.FieldValue.increment(1)
       }, { merge: true });
     } else {
-      // Expired records clean karne ke liye update
+      // Purane expired records clean rakhein bina count badhaye
       await userRef.set({
         recentDownloads: validHistory
       }, { merge: true });
     }
 
-    // 5. File Key Resolve (Normal Book vs Module PDF)
-    let fileKey = pdfKey;
-
-    if (!fileKey && bookId) {
-      const bookDoc = await db.collection('books').doc(bookId).get();
-      if (!bookDoc.exists) {
-        return res.status(404).json({ success: false, error: 'Book not found in database!' });
-      }
-      fileKey = bookDoc.data().pdfLink;
-    }
-
-    if (!fileKey || String(fileKey).trim() === "") {
-      return res.status(404).json({ success: false, error: 'PDF file link missing!' });
-    }
-
-    // Clean File Path Resolution
-    let cleanKey = String(fileKey).trim().replace(/^\/+/, '');
-
-    if (cleanKey.startsWith('http://') || cleanKey.startsWith('https://')) {
-      try {
-        const parsedUrl = new URL(cleanKey);
-        cleanKey = parsedUrl.pathname.replace(/^\/+/, '');
-      } catch (e) {}
-    }
-
-    if (!cleanKey.includes('/')) {
-      if (pdfKey) {
-        cleanKey = `module_pdfs/${cleanKey}`;
-      } else {
-        cleanKey = `pdfs/${cleanKey}`;
-      }
-    }
-
-    // 6. Secure Proxy Stream URL Generation
+    // 6. Secure URL Generation
     const workerBaseUrl = (process.env.WORKER_URL || "https://spidy-proxy.spidybookhub-backend.workers.dev").replace(/\/+$/, "");
     const secureWorkerUrl = `${workerBaseUrl}/${cleanKey}`;
 
@@ -198,13 +202,14 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ 
       success: true, 
       pdfLink: secureWorkerUrl,
+      trackingKey: uniqueTrackingKey,
       remainingCredits: remainingCredits,
       lifetimeDownloads: currentLifetimeDownloads,
       activeReadCount: validHistory.length
     });
 
   } catch (error) {
-    console.error("Backend Error:", error);
+    console.error("Backend Error in get-book.js:", error);
     return res.status(500).json({ success: false, error: 'Server Error: ' + (error.message || 'Failed') });
   }
 };
