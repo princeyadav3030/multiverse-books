@@ -23,39 +23,41 @@ export const ALL_EXAM_CATEGORIES = [
     "UGC NET / JRF", "CA / CS / CMA", "Insurance", "General Reading"
 ];
 
+// Sub-exams aur related keywords ka clean dictionary
 export const EXAM_CATEGORY_MAP = {
     "9th": ["9", "9TH", "CLASS 9", "CBSE 9", "ICSE 9"],
     "10th": ["10", "10TH", "CLASS 10", "MATRIC", "CBSE 10", "ICSE 10"],
     "11th": ["11", "11TH", "CLASS 11", "CBSE 11", "ISC 11"],
     "12th": ["12", "12TH", "CLASS 12", "INTER", "INTERMEDIATE", "CBSE 12", "ISC 12"],
-    "SSC": ["SSC", "CGL", "CHSL", "MTS", "CPO", "GD", "STENOGRAPHER", "SELECTION POST"],
-    "Railway": ["RAILWAY", "RRB", "NTPC", "GROUP D", "ALP", "TECHNICIAN", "RPF"],
-    "Defence": ["NDA", "CDS", "AFCAT", "NAVY", "ARMY", "AIRFORCE", "AGNIVEER", "DEFENCE"],
-    "Banking": ["BANK", "IBPS", "SBI", "PO", "CLERK", "RBI", "LIC", "BANKING"],
-    "Teaching": ["CTET", "STET", "UPTET", "KVS", "NVS", "BPSC TRE", "DSSSB", "TEACHING", "TET"],
-    "UPSC": ["UPSC", "IAS", "IPS", "CIVIL SERVICES"],
-    "Police": ["POLICE", "UP POLICE", "DELHI POLICE", "BIHAR POLICE", "SI", "CONSTABLE", "DAROGA"],
-    "State PSC / PCS": ["BPSC", "UPPSC", "MPPSC", "STATE PSC", "PCS", "RAS", "JPSC", "WBPSC", "PSC"],
-    "State SSC": ["BSSC", "UPSSSC", "HSSC", "UKSSSC", "OSSSC", "STATE SSC"],
+    "SSC": ["SSC", "CGL", "CHSL", "MTS", "CPO", "GD", "CONSTABLE GD", "STENOGRAPHER", "SELECTION POST"],
+    "Railway": ["RAILWAY", "RRB", "NTPC", "GROUP D", "ALP", "TECHNICIAN", "RPF", "LOCO PILOT"],
+    "Defence": ["NDA", "CDS", "AFCAT", "NAVY", "ARMY", "AIRFORCE", "AGNIVEER", "DEFENCE", "CAPF"],
+    "Banking": ["BANK", "IBPS", "SBI", "PO", "CLERK", "RBI", "NABARD", "BANKING"],
+    "Teaching": ["CTET", "STET", "UPTET", "KVS", "NVS", "BPSC TRE", "TRE", "DSSSB", "TEACHING", "TET", "REET"],
+    "UPSC": ["UPSC", "IAS", "IPS", "IFS", "CIVIL SERVICES", "CSE"],
+    "Police": ["POLICE", "UP POLICE", "DELHI POLICE", "BIHAR POLICE", "SI", "CONSTABLE", "DAROGA", "SUB INSPECTOR"],
+    "State PSC / PCS": ["BPSC", "UPPSC", "MPPSC", "STATE PSC", "PCS", "RAS", "JPSC", "WBPSC", "PSC", "HPSC", "UKPSC", "OPSC"],
+    "State SSC": ["BSSC", "UPSSSC", "HSSC", "UKSSSC", "OSSSC", "STATE SSC", "JSSC"],
     "JEE": ["JEE", "IIT", "MAINS", "ADVANCED", "BITSAT"],
     "NEET": ["NEET", "MEDICAL", "AIIMS"],
-    "CUET": ["CUET"],
+    "CUET": ["CUET", "CUET UG", "CUET PG"],
     "GATE": ["GATE"],
     "CAT / MBA": ["CAT", "MBA", "XAT", "MAT", "SNAP", "CMAT"],
     "CLAT / Law": ["CLAT", "LAW", "AILET", "LL.B", "JUDICIARY"],
     "UGC NET / JRF": ["UGC NET", "NET", "JRF", "CSIR NET"],
     "CA / CS / CMA": ["CA", "CS", "CMA", "FOUNDATION"],
     "Insurance": ["LIC", "NIACL", "GIC", "OICL", "INSURANCE", "AAO", "ADO"],
-    "General Reading": ["GENERAL", "NOVEL", "STORY", "MAGAZINE", "SELF HELP", "READING", "HISTORY", "MOTIVATION", "GK", "GS", "STATIC GK", "KNOWLEDGE"]
+    "General Reading": ["GENERAL", "NOVEL", "STORY", "MAGAZINE", "SELF HELP", "READING", "HISTORY", "MOTIVATION", "STATIC GK", "GENERAL KNOWLEDGE", "GS"]
 };
 
 // ==========================================
-// DYNAMIC METADATA LOADERS
+// DYNAMIC METADATA LOADERS (OPTIMIZED)
 // ==========================================
 export async function fetchGlobalFilterMetadata() {
     try {
+        // Sirf initial batch se cache populate karega bina heavy read quota waste kiye
         const booksRef = collection(db, "books");
-        const snap = await getDocs(query(booksRef, limit(300)));
+        const snap = await getDocs(query(booksRef, limit(60)));
         snap.forEach(d => {
             const val = d.data();
             const a = (val.author || "").trim();
@@ -63,7 +65,9 @@ export async function fetchGlobalFilterMetadata() {
             const y = (val.year || "").toString().trim();
             if (y && !isNaN(parseInt(y, 10))) allYearsCache.add(y);
         });
-    } catch (e) {}
+    } catch (e) {
+        // Fallback gracefully on network/permission issues
+    }
 }
 
 export function getDynamicAuthorList(booksData = []) {
@@ -208,21 +212,44 @@ export function openSubFilterModal(type, booksData, onFilterApplyCallback) {
 }
 
 // ==========================================
-// MATCHING LOGIC (ROBUST CATEGORY & SEARCH MATCH)
+// STRICT WORD BOUNDARY & ACCURATE MATCHING ENGINE
 // ==========================================
+function regexEscape(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function matchesExactWordOrPhrase(targetText, keyword) {
+    if (!targetText || !keyword) return false;
+    const cleanKw = regexEscape(keyword.trim().toUpperCase());
+    if (!cleanKw) return false;
+
+    // Strict word-boundary regex (\b)
+    // Ye check karta hai ki keyword as an independent word/phrase ho,
+    // kisi dusre word ka substring na ho (e.g. 'GK' matches 'STATIC GK' but NOT 'GKGOC')
+    const pattern = new RegExp(`(^|[^A-Z0-9])${cleanKw}([^A-Z0-9]|$)`, 'i');
+    return pattern.test(targetText);
+}
+
 export function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, searchWords) {
+    // 1. Exam / Category Match
     let matchesCategory = true;
     if (filterState.class !== "All") {
-        const bookExams = `${book.exams || ''} ${book.title || ''}`.toUpperCase();
+        const examFields = `${book.exams || ''}`.toUpperCase();
+        const titleFallback = `${book.title || ''}`.toUpperCase();
         const targetKeywords = EXAM_CATEGORY_MAP[filterState.class] || [filterState.class.toUpperCase()];
 
-        matchesCategory = targetKeywords.some(kw => {
-            const cleanKw = kw.trim();
-            if (!cleanKw) return false;
-            return bookExams.includes(cleanKw);
-        });
+        // Pehle book.exams me strict match dekhega
+        let foundInExams = targetKeywords.some(kw => matchesExactWordOrPhrase(examFields, kw));
+
+        // Agar exams field me nahi mila, tabhi title me strictly word check karega
+        if (!foundInExams) {
+            foundInExams = targetKeywords.some(kw => matchesExactWordOrPhrase(titleFallback, kw));
+        }
+
+        matchesCategory = foundInExams;
     }
 
+    // 2. Language Match
     let matchesLanguage = true;
     if (filterState.language !== "All") {
         const bookLang = (book.lang || "").toLowerCase().trim();
@@ -230,22 +257,25 @@ export function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, sear
         matchesLanguage = bookLang === targetLang || bookLang.includes(targetLang);
     }
 
+    // 3. Author Match
     let matchesAuthor = true;
     if (filterState.author !== "All") {
         matchesAuthor = (book.author || "").toLowerCase().trim() === filterState.author.toLowerCase().trim();
     }
 
+    // 4. Year Match
     let matchesYear = true;
     if (filterState.year !== "All") {
         matchesYear = (book.year || "").toString().trim() === filterState.year.toString().trim();
     }
 
+    // 5. Global Search Match
     let matchesSearch = true;
-    if (searchInputRaw.length > 0) {
+    if (searchInputRaw && searchInputRaw.length > 0) {
         const rawCombined = `${book.title || ''} ${book.author || ''} ${book.exams || ''}`.toLowerCase();
         const normalizedTarget = normalizeTextForSearch(rawCombined);
 
-        const isNoSpaceMatch = normalizedTarget.includes(cleanSearchNoSpaces);
+        const isNoSpaceMatch = cleanSearchNoSpaces && normalizedTarget.includes(cleanSearchNoSpaces);
         const isTokenMatch = searchWords.length > 0 && searchWords.every(word => rawCombined.includes(word));
 
         matchesSearch = isNoSpaceMatch || isTokenMatch;
