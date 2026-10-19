@@ -6,7 +6,7 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const crypto = require('crypto');
 
 // ==========================================
-// 1. FIREBASE PRIVATE KEY PARSER
+// 1. BULLETPROOF FIREBASE PRIVATE KEY PARSER
 // ==========================================
 function getCleanPrivateKey() {
   let key = process.env.FIREBASE_PRIVATE_KEY || "";
@@ -28,14 +28,14 @@ if (!admin.apps.length) {
       }),
     });
   } catch (err) {
-    console.error("Firebase Init Error:", err.message);
+    console.error("Firebase Admin Init Error:", err.message);
   }
 }
 
 const db = admin.firestore();
 
 // ==========================================
-// 2. CLOUDFLARE R2 S3 CLIENT
+// 2. CLOUDFLARE R2 S3 CLIENT (CHECKSUM OPTIMIZED)
 // ==========================================
 const s3 = new S3Client({
   region: "auto",
@@ -44,6 +44,9 @@ const s3 = new S3Client({
     accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
   },
+  // Naye AWS SDK v3 me 0% upload drop issue prevent karne ke liye:
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED"
 });
 
 // ==========================================
@@ -78,21 +81,33 @@ module.exports = async function handler(req, res) {
       return res.status(401).json({ success: false, error: 'Please log in first to continue.' });
     }
 
-    // User verify
-    const decodedToken = await admin.auth().verifyIdToken(userToken);
-    const uid = decodedToken.uid;
-    const userEmail = (decodedToken.email || "").toLowerCase().trim();
+    if (!fileName || !fileSize) {
+      return res.status(400).json({ success: false, error: 'Missing fileName or fileSize parameter.' });
+    }
 
-    // Admin role check (admins collection theke)
+    // 1. User Identity & Token Verification
+    let uid = null;
+    let userEmail = "";
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(userToken);
+      uid = decodedToken.uid;
+      userEmail = (decodedToken.email || "").toLowerCase().trim();
+    } catch (authErr) {
+      return res.status(401).json({ success: false, error: 'Authentication session expired. Please re-login.' });
+    }
+
+    // 2. Strict Super Admin Check (Admins Collection Mapping)
     let isAdmin = false;
     if (userEmail) {
       try {
         const adminDoc = await db.collection('admins').doc(userEmail).get();
         isAdmin = adminDoc.exists;
-      } catch (e) {}
+      } catch (e) {
+        console.warn("Admin check skipped:", e.message);
+      }
     }
 
-    // 24-Hour Cooldown check (Normal users jonne)
+    // 3. Community Daily Upload Limit (24-Hour Cooldown for Normal Users)
     if (!isAdmin) {
       try {
         const userDoc = await db.collection('users').doc(uid).get();
@@ -104,35 +119,47 @@ module.exports = async function handler(req, res) {
             const remainingHours = Math.ceil((ONE_DAY_MS - diff) / (1000 * 60 * 60));
             return res.status(403).json({
               success: false,
-              error: `Daily Community Upload Limit Reached: To ensure fair access and top quality for everyone, you can publish 1 book every 24 hours. Please check back in ${remainingHours} hour(s) to share your next study material! 📚✨`
+              error: `Daily Community Upload Limit Reached: To ensure fair access and top quality, you can publish 1 book every 24 hours. Please check back in ${remainingHours} hour(s) to share your next study material! 📚✨`
             });
           }
         }
       } catch (e) {}
     }
 
-    // File size constraints (Normal: 250MB, Admin: 1GB)
-    const allowedLimit = isAdmin ? (1024 * 1024 * 1024) : (250 * 1024 * 1024);
-    if (Number(fileSize) > allowedLimit) {
+    // 4. Exact File Size Guard (Admin: 1 GB, Normal User: 250 MB)
+    const MAX_ADMIN_BYTES = 1024 * 1024 * 1024; // 1 GB
+    const MAX_USER_BYTES = 250 * 1024 * 1024;   // 250 MB
+    const maxAllowedLimit = isAdmin ? MAX_ADMIN_BYTES : MAX_USER_BYTES;
+
+    const parsedFileSize = Number(fileSize);
+    if (isNaN(parsedFileSize) || parsedFileSize <= 0) {
+      return res.status(400).json({ success: false, error: 'Invalid file size detected.' });
+    }
+
+    if (parsedFileSize > maxAllowedLimit) {
       return res.status(403).json({
         success: false,
-        error: `File size exceeds the allowed limit (${isAdmin ? "1GB" : "250MB"}).`
+        error: `File size exceeds the allowed limit (${isAdmin ? "1 GB" : "250 MB"}). Please optimize your file before uploading.`
       });
     }
 
-    // Folder routing: cover image hole 'covers', PDF hole 'pdfs'
+    // 5. Clean File Key & Folder Partitioning
     const folderPrefix = fileType === 'image' ? 'covers' : 'pdfs';
     const cleanExt = (fileName || "").split('.').pop().toLowerCase() || (fileType === 'image' ? 'jpg' : 'pdf');
     const randomHex = crypto.randomBytes(4).toString('hex');
-    const cleanBase = (fileName || "file").replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 12);
+    const cleanBase = (fileName || "file")
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^a-zA-Z0-9_-]/g, "")
+      .slice(0, 15);
     
-    // Exact path structure
+    // Structure: covers/{timestamp}_{uid}_{random}_{name}.ext
     const safeKey = `${folderPrefix}/${Date.now()}_${uid.slice(0, 5)}_${randomHex}_${cleanBase}.${cleanExt}`;
     const bucketName = process.env.R2_BUCKET_NAME || 'spidy-books';
 
-    // MIME type lock
+    // 6. Strict MIME Type Lock
     const finalMime = mimeType || (fileType === 'image' ? 'image/jpeg' : 'application/pdf');
 
+    // 7. Generate Pre-signed Direct S3/R2 PUT URL (Valid for 1 Hour)
     const command = new PutObjectCommand({
       Bucket: bucketName,
       Key: safeKey,
@@ -146,11 +173,13 @@ module.exports = async function handler(req, res) {
       uploadUrl: uploadUrl,
       fileKey: safeKey,
       mimeType: finalMime,
-      isAdmin: isAdmin
+      isAdmin: isAdmin,
+      maxAllowedLimit: maxAllowedLimit
     });
 
   } catch (error) {
-    console.error("Generate Upload URL Error:", error.message);
-    return res.status(500).json({ success: false, error: error.message || 'Server error' });
+    console.error("Generate Upload URL Error:", error);
+    return res.status(500).json({ success: false, error: 'Storage API Error: ' + (error.message || 'Server error') });
   }
 };
+
