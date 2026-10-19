@@ -10,7 +10,7 @@ export let selectedCoverFile = null;
 export let selectedPdfFile = null;
 export let detectedTotalPages = 0;
 export let detectedFileSizeMB = "0 MB";
-let activeCoverPreviewObjectUrl = null;
+let cachedCoverDataUrl = null; // Memory-safe Base64 cache for Cover Preview
 
 // 8 MB Chunk Size (Cloudflare Worker limit aur Mobile Network ke liye sabse best aur fast)
 const CHUNK_SIZE = 8 * 1024 * 1024; 
@@ -26,27 +26,62 @@ export function autoScrollToElement(el, container) {
     }, 180);
 }
 
+// FIXED: Memory & CSP Safe Base64 Cover Preview (Kabhi Broken Icon Nahi Aayega)
 export function updateLiveCoverPreviewUI(file) {
     const liveCoverImg = document.getElementById('syncLiveCoverImg');
     const defaultCoverIcon = document.getElementById('syncDefaultCoverIcon');
     if (!liveCoverImg) return;
 
-    if (activeCoverPreviewObjectUrl) {
-        try { URL.revokeObjectURL(activeCoverPreviewObjectUrl); } catch (e) {}
-        activeCoverPreviewObjectUrl = null;
-    }
-
-    if (file) {
-        activeCoverPreviewObjectUrl = URL.createObjectURL(file);
-        liveCoverImg.src = activeCoverPreviewObjectUrl;
-        liveCoverImg.style.display = 'block';
-        liveCoverImg.style.objectFit = 'cover';
-        if (defaultCoverIcon) defaultCoverIcon.style.display = 'none';
-    } else {
-        liveCoverImg.src = "";
+    // Reset state if no file is passed
+    if (!file) {
+        cachedCoverDataUrl = null;
+        liveCoverImg.removeAttribute('src');
         liveCoverImg.style.display = 'none';
         if (defaultCoverIcon) defaultCoverIcon.style.display = 'block';
+        return;
     }
+
+    // Fallback handler if image ever fails to decode
+    liveCoverImg.onerror = () => {
+        liveCoverImg.style.display = 'none';
+        if (defaultCoverIcon) defaultCoverIcon.style.display = 'block';
+    };
+
+    liveCoverImg.onload = () => {
+        liveCoverImg.style.display = 'block';
+        liveCoverImg.style.width = '100%';
+        liveCoverImg.style.height = '100%';
+        liveCoverImg.style.objectFit = 'cover';
+        liveCoverImg.style.borderRadius = '8px';
+        if (defaultCoverIcon) defaultCoverIcon.style.display = 'none';
+    };
+
+    // If we already converted this exact file, reuse cached Base64 immediately
+    if (cachedCoverDataUrl && file._cachedBase64) {
+        liveCoverImg.src = file._cachedBase64;
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const resultDataUrl = e.target?.result;
+        if (resultDataUrl) {
+            cachedCoverDataUrl = resultDataUrl;
+            file._cachedBase64 = resultDataUrl;
+            liveCoverImg.src = resultDataUrl;
+        }
+    };
+    reader.onerror = () => {
+        // Fallback to ObjectURL only if FileReader fails
+        try {
+            const objUrl = URL.createObjectURL(file);
+            liveCoverImg.src = objUrl;
+        } catch (err) {
+            liveCoverImg.style.display = 'none';
+            if (defaultCoverIcon) defaultCoverIcon.style.display = 'block';
+        }
+    };
+    reader.readAsDataURL(file);
 }
 
 export function resetUploadFormState() {
@@ -62,6 +97,7 @@ export function resetUploadFormState() {
     selectedPdfFile = null;
     detectedTotalPages = 0;
     detectedFileSizeMB = "0 MB";
+    cachedCoverDataUrl = null;
 
     const coverStatus = document.getElementById('coverStatusText');
     if (coverStatus) {
@@ -88,8 +124,8 @@ export function resetUploadFormState() {
 // 2. ZERO-FAILURE CHUNKED & STREAM UPLOAD ENGINE
 // ==========================================
 
-// Single binary chunk ya small file bhejne ka bulletproof XHR helper (with 5 retries)
-export function sendBinaryXHR(targetUrl, blobOrFile, mimeType, onChunkProgress, maxRetries = 5) {
+// Single binary chunk ya small file bhejne ka bulletproof XHR helper (with retries & real error capture)
+export function sendBinaryXHR(targetUrl, blobOrFile, mimeType, onChunkProgress, maxRetries = 4) {
     return new Promise((resolve, reject) => {
         let attempts = 0;
 
@@ -97,6 +133,8 @@ export function sendBinaryXHR(targetUrl, blobOrFile, mimeType, onChunkProgress, 
             attempts++;
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", targetUrl, true);
+            
+            // Safe Content-Type header to avoid strict CORS preflight rejection
             if (mimeType) {
                 xhr.setRequestHeader("Content-Type", mimeType);
             }
@@ -119,18 +157,26 @@ export function sendBinaryXHR(targetUrl, blobOrFile, mimeType, onChunkProgress, 
                         parsed.etag = headerEtag.replace(/^["']|["']$/g, '');
                     }
                     resolve(parsed);
-                } else if (attempts < maxRetries) {
-                    setTimeout(attemptSend, 1500 * attempts);
                 } else {
-                    reject(new Error(`Server rejected upload part (HTTP ${xhr.status})`));
+                    let errMessage = `Upload HTTP ${xhr.status}`;
+                    try {
+                        const errJson = JSON.parse(xhr.responseText || "{}");
+                        if (errJson.error) errMessage = errJson.error;
+                    } catch (e) {}
+
+                    if (attempts < maxRetries && xhr.status !== 400 && xhr.status !== 403 && xhr.status !== 405) {
+                        setTimeout(attemptSend, 1500 * attempts);
+                    } else {
+                        reject(new Error(errMessage));
+                    }
                 }
             };
 
             xhr.onerror = () => {
                 if (attempts < maxRetries) {
-                    setTimeout(attemptSend, 2000 * attempts);
+                    setTimeout(attemptSend, 1800 * attempts);
                 } else {
-                    reject(new Error("Network unstable. Please check your mobile data / Wi-Fi connection."));
+                    reject(new Error("Worker Upload Connection Blocked (CORS / Worker Not Deployed)"));
                 }
             };
 
@@ -154,16 +200,27 @@ export async function uploadMultipartViaWorker(cleanKey, file, mimeType, onProgr
     const baseUrl = WORKER_PROXY_URL.replace(/\/+$/, "");
 
     // Step A: Create Multipart Upload Session on R2 via Worker
-    const createRes = await fetch(`${baseUrl}/multipart/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            key: cleanKey,
-            contentType: mimeType || "application/pdf"
-        })
-    });
+    let createRes;
+    try {
+        createRes = await fetch(`${baseUrl}/multipart/create`, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=UTF-8" }, // Bypasses strict CORS preflight
+            body: JSON.stringify({
+                key: cleanKey,
+                contentType: mimeType || "application/pdf"
+            })
+        });
+    } catch (netErr) {
+        throw new Error("Cannot connect to Cloudflare Worker (/multipart/create). Please deploy updated worker.js!");
+    }
 
-    const createData = await createRes.json();
+    let createData = {};
+    try {
+        createData = await createRes.json();
+    } catch (e) {
+        throw new Error(`Worker returned status ${createRes.status} on /multipart/create. Please deploy updated worker.js!`);
+    }
+
     if (!createRes.ok || !createData.uploadId) {
         throw new Error(createData.error || "Failed to initialize chunked upload session");
     }
@@ -212,7 +269,7 @@ export async function uploadMultipartViaWorker(cleanKey, file, mimeType, onProgr
     // Step C: Complete Multipart Upload & Merge Chunks in R2
     const completeRes = await fetch(`${baseUrl}/multipart/complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "text/plain;charset=UTF-8" }, // Bypasses strict CORS preflight
         body: JSON.stringify({
             key: cleanKey,
             uploadId: uploadId,
@@ -228,34 +285,44 @@ export async function uploadMultipartViaWorker(cleanKey, file, mimeType, onProgr
     return { success: true, key: cleanKey };
 }
 
-// Smart Router: Small files (< 8MB) direct worker stream, Large files (>= 8MB) Chunked Multipart
+// Smart Router: Small files (< 8MB) direct worker stream + Multipart fallback, Large files (>= 8MB) Chunked Multipart
 export async function uploadFileSmart(authData, file, mimeType, onProgress) {
     const fileKey = typeof authData === 'string' ? authData : (authData?.fileKey || "");
     const directPresignedUrl = typeof authData === 'object' ? authData?.uploadUrl : null;
     const cleanKey = fileKey.replace(/^\/+/, "");
     const baseUrl = WORKER_PROXY_URL.replace(/\/+$/, "");
 
-    // Agar file 8 MB se badi hai (jaise 120MB PDF), toh hamesha Chunked Multipart engine chalao (100% Zero Drop)
+    // 1. Agar file 8 MB ya usse badi hai (jaise 215MB PDF), toh hamesha Chunked Multipart engine chalao
     if (file.size >= CHUNK_SIZE) {
         return await uploadMultipartViaWorker(cleanKey, file, mimeType, onProgress);
     }
 
-    // Chhoti files (Cover Image ya small PDF < 8MB) ke liye fast single stream via Worker (with Presigned fallback)
+    // 2. Chhoti files (Cover Image ya small PDF < 8MB) ke liye:
+    // Attempt A: Direct Worker PUT (/upload)
     const workerUploadUrl = `${baseUrl}/upload?key=${encodeURIComponent(cleanKey)}`;
     try {
-        await sendBinaryXHR(workerUploadUrl, file, mimeType, (loaded) => {
+        await sendBinaryXHR(workerUploadUrl, file, mimeType || "application/octet-stream", (loaded) => {
             if (onProgress) onProgress(loaded, file.size);
-        }, 3);
+        }, 2);
         return { success: true, key: cleanKey };
-    } catch (workerErr) {
-        // Fallback to Presigned URL if needed
-        if (directPresignedUrl) {
-            await sendBinaryXHR(directPresignedUrl, file, mimeType, (loaded) => {
-                if (onProgress) onProgress(loaded, file.size);
-            }, 3);
-            return { success: true, key: cleanKey };
+    } catch (workerPutErr) {
+        console.warn("Direct /upload failed, trying Multipart via Worker...", workerPutErr.message);
+        
+        // Attempt B: Multipart via Worker (100% immune to single-stream PUT issues)
+        try {
+            return await uploadMultipartViaWorker(cleanKey, file, mimeType, onProgress);
+        } catch (multipartErr) {
+            console.warn("Multipart fallback failed, trying Presigned R2 URL...", multipartErr.message);
+
+            // Attempt C: Direct R2 Presigned URL (if R2 bucket has CORS enabled)
+            if (directPresignedUrl) {
+                await sendBinaryXHR(directPresignedUrl, file, mimeType, (loaded) => {
+                    if (onProgress) onProgress(loaded, file.size);
+                }, 2);
+                return { success: true, key: cleanKey };
+            }
+            throw multipartErr;
         }
-        throw workerErr;
     }
 }
 
@@ -366,10 +433,11 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         });
     });
 
-    // Cover File Selection & Instant Preview Binding
+    // Cover File Selection & Instant Base64 Preview Binding
     document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
         if (e.target.files && e.target.files.length > 0) {
             selectedCoverFile = e.target.files[0];
+            cachedCoverDataUrl = null; // Clear old cache for new file
             const coverStatus = document.getElementById('coverStatusText');
             if (coverStatus) {
                 coverStatus.innerText = "Selected: " + selectedCoverFile.name;
@@ -377,7 +445,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
                 coverStatus.style.color = '#ffffff';
             }
 
-            // Immediately bind cover preview
+            // Immediately convert & bind cover preview into memory
             updateLiveCoverPreviewUI(selectedCoverFile);
 
             const pdfCard = document.getElementById('cardPdfContainer');
