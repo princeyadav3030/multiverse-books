@@ -1,9 +1,101 @@
-:root { --bg-main: #000000; --bg-card: #121212; --text-primary: #ffffff; --text-secondary: #a1a1aa; --accent-color: #ffffff; --border-color: rgba(255, 255, 255, 0.12); --spidy-sidebar-bg: #09090b; --spidy-text-muted: #a1a1aa; --spidy-text-small: #71717a; --whatsapp-green: #25D366; --whatsapp-bg: rgba(37, 211, 102, 0.08); --telegram-blue: #0088cc; --telegram-bg: rgba(0, 136, 204, 0.08); --insta-pink: #E1306C; --insta-bg: rgba(225, 48, 108, 0.08); --youtube-red: #FF0000; --youtube-bg: rgba(255, 0, 0, 0.08); --dev-bg-main: #000000; --dev-bg-card: #1c1c1e; --dev-text-secondary: #a1a1aa; --bg-solid-channel: #090c12; --bg-card-channel: rgba(20, 24, 32, 0.90); --card-border-channel: rgba(255, 255, 255, 0.08); --reaction-bg: rgba(255, 255, 255, 0.06); --reaction-active-bg: rgba(156, 163, 175, 0.22); --reaction-active-border: rgba(209, 213, 219, 0.5); --context-bg: rgba(18, 21, 28, 0.96); --accent-green: #25d366; --accent-blue: #38bdf8; --link-color: #60a5fa; --wa-quote-border: #00a884; --pipeline-bg: #060709; --pipeline-panel: rgba(18, 20, 26, 0.85); --pipeline-border: rgba(255, 255, 255, 0.08); --pipeline-green: #10b981; --pipeline-green-glow: rgba(16, 185, 129, 0.45); --token-bg-surface: rgba(14, 16, 24, 0.96); --token-border-card: rgba(255, 255, 255, 0.16); --token-neon-emerald: #10b981; --token-neon-red: #ef4444; }
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Poppins', sans-serif; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
-input, textarea, select { -webkit-touch-callout: default; -webkit-user-select: auto; -moz-user-select: auto; -ms-user-select: auto; user-select: auto; }
-img { -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; pointer-events: none; }
-body { background-color: #000000; color: #ffffff; display: flex; justify-content: center; height: 100vh; height: 100dvh; position: relative; overflow: hidden; }
-.app-container { width: 100%; max-width: 414px; height: 100%; height: 100dvh; background-color: var(--bg-main); position: relative; overflow-x: hidden; overflow-y: hidden; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
+:root { 
+    --bg-main: #000000; 
+    --bg-card: #121212; 
+    --text-primary: #ffffff; 
+    --text-secondary: #a1a1aa; 
+    --accent-color: #ffffff; 
+    --border-color: rgba(255, 255, 255, 0.12); 
+    --spidy-sidebar-bg: #09090b; 
+    --spidy-text-muted: #a1a1aa; 
+    --spidy-text-small: #71717a; 
+    --whatsapp-green: #25D366; 
+    --whatsapp-bg: rgba(37, 211, 102, 0.08); 
+    --telegram-blue: #0088cc; 
+    --telegram-bg: rgba(0, 136, 204, 0.08); 
+    --insta-pink: #E1306C; 
+    --insta-bg: rgba(225, 48, 108, 0.08); 
+    --youtube-red: #FF0000; 
+    --youtube-bg: rgba(255, 0, 0, 0.08); 
+    --dev-bg-main: #000000; 
+    --dev-bg-card: #1c1c1e; 
+    --dev-text-secondary: #a1a1aa; 
+    --bg-solid-channel: #06080e; 
+    --bg-card-channel: rgba(14, 18, 26, 0.88); 
+    --card-border-channel: rgba(255, 255, 255, 0.09); 
+    --reaction-bg: rgba(255, 255, 255, 0.06); 
+    --reaction-active-bg: rgba(56, 189, 248, 0.18); 
+    --reaction-active-border: rgba(56, 189, 248, 0.45); 
+    --context-bg: rgba(12, 16, 24, 0.96); 
+    --accent-green: #25d366; 
+    --accent-blue: #38bdf8; 
+    --link-color: #38bdf8; 
+    --wa-quote-border: #38bdf8; 
+    --pipeline-bg: #060709; 
+    --pipeline-panel: rgba(18, 20, 26, 0.85); 
+    --pipeline-border: rgba(255, 255, 255, 0.08); 
+    --pipeline-green: #10b981; 
+    --pipeline-green-glow: rgba(16, 185, 129, 0.45); 
+    --token-bg-surface: rgba(14, 16, 24, 0.96); 
+    --token-border-card: rgba(255, 255, 255, 0.16); 
+    --token-neon-emerald: #10b981; 
+    --token-neon-red: #ef4444; 
+}
+
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+    font-family: 'Inter', 'Poppins', sans-serif; 
+    -webkit-tap-highlight-color: transparent; 
+    -webkit-touch-callout: none; 
+    -webkit-user-select: none; 
+    -moz-user-select: none; 
+    -ms-user-select: none; 
+    user-select: none; 
+}
+
+input, textarea, select { 
+    -webkit-touch-callout: default; 
+    -webkit-user-select: auto; 
+    -moz-user-select: auto; 
+    -ms-user-select: auto; 
+    user-select: auto; 
+}
+
+img { 
+    -webkit-touch-callout: none; 
+    -webkit-user-select: none; 
+    -khtml-user-select: none; 
+    -moz-user-select: none; 
+    -ms-user-select: none; 
+    user-select: none; 
+    pointer-events: none; 
+}
+
+body { 
+    background-color: #000000; 
+    color: #ffffff; 
+    display: flex; 
+    justify-content: center; 
+    height: 100vh; 
+    height: 100dvh; 
+    position: relative; 
+    overflow: hidden; 
+}
+
+.app-container { 
+    width: 100%; 
+    max-width: 414px; 
+    height: 100%; 
+    height: 100dvh; 
+    background-color: var(--bg-main); 
+    position: relative; 
+    overflow-x: hidden; 
+    overflow-y: hidden; 
+    display: flex; 
+    flex-direction: column; 
+    box-shadow: 0 0 20px rgba(0,0,0,0.8); 
+}
 
 /* SVG LOGO PROPER FITTING & WHITE BACKGROUND FIX */
 .spidy-svg-icon { width: 100% !important; height: 100% !important; max-width: 100% !important; max-height: 100% !important; display: block !important; margin: auto !important; }
@@ -12,7 +104,7 @@ body { background-color: #000000; color: #ffffff; display: flex; justify-content
 .noti-logo-wrapper { width: 42px !important; height: 42px !important; min-width: 42px !important; min-height: 42px !important; border-radius: 50% !important; background: #ffffff !important; border: none !important; box-shadow: 0 4px 15px rgba(0,0,0,0.8) !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 5px !important; flex-shrink: 0 !important; overflow: hidden !important; box-sizing: border-box !important; }
 .logo-img-mask { position: relative !important; z-index: 2 !important; width: 78px !important; height: 78px !important; min-width: 78px !important; min-height: 78px !important; border-radius: 50% !important; overflow: hidden !important; display: flex !important; align-items: center !important; justify-content: center !important; background: #ffffff !important; border: 1.5px solid rgba(255, 255, 255, 0.25) !important; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important; padding: 9px !important; box-sizing: border-box !important; }
 
-/* SIDEBAR PROFILE & FALLBACK (WHITE PATCH COMPLETELY FIXED) */
+/* SIDEBAR PROFILE & FALLBACK */
 .profile-avatar-container { width: 44px !important; height: 44px !important; min-width: 44px !important; min-height: 44px !important; border-radius: 12px !important; position: relative !important; overflow: hidden !important; border: 1.5px solid rgba(255, 255, 255, 0.2) !important; box-shadow: 0 0 15px rgba(255, 255, 255, 0.15) !important; flex-shrink: 0 !important; background: transparent !important; display: block !important; padding: 0 !important; }
 .profile-avatar-container .profile-img, .profile-img { width: 100% !important; height: 100% !important; border-radius: 10.5px !important; object-fit: cover !important; display: block !important; border: none !important; background: transparent !important; margin: 0 !important; padding: 0 !important; }
 .spidy-fallback-logo { display: none !important; }
@@ -393,11 +485,82 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .pdf-modal-btn.cancel { background: rgba(255, 255, 255, 0.08); color: #d4d4d8; }
 .pdf-modal-btn.confirm { background: #38bdf8; color: #000000; font-weight: 800; }
 
-/* 19. NOTIFICATIONS CHANNEL & LOCKED WALLPAPER (SPLIT PERMANENTLY FIXED) */
-.notifications-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 999; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; background-color: #090c12 !important; }
-.notifications-panel::before { content: ''; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; background-color: #090c12; background-image: radial-gradient(ellipse 75% 55% at 20% 20%, rgba(28, 58, 98, 0.28) 0%, transparent 70%), radial-gradient(ellipse 65% 50% at 80% 80%, rgba(76, 42, 118, 0.20) 0%, transparent 75%), radial-gradient(circle at 50% 50%, transparent 40%, rgba(4, 6, 9, 0.90) 100%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 900' width='480' height='480'%3E%3Cdefs%3E%3Cstyle%3E.d%7Bstroke:%235a7392;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;fill:none;opacity:0.35;%7D.f%7Bfill:%235a7392;opacity:0.35;stroke:none;%7D.g%7Bstroke:%237ea5d1;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;fill:none;opacity:0.55;%7D%3C/style%3E%3C/defs%3E%3Cg class='d'%3E%3Cpath d='M60,80 Q100,95 140,80 Q180,95 220,80 L220,135 Q180,150 140,135 Q100,150 60,135 Z'/%3E%3Cpath d='M140,80 L140,135'/%3E%3Cpath d='M75,98 Q100,108 125,98 M75,112 Q100,122 125,112 M155,98 Q180,108 205,98 M155,112 Q180,122 205,112'/%3E%3Cpolygon points='500,60 550,40 600,60 550,80'/%3E%3Cpath d='M525,70 L525,95 Q550,110 575,95 L575,70'/%3E%3Cpath d='M585,65 L605,85 L605,110'/%3E%3Ccircle cx='605' cy='112' r='2.5' class='f'/%3E%3Cpath d='M730,40 L765,75 L745,95 L710,60 Z'/%3E%3Cpath d='M710,60 L695,65 L690,50 L705,45 Z'/%3E%3Cpolygon points='690,50 675,50 685,60'/%3E%3Ccircle cx='683' cy='53' r='1.5' class='f'/%3E%3Cpath d='M800,160 L820,160 M805,160 L805,185 L785,230 Q780,245 800,245 L830,245 Q850,245 845,230 L825,185 L825,160'/%3E%3Cpath d='M795,215 Q815,225 835,215'/%3E%3Ccircle cx='810' cy='230' r='2' class='f'/%3E%3Ccircle cx='822' cy='224' r='3' class='f'/%3E%3Cpath d='M60,240 L160,240 L160,265 L60,265 Z'/%3E%3Cpath d='M50,265 L170,265 L170,295 L50,295 Z'/%3E%3Cpath d='M40,295 L180,295 L180,330 L40,330 Z'/%3E%3Cpath d='M65,307 L140,307 M65,317 L110,317'/%3E%3Cpath d='M250,200 L320,270 L305,285 L235,215 Z'/%3E%3Cpolygon points='235,215 225,215 235,225'/%3E%3Cpath d='M280,180 L350,250'/%3E%3Cpath d='M295,195 L302,188 M310,210 L317,203 M325,225 L332,218 M340,240 L347,233'/%3E%3Cpath d='M480,200 Q455,220 465,250 Q475,265 475,280 L505,280 Q505,265 515,250 Q525,220 500,200 Z'/%3E%3Cpath d='M478,280 L502,280 M480,287 L500,287 M485,294 L495,294'/%3E%3Cpath d='M485,240 L490,225 L495,240 M490,225 L490,255' class='g'/%3E%3Cpath d='M450,215 L440,210 M530,215 L540,210 M490,185 L490,175' class='g'/%3E%3Ccircle cx='670,220' r='5'/%3E%3Cpath d='M667,225 L645,290 M673,225 L695,290 M653,260 Q670,265 687,260'/%3E%3Cpath d='M100,430 L155,475 L145,488 L90,442 Z M128,463 L103,535 M128,463 L153,535 M128,463 L128,540'/%3E%3Ccircle cx='250' cy='430' r='25'/%3E%3Cellipse cx='250' cy='430' rx='45' ry='12' transform='rotate(-20 250 430)'/%3E%3Crect x='380' y='380' width='80' height='110' rx='6'/%3E%3Cpath d='M400,380 L400,490'/%3E%3Cpath d='M375,395 L385,395 M375,415 L385,415 M375,435 L385,435 M375,455 L385,455 M375,475 L385,475'/%3E%3Cpath d='M415,405 L445,405 M415,425 L445,425 M415,445 L435,445'/%3E%3Cpath d='M580,410 Q620,380 660,410 L665,490 Q620,510 575,490 Z'/%3E%3Cpath d='M600,390 Q620,370 640,390'/%3E%3Crect x='595' y='430' width='50' height='40' rx='4'/%3E%3Cpath d='M790,390 C750,390 740,450 780,470 C800,480 840,470 850,430 C860,390 820,390 790,390 Z'/%3E%3Ccircle cx='765' cy='420' r='4' class='f'/%3E%3Ccircle cx='785' cy='405' r='4' class='f'/%3E%3Ccircle cx='810' cy='410' r='4' class='f'/%3E%3Ccircle cx='830' cy='430' r='4' class='f'/%3E%3Cpath d='M750,470 L720,510 M720,510 L715,520 L725,515 Z'/%3E%3Cpath d='M80,640 C60,610 110,590 140,610 C160,600 180,620 175,645 C170,665 130,670 95,660 Z'/%3E%3Cpath d='M95,620 L100,605 L110,618 M125,615 L135,602 L140,615 M130,635 Q140,630 150,635'/%3E%3Ctext x='160' y='605' font-size='14' font-family='sans-serif' class='f'%3Ez%3C/text%3E%3Ctext x='175' y='588' font-size='18' font-family='sans-serif' class='f'%3EZ%3C/text%3E%3Ctext x='270' y='600' font-size='24' font-family='sans-serif' class='f'%3E%CF%80%3C/text%3E%3Ctext x='320' y='610' font-size='20' font-family='sans-serif' class='f'%3E%E2%88%9A%3C/text%3E%3Ctext x='340' y='605' font-size='16' font-family='sans-serif' class='f'%3Ex%3C/text%3E%3Ctext x='280' y='650' font-size='18' font-family='sans-serif' class='f'%3EE=mc%C2%B2%3C/text%3E%3Cpath d='M480,630 C470,570 530,570 520,630 Q510,640 500,630 Q490,640 480,630 Z'/%3E%3Ccircle cx='490' cy='600' r='3' class='f'/%3E%3Ccircle cx='510' cy='600' r='3' class='f'/%3E%3Cpath d='M475,625 L500,635 L525,625'/%3E%3Ccircle cx='700' cy='610' r='20'/%3E%3Cpath d='M715,625 L745,655' stroke-width='4'/%3E%3Cpath d='M630,730 L690,700 L650,750 L640,735 Z M690,700 L640,735'/%3E%3Cpath d='M800,720 Q815,685 830,680 Q845,685 860,720 Q850,740 830,745 Q810,740 800,720 Z'/%3E%3Ccircle cx='830' cy='710' r='8'/%3E%3Cpath d='M805,725 L785,745 L805,740 M855,725 L875,745 L855,740 M820,745 L815,760 M840,745 L845,760'/%3E%3Cpath d='M110,780 L120,840 L160,840 L170,780 Z M168,795 Q185,795 180,820 Q175,830 163,830'/%3E%3Cpath d='M130,765 Q135,755 130,745 M145,765 Q150,755 145,745'/%3E%3Ccircle cx='280' cy='820' r='8'/%3E%3Ccircle cx='280' cy='845' r='8'/%3E%3Cpath d='M286,823 L325,850 M286,842 L325,815'/%3E%3Cpath d='M440,780 L440,840 Q440,855 455,855 Q470,855 470,840 L470,800 Q470,790 460,790 Q450,790 450,800 L450,835'/%3E%3Ccircle cx='560' cy='800' r='24' class='g'/%3E%3Ctext x='548' y='808' font-size='22' font-weight='bold' font-family='sans-serif' class='f'%3EA+%3C/text%3E%3Cpath d='M60,490 L64,500 L74,504 L64,508 L60,518 L56,508 L46,504 L56,500 Z' class='g'/%3E%3Cpath d='M350,80 L353,88 L361,91 L353,94 L350,102 L347,94 L339,91 L347,88 Z' class='g'/%3E%3Cpath d='M750,280 L753,288 L761,291 L753,294 L750,302 L747,294 L739,291 L747,288 Z' class='g'/%3E%3Cpath d='M480,510 L483,516 L489,519 L483,522 L480,528 L477,522 L471,519 L477,516 Z'/%3E%3Cpath d='M850,560 L853,568 L861,571 L853,574 L850,582 L847,574 L839,571 L847,568 Z' class='g'/%3E%3Ccircle cx='220' cy='360' r='2.5' class='f'/%3E%3Ccircle cx='540' cy='330' r='2.5' class='f'/%3E%3Ccircle cx='700' cy='480' r='3' class='f'/%3E%3Ccircle cx='390' cy='700' r='2.5' class='f'/%3E%3C/g%3E%3C/svg%3E"); background-repeat: repeat; background-size: 440px 440px; background-position: center top; }
-.notifications-panel.active { transform: translateX(0); }
-.noti-header-premium { position: relative; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85); background-color: rgba(10, 12, 16, 0.96); backdrop-filter: blur(12px); flex-shrink: 0; }
+/* ==========================================================================
+   19. NOTIFICATIONS CHANNEL & LOCKED WALLPAPER (SPLIT PERMANENTLY FIXED)
+   ========================================================================== */
+.notifications-panel { 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%; 
+    z-index: 999; 
+    display: flex; 
+    flex-direction: column; 
+    transform: translateX(100%); 
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+    overflow: hidden; 
+    background-color: #06080e !important; 
+}
+
+.notifications-panel.active { 
+    transform: translateX(0); 
+}
+
+/* Layer 1: Multi-Point Studio Ambient Lighting (Fixed Screen Background) */
+.notifications-panel::before { 
+    content: ''; 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%; 
+    pointer-events: none; 
+    z-index: 0; 
+    background-color: #06080e;
+    background-image: 
+        radial-gradient(ellipse 70% 50% at 15% 15%, rgba(29, 130, 245, 0.16) 0%, transparent 70%),
+        radial-gradient(ellipse 65% 55% at 85% 25%, rgba(148, 163, 184, 0.10) 0%, transparent 65%),
+        radial-gradient(ellipse 75% 60% at 80% 85%, rgba(37, 99, 235, 0.14) 0%, transparent 75%),
+        radial-gradient(circle at 50% 50%, transparent 45%, rgba(2, 4, 7, 0.88) 100%);
+    background-attachment: fixed;
+}
+
+/* Layer 2 & 3: Vector Study Doodle Pattern + Cinema Vignette (Fixed Screen Background) */
+.notifications-panel::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+    background-image: 
+        radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 35%, rgba(2, 4, 8, 0.75) 100%),
+        linear-gradient(to bottom, rgba(6, 8, 14, 0.45) 0%, transparent 15%, transparent 85%, rgba(6, 8, 14, 0.55) 100%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 900' width='460' height='460'%3E%3Cdefs%3E%3Cstyle%3E.d%7Bstroke:%2364748b;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;fill:none;opacity:0.35;%7D.h%7Bstroke:%2338bdf8;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none;opacity:0.42;%7D.p%7Bstroke:%2394a3b8;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none;opacity:0.38;%7D.f%7Bfill:%23475569;opacity:0.35;stroke:none;%7D.fh%7Bfill:%2338bdf8;opacity:0.40;stroke:none;%7D.g%7Bstroke:%2360a5fa;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;fill:none;opacity:0.50;%7D.w%7Bstroke:%23f8fafc;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none;opacity:0.45;%7D%3C/style%3E%3C/defs%3E%3Cg%3E%3C!-- Open Book with Bookmark --%3E%3Cg class='h'%3E%3Cpath d='M55,75 Q95,92 135,75 Q175,92 215,75 L215,132 Q175,148 135,132 Q95,148 55,132 Z'/%3E%3Cpath d='M135,75 L135,132'/%3E%3Cpath d='M135,132 L135,152 L143,144 L151,152 L151,135'/%3E%3Cpath d='M70,94 Q95,104 120,94 M70,108 Q95,118 120,108 M150,94 Q175,104 200,94 M150,108 Q175,118 200,108' class='d'/%3E%3C/g%3E%3C!-- Headphones (Audio Book / Study Lo-Fi) --%3E%3Cg class='p'%3E%3Cpath d='M310,95 A38,38 0 0,1 386,95'/%3E%3Crect x='300' y='92' width='14' height='28' rx='6'/%3E%3Crect x='382' y='92' width='14' height='28' rx='6'/%3E%3Cpath d='M335,85 L342,75 L348,90 L355,70 L362,85' class='g'/%3E%3C/g%3E%3C!-- Graduation Cap & Scroll --%3E%3Cg class='d'%3E%3Cpolygon points='495,58 548,36 601,58 548,80' class='h'/%3E%3Cpath d='M520,69 L520,94 Q548,110 576,94 L576,69'/%3E%3Cpath d='M588,64 L606,84 L606,108' class='g'/%3E%3Ccircle cx='606' cy='111' r='2.8' class='fh'/%3E%3C/g%3E%3C!-- Fountain Pen & Ink Nib --%3E%3Cg class='d'%3E%3Cpath d='M735,38 L770,73 L750,93 L715,58 Z'/%3E%3Cpath d='M715,58 L700,63 L695,48 L710,43 Z' class='p'/%3E%3Cpolygon points='695,48 678,48 690,60' class='h'/%3E%3Ccircle cx='688' cy='52' r='1.8' class='fh'/%3E%3C/g%3E%3C!-- Atomic Physics / Science Orbit --%3E%3Cg class='h'%3E%3Cellipse cx='835' cy='105' rx='36' ry='13' transform='rotate(30 835 105)'/%3E%3Cellipse cx='835' cy='105' rx='36' ry='13' transform='rotate(-30 835 105)' class='p'/%3E%3Cellipse cx='835' cy='105' rx='36' ry='13' transform='rotate(90 835 105)' class='d'/%3E%3Ccircle cx='835' cy='105' r='4.5' class='fh'/%3E%3C/g%3E%3C!-- Stack of Hardcover Books --%3E%3Cg class='d'%3E%3Crect x='55' y='230' width='105' height='24' rx='4'/%3E%3Crect x='45' y='254' width='125' height='28' rx='5' class='p'/%3E%3Crect x='35' y='282' width='140' height='32' rx='6'/%3E%3Cpath d='M60,294 L135,294 M60,303 L105,303' class='g'/%3E%3C/g%3E%3C!-- Pencil, Scale & Geometry Triangle --%3E%3Cg class='d'%3E%3Cpath d='M245,195 L315,265 L300,280 L230,210 Z'/%3E%3Cpolygon points='230,210 218,210 230,222' class='h'/%3E%3Cpath d='M275,175 L345,245' class='p'/%3E%3Cpath d='M290,190 L297,183 M305,205 L312,198 M320,220 L327,213 M335,235 L342,228' class='g'/%3E%3Cpolygon points='355,285 415,285 355,225' class='d'/%3E%3Cpolygon points='367,275 392,275 367,250' class='p'/%3E%3C/g%3E%3C!-- Glowing Idea Bulb --%3E%3Cg class='h'%3E%3Cpath d='M480,195 Q452,215 464,248 Q474,263 474,278 L506,278 Q506,263 516,248 Q528,215 500,195 Z'/%3E%3Cpath d='M477,278 L503,278 M480,285 L500,285 M485,292 L495,292' class='d'/%3E%3Cpath d='M484,238 L490,222 L496,238 M490,222 L490,254' class='g'/%3E%3Cpath d='M445,212 L433,206 M535,212 L547,206 M490,180 L490,168 M456,186 L447,177 M524,186 L533,177' class='g'/%3E%3C/g%3E%3C!-- Math Compass / Divider --%3E%3Cg class='d'%3E%3Ccircle cx='655' cy='210' r='5.5' class='p'/%3E%3Cpath d='M652,215 L628,285 M658,215 L682,285 M636,252 Q655,265 674,252'/%3E%3C/g%3E%3C!-- Chemistry Conical Flask --%3E%3Cg class='p'%3E%3Cpath d='M785,180 L815,180 M793,180 L793,205 L770,255 Q765,270 800,270 L830,270 Q850,270 845,255 L825,185 L825,160'/%3E%3Cpath d='M778,238 Q800,248 822,238' class='h'/%3E%3Ccircle cx='792' cy='254' r='2.5' class='fh'/%3E%3Ccircle cx='808' cy='247' r='3.2' class='fh'/%3E%3Ccircle cx='800' cy='165' r='2' class='f'/%3E%3C/g%3E%3C!-- Astronomy Telescope & Ringed Saturn --%3E%3Cg class='d'%3E%3Cpath d='M85,420 L142,465 L132,478 L75,432 Z' class='h'/%3E%3Cpath d='M113,453 L88,525 M113,453 L138,525 M113,453 L113,530'/%3E%3Ccircle cx='245' cy='425' r='24' class='p'/%3E%3Cellipse cx='245' cy='425' rx='46' ry='11' transform='rotate(-22 245 425)' class='h'/%3E%3C/g%3E%3C!-- Spiral Notebook & Checklist --%3E%3Cg class='d'%3E%3Crect x='365' y='370' width='82' height='112' rx='7' class='h'/%3E%3Cpath d='M385,370 L385,482'/%3E%3Cpath d='M358,386 L370,386 M358,406 L370,406 M358,426 L370,426 M358,446 L370,446 M358,466 L370,466' class='p'/%3E%3Cpath d='M398,396 L432,396 M398,416 L432,416 M398,436 L422,436 M398,456 L416,456' class='g'/%3E%3C/g%3E%3C!-- Laptop with Code Symbols (Tech & E-Learning) --%3E%3Cg class='p'%3E%3Crect x='515' y='375' width='86' height='56' rx='5'/%3E%3Cpath d='M502,431 L614,431 L606,442 L510,442 Z' class='d'/%3E%3Cpath d='M545,395 L535,403 L545,411 M571,395 L581,403 L571,411 M562,392 L554,414' class='g'/%3E%3C/g%3E%3C!-- Backpack / Student Bag --%3E%3Cg class='d'%3E%3Cpath d='M660,405 Q700,375 740,405 L745,485 Q700,505 655,485 Z'/%3E%3Cpath d='M682,386 Q700,366 718,386' class='h'/%3E%3Crect x='675' y='428' width='50' height='38' rx='5' class='p'/%3E%3Cpath d='M690,445 L710,445' class='g'/%3E%3C/g%3E%3C!-- Artist Palette & Brush --%3E%3Cg class='p'%3E%3Cpath d='M810,385 C770,385 760,445 800,465 C820,475 860,465 870,425 C880,385 840,385 810,385 Z'/%3E%3Ccircle cx='788' cy='415' r='4' class='fh'/%3E%3Ccircle cx='808' cy='400' r='4' class='f'/%3E%3Ccircle cx='832' cy='406' r='4' class='fh'/%3E%3Ccircle cx='850' cy='426' r='4' class='f'/%3E%3Cpath d='M772,462 L742,502 M742,502 L736,512 L748,507 Z' class='h'/%3E%3C/g%3E%3C!-- Cozy Sleeping Cat on Books --%3E%3Cg class='d'%3E%3Cpath d='M75,640 C55,610 105,590 135,610 C155,600 175,620 170,645 C165,665 125,670 90,660 Z' class='p'/%3E%3Cpath d='M90,620 L95,605 L105,618 M120,615 L130,602 L135,615 M125,635 Q135,630 145,635'/%3E%3Ctext x='158' y='602' font-size='13' font-family='sans-serif' class='fh'%3Ez%3C/text%3E%3Ctext x='172' y='586' font-size='17' font-family='sans-serif' class='fh'%3EZ%3C/text%3E%3C/g%3E%3C!-- Mathematical & Physics Formulas --%3E%3Cg class='f'%3E%3Ctext x='245' y='592' font-size='24' font-family='serif' class='fh'%3E%CF%80%3C/text%3E%3Ctext x='305' y='585' font-size='20' font-family='sans-serif' class='p'%3E%E2%88%91%3C/text%3E%3Ctext x='260' y='642' font-size='18' font-weight='bold' font-family='sans-serif' class='fh'%3EE=mc%C2%B2%3C/text%3E%3Ctext x='355' y='625' font-size='18' font-family='serif' class='p'%3E%E2%88%abf(x)dx%3C/text%3E%3C/g%3E%3C!-- Cute Ghost Reading a Book --%3E%3Cg class='h'%3E%3Cpath d='M475,628 C465,565 535,565 525,628 Q515,638 500,628 Q485,638 475,628 Z'/%3E%3Ccircle cx='490' cy='596' r='3' class='fh'/%3E%3Ccircle cx='510' cy='596' r='3' class='fh'/%3E%3Cpath d='M470,624 L500,636 L530,624 L530,645 L500,655 L470,645 Z' class='p'/%3E%3Cpath d='M500,636 L500,655' class='p'/%3E%3C/g%3E%3C!-- Magnifying Glass & Paper Airplane --%3E%3Cg class='d'%3E%3Ccircle cx='665' cy='595' r='22' class='h'/%3E%3Cpath d='M653,585 A14,14 0 0,1 673,583' class='g'/%3E%3Cpath d='M681,611 L712,642' stroke-width='4' class='p'/%3E%3Cpath d='M595,720 L660,688 L618,742 L606,725 Z M660,688 L606,725' class='h'/%3E%3Cpath d='M585,732 Q565,745 545,738' stroke-dasharray='4 5' class='g'/%3E%3C/g%3E%3C!-- Space Rocket Launch --%3E%3Cg class='p'%3E%3Cpath d='M795,695 Q812,655 828,648 Q844,655 861,695 Q850,718 828,724 Q806,718 795,695 Z' class='h'/%3E%3Ccircle cx='828' cy='684' r='8.5' class='d'/%3E%3Cpath d='M800,702 L778,724 L802,718 M856,702 L878,724 L854,718 M816,724 L810,744 M840,724 L846,744'/%3E%3C/g%3E%3C!-- Hot Coffee Mug (Late Night Study) --%3E%3Cg class='d'%3E%3Cpath d='M95,775 L105,838 L148,838 L158,775 Z' class='h'/%3E%3Cpath d='M156,788 Q175,788 170,814 Q165,825 151,825' class='p'/%3E%3Cpath d='M116,760 Q122,748 116,736 M135,760 Q141,748 135,736' class='g'/%3E%3C/g%3E%3C!-- Scissors & Paperclip --%3E%3Cg class='d'%3E%3Ccircle cx='255' cy='812' r='8.5' class='p'/%3E%3Ccircle cx='255' cy='838' r='8.5' class='p'/%3E%3Cpath d='M262,816 L305,844 M262,834 L305,806'/%3E%3Cpath d='M385,775 L385,835 Q385,850 400,850 Q415,850 415,835 L415,795 Q415,785 405,785 Q395,785 395,795 L395,830' class='h'/%3E%3C/g%3E%3C!-- A+ Top Grade Seal & Trophy Cup --%3E%3Cg class='g'%3E%3Ccircle cx='505' cy='805' r='25' class='h'/%3E%3Ctext x='491' y='813' font-size='21' font-weight='bold' font-family='sans-serif' class='fh'%3EA+%3C/text%3E%3C/g%3E%3Cg class='p'%3E%3Cpath d='M715,775 L765,775 L760,810 Q740,830 720,810 Z' class='h'/%3E%3Cpath d='M715,783 Q698,783 702,800 Q706,810 718,806 M765,783 Q782,783 778,800 Q774,810 762,806'/%3E%3Cpath d='M740,822 L740,842 M722,842 L758,842' class='d'/%3E%3C/g%3E%3C!-- Sparkles, Stars & Micro Geometric Accents --%3E%3Cg class='g'%3E%3Cpath d='M55,485 L59,495 L69,499 L59,503 L55,513 L51,503 L41,499 L51,495 Z' class='w'/%3E%3Cpath d='M425,75 L428,83 L436,86 L428,89 L425,97 L422,89 L414,86 L422,83 Z' class='w'/%3E%3Cpath d='M725,295 L728,303 L736,306 L728,309 L725,317 L722,309 L714,306 L722,303 Z' class='w'/%3E%3Cpath d='M465,505 L468,511 L474,514 L468,517 L465,523 L462,517 L456,514 L462,511 Z' class='w'/%3E%3Cpath d='M845,555 L848,563 L856,571 L848,574 L850,582 L847,574 L839,571 L847,568 Z' class='w'/%3E%3Cpath d='M195,725 L198,732 L205,735 L198,738 L195,745 L192,738 L185,735 L192,732 Z' class='w'/%3E%3Ccircle cx='215' cy='350' r='2.5' class='w'/%3E%3Ccircle cx='545' cy='320' r='2.5' class='fh'/%3E%3Ccircle cx='620' cy='505' r='3' class='w'/%3E%3Ccircle cx='395' cy='695' r='2.5' class='f'/%3E%3Ccircle cx='855' cy='820' r='2.8' class='w'/%3E%3Ccircle cx='175' cy='155' r='2.2' class='fh'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 460px 460px;
+    background-position: center center;
+    background-attachment: fixed;
+    opacity: 0.95;
+    mix-blend-mode: screen;
+}
+
+.noti-header-premium { 
+    position: relative; 
+    z-index: 20; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 12px 16px; 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08); 
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85); 
+    background-color: rgba(6, 8, 14, 0.94); 
+    backdrop-filter: blur(16px); 
+    flex-shrink: 0; 
+}
 .noti-header-left { display: flex; align-items: center; gap: 12px; }
 .noti-title-stack { display: flex; flex-direction: column; }
 .noti-main-title { font-size: 15.5px; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 6px; font-family: 'Poppins', sans-serif; letter-spacing: 0.3px; }
@@ -407,11 +570,57 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .header-back-btn:active { transform: scale(0.92); background: rgba(255, 255, 255, 0.12); color: #ffffff; }
 .header-back-btn i { font-size: 15px; }
 
-/* CHAT BODY WITH MINIMAL BOTTOM GAP */
-.chat-body { position: relative; z-index: 10; flex: 1; padding: 15px 12px 60px 12px !important; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 14px; background: transparent; -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+/* CHAT BODY WITH MINIMAL BOTTOM GAP & SMOOTH SCROLL */
+.chat-body { 
+    position: relative; 
+    z-index: 10; 
+    flex: 1; 
+    padding: 15px 12px 60px 12px !important; 
+    overflow-y: auto; 
+    overflow-x: hidden; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 14px; 
+    background: transparent; 
+    -webkit-overflow-scrolling: touch; 
+    scroll-behavior: smooth; 
+}
 .chat-body::-webkit-scrollbar { display: none; }
-.date-divider { display: flex; justify-content: center; align-items: center; margin: 6px auto; width: fit-content; background: rgba(24, 28, 38, 0.88); color: #9ca3af; font-size: 11px; font-weight: 600; padding: 4px 14px; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.07); backdrop-filter: blur(8px); }
-.message-bubble { background-color: var(--bg-card-channel); backdrop-filter: blur(14px); border-radius: 14px; padding: 12px 14px; width: 98%; max-width: 370px; margin: 0 auto; position: relative; box-shadow: 0 8px 24px rgba(0,0,0,0.65); display: flex; flex-direction: column; border: 1px solid var(--card-border-channel); transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease; cursor: pointer; transform: none !important; }
+
+.date-divider { 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    margin: 6px auto; 
+    width: fit-content; 
+    background: rgba(14, 18, 26, 0.88); 
+    color: #94a3b8; 
+    font-size: 11px; 
+    font-weight: 600; 
+    padding: 4px 14px; 
+    border-radius: 20px; 
+    text-align: center; 
+    border: 1px solid rgba(255,255,255,0.08); 
+    backdrop-filter: blur(8px); 
+}
+
+.message-bubble { 
+    background-color: var(--bg-card-channel); 
+    backdrop-filter: blur(14px); 
+    border-radius: 14px; 
+    padding: 12px 14px; 
+    width: 98%; 
+    max-width: 370px; 
+    margin: 0 auto; 
+    position: relative; 
+    box-shadow: 0 8px 24px rgba(0,0,0,0.65); 
+    display: flex; 
+    flex-direction: column; 
+    border: 1px solid var(--card-border-channel); 
+    transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease; 
+    cursor: pointer; 
+    transform: none !important; 
+}
 .message-bubble:active { transform: none !important; }
 .message-bubble.highlight-post { animation: luxuryGlowPulse 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards !important; z-index: 10; }
 @keyframes luxuryGlowPulse { 0% { background-color: var(--bg-card-channel); border-color: var(--card-border-channel); box-shadow: 0 8px 24px rgba(0,0,0,0.65); } 18%, 70% { background-color: #1a2c42; border-color: rgba(56, 189, 248, 0.25); box-shadow: 0 8px 24px rgba(0,0,0,0.65); } 100% { background-color: var(--bg-card-channel); border-color: var(--card-border-channel); box-shadow: 0 8px 24px rgba(0,0,0,0.65); } }
@@ -433,7 +642,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .reaction-pill { display: inline-flex; align-items: center; gap: 4px; background: var(--reaction-bg); border-radius: 16px; padding: 3px 8px; font-size: 12px; color: #9ca3af; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.2s; font-weight: 600; line-height: 1; height: 24px; box-sizing: border-box; pointer-events: auto !important; }
 .reaction-pill .emoji { font-size: 13px; line-height: 1; }
 .reaction-pill .count { font-size: 11.5px; line-height: 1; font-weight: 700; font-family: 'Inter', sans-serif; }
-.reaction-pill.active { background: var(--reaction-active-bg); border-color: var(--reaction-active-border); color: #ffffff; box-shadow: 0 0 10px rgba(156, 163, 175, 0.3); }
+.reaction-pill.active { background: var(--reaction-active-bg); border-color: var(--reaction-active-border); color: #ffffff; box-shadow: 0 0 10px rgba(56, 189, 248, 0.3); }
 .msg-meta { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #6b7280; font-weight: 500; margin-left: auto; padding-right: 2px; flex-shrink: 0; align-self: flex-end; }
 .scroll-down-wrapper { position: absolute; bottom: 56px; right: 16px; z-index: 90; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transform: translateY(12px) scale(0.85); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
 .scroll-down-wrapper.show { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
@@ -443,7 +652,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .unread-badge { position: absolute; top: -7px; right: -5px; background: linear-gradient(135deg, #25d366, #128c7e); color: #ffffff; font-size: 10.5px; font-weight: 800; padding: 2px 6px; border-radius: 12px; min-width: 18px; height: 18px; display: none; align-items: center; justify-content: center; border: 2px solid var(--bg-solid-channel); box-shadow: 0 2px 8px rgba(37, 211, 102, 0.5); animation: pulseBadge 1.8s infinite; }
 .unread-badge.active { display: flex; }
 @keyframes pulseBadge { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-.admin-notice-bar { position: absolute; bottom: 0; left: 0; width: 100%; background-color: rgba(10, 12, 16, 0.96); backdrop-filter: blur(12px); border-top: 1px solid rgba(255, 255, 255, 0.08); padding: 13px 20px; text-align: center; font-size: 11.5px; color: var(--text-secondary); font-weight: 800; z-index: 100; box-shadow: 0 -4px 15px rgba(0,0,0,0.85); letter-spacing: 0.2px; }
+.admin-notice-bar { position: absolute; bottom: 0; left: 0; width: 100%; background-color: rgba(6, 8, 14, 0.96); backdrop-filter: blur(12px); border-top: 1px solid rgba(255, 255, 255, 0.08); padding: 13px 20px; text-align: center; font-size: 11.5px; color: var(--text-secondary); font-weight: 800; z-index: 100; box-shadow: 0 -4px 15px rgba(0,0,0,0.85); letter-spacing: 0.2px; }
 .admin-notice-bar span { color: var(--accent-green); font-weight: 700; }
 
 /* 20. UNIVERSAL NEON ORBIT SPINNER */
