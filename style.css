@@ -423,7 +423,9 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .msg-text del { text-decoration: line-through; color: var(--text-secondary); }
 .msg-text a { color: var(--link-color); text-decoration: none; pointer-events: auto !important; }
 .msg-text a:hover { text-decoration: underline; }
-.wa-markdown-quote { border-left: 3px solid #25d366; padding: 3px 0 3px 10px; margin: 6px 0 8px 0; color: #94a3b8 !important; font-style: italic; font-size: 13.5px; line-height: 1.45; }
+
+.wa-markdown-quote { border-left: 3px solid rgba(156, 163, 175, 0.6); padding: 3px 0 3px 10px; margin: 6px 0 8px 0; color: #94a3b8 !important; font-style: italic; font-size: 13.5px; line-height: 1.45; }
+
 .wa-markdown-quote * { color: #94a3b8 !important; }
 .msg-quote { background: rgba(10, 12, 16, 0.6); border-left: 4px solid var(--wa-quote-border); padding: 6px 10px; margin-bottom: 8px; border-radius: 4px 8px 8px 4px; cursor: pointer; pointer-events: auto !important; transition: background 0.2s; }
 .msg-quote:hover { background: rgba(10, 12, 16, 0.8); }
