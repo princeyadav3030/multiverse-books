@@ -767,7 +767,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .contact-card .input-group { margin-bottom: 12px; position: relative; }
 .contact-card .input-group label { display: block; font-size: 12px !important; color: #ffffff !important; margin-bottom: 6px; font-weight: 800 !important; font-family: 'Poppins', 'Inter', sans-serif !important; letter-spacing: 0.3px; padding-left: 2px; }
 .contact-card input, .contact-card textarea, .contact-card .custom-select-trigger { width: 100%; padding: 12px 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; color: #ffffff; font-weight: 600 !important; font-size: 13.5px; outline: none; box-sizing: border-box; }
-.contact-card input::placeholder, .contact-card textarea::placeholder { color: #828b98 !important; font-weight: 600 !important; opacity: 0.85; }
+.contact-card input::placeholder, .contact-card textarea::placeholder { color: #828b98 !important; font-weight: 700 !important; opacity: 0.85; }
 .support-input-icon-wrap { position: relative; width: 100%; display: flex; align-items: center; }
 .support-input-icon-wrap .sup-field-icon { position: absolute; left: 14px; font-size: 15px; color: #cbd5e1; pointer-events: none; z-index: 2; }
 .support-input-icon-wrap .input-with-icon { padding-left: 42px !important; }
@@ -777,9 +777,9 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .submit-btn svg#supBtnIcon { width: 17px !important; height: 17px !important; margin-top: 1px !important; display: inline-block !important; flex-shrink: 0 !important; }
 .submit-btn.btn-success-active { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; border-color: rgba(52, 211, 153, 0.8) !important; color: #ffffff !important; box-shadow: 0 0 25px rgba(16, 185, 129, 0.55), inset 0 0 10px rgba(255, 255, 255, 0.3) !important; transform: scale(1.02); }
 .submit-btn.btn-success-active svg { stroke: #ffffff !important; filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6)); }
-.encryption-note { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 14px; font-size: 11px !important; color: #cbd5e1 !important; font-weight: 700 !important; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; width: 100%; box-sizing: border-box; letter-spacing: 0.1px; }
+.encryption-note { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 14px; font-size: 11px !important; color: #cbd5e1 !important; font-weight: 600 !important; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; width: 100%; box-sizing: border-box; letter-spacing: 0.1px; }
 .encryption-note svg { width: 12px; height: 12px; fill: #cbd5e1; flex-shrink: 0; }
-.encryption-note .green-text { color: #25D366; font-weight: 800; }
+.encryption-note .green-text { color: #25D366; font-weight: 600; }
 
 /* 31. ISSUES MODAL */
 .modal-overlay-issue { position: fixed; inset: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.78); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 1000000; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.22s ease; }
