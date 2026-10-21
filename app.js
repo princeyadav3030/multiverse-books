@@ -64,8 +64,10 @@ let unreadPostsCount = 0;
 
 let isAppReady = { auth: false, data: false }; 
 let hasTransitioned = false;
-let loadingProgress = 0;
-let loaderInterval;
+let isTransitioning = false;
+let loadingProgress = 1;
+let loaderInterval = null;
+let hasRealtimeListenersBound = false;
 
 const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
@@ -95,47 +97,74 @@ const VERIFIED_CHECK_SVG = `
 </svg>`;
 
 // ==========================================
-// 2. LOADER & TRANSITION ENGINE
+// 2. LOADER & TRANSITION ENGINE (SMOOTH 1%-BY-1% ADAPTIVE)
 // ==========================================
 function updateLoaderUI(percent) {
     const loaderFill = document.getElementById('loaderFill');
     const loaderPercentage = document.getElementById('loaderPercentage');
     const loaderStatusText = document.getElementById('loaderStatusText');
     if (loaderFill) loaderFill.style.width = percent + "%";
-    if (loaderPercentage) loaderPercentage.innerText = percent + "%";
+    if (loaderPercentage) loaderPercentage.innerText = Math.floor(percent) + "%";
     if (loaderStatusText) {
         if (percent < 30) loaderStatusText.innerText = "Initializing System...";
-        else if (percent < 60) loaderStatusText.innerText = "Loading Books Securely...";
-        else if (percent < 95) loaderStatusText.innerText = "Preparing Content...";
+        else if (percent < 65) loaderStatusText.innerText = "Loading Books Securely...";
+        else if (percent < 96) loaderStatusText.innerText = "Preparing Content...";
         else loaderStatusText.innerText = "Ready to Launch!";
     }
 }
 
-loaderInterval = setInterval(() => {
-    if (loadingProgress < 85) {
-        loadingProgress += Math.floor(Math.random() * 5) + 3; 
-        if (loadingProgress > 85) loadingProgress = 85;
-        updateLoaderUI(loadingProgress);
-    }
-}, 120);
+// 1% step progression (Dynamic speed controller: slow net par dheere, fast par instant smooth)
+function runSmoothLoaderTick() {
+    if (hasTransitioned || isTransitioning) return;
 
+    if (loadingProgress < 65) {
+        loadingProgress += 1;
+    } else if (loadingProgress < 85) {
+        loadingProgress += 0.8;
+    } else if (loadingProgress < 95) {
+        // Slow net safety margin: 85% par dead-stop hone ke bajaye 95% tak natural decelerate hoga
+        loadingProgress += isAppReady.data ? 1 : 0.25;
+    }
+
+    if (loadingProgress > 95 && !isAppReady.data) {
+        loadingProgress = 95;
+    }
+
+    updateLoaderUI(Math.min(95, loadingProgress));
+
+    if (isAppReady.data && isAppReady.auth) {
+        tryTransition();
+    } else {
+        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 180) : 40;
+        loaderInterval = setTimeout(runSmoothLoaderTick, nextDelay);
+    }
+}
+
+updateLoaderUI(1);
+loaderInterval = setTimeout(runSmoothLoaderTick, 40);
+
+// Emergency Fallback Timer (Only 20s, so slow networks never crash prematurely)
 setTimeout(() => {
-    isAppReady.auth = true;
-    isAppReady.data = true;
-    tryTransition();
-}, 4500);
+    if (!hasTransitioned) {
+        isAppReady.auth = true;
+        isAppReady.data = true;
+        tryTransition();
+    }
+}, 20000);
 
 function tryTransition() {
-    if (isAppReady.auth && isAppReady.data && !hasTransitioned) {
-        hasTransitioned = true;
-        clearInterval(loaderInterval); 
-        
-        let fastLoad = setInterval(() => {
-            loadingProgress += 5;
-            if(loadingProgress >= 100) {
+    if (isAppReady.auth && isAppReady.data && !hasTransitioned && !isTransitioning) {
+        isTransitioning = true;
+        clearTimeout(loaderInterval);
+
+        let finishStep = setInterval(() => {
+            loadingProgress += 2;
+            if (loadingProgress >= 100) {
                 loadingProgress = 100;
                 updateLoaderUI(100);
-                clearInterval(fastLoad);
+                clearInterval(finishStep);
+                hasTransitioned = true;
+                isTransitioning = false;
 
                 setTimeout(() => {
                     const mainApp = document.getElementById('mainAppWrapper');
@@ -156,11 +185,11 @@ function tryTransition() {
                         loader.style.opacity = "0"; 
                         setTimeout(() => { loader.style.display = "none"; }, 300);
                     }
-                }, 350); 
+                }, 220);
             } else {
                 updateLoaderUI(loadingProgress);
             }
-        }, 15);
+        }, 12);
     }
 }
 
@@ -313,7 +342,7 @@ function renderChannelLoader() {
         </div>`;
 }
 
-// User-Bound Reaction Storage (Har user/email ke hisaab se alag glow karega)
+// User-Bound Reaction Storage
 function getUserReaction(postId) { 
     const uid = auth.currentUser ? auth.currentUser.uid : 'guest';
     return localStorage.getItem(`reaction_${uid}_${postId}`); 
@@ -326,6 +355,7 @@ function setUserReaction(postId, emoji) {
     else localStorage.removeItem(key);
 }
 
+// Fixed Scroll Calculation (Exact scrollable boundary - No blue stretch)
 function forceScrollChatToBottom() {
     if (!chatBody) return;
     unreadPostsCount = 0;
@@ -337,19 +367,23 @@ function forceScrollChatToBottom() {
         scrollDownWrapper.classList.remove('show');
     }
 
-    chatBody.scrollTop = chatBody.scrollHeight + 1000;
+    const targetTop = chatBody.scrollHeight - chatBody.clientHeight;
+    chatBody.scrollTop = targetTop > 0 ? targetTop : 0;
     requestAnimationFrame(() => {
-        chatBody.scrollTop = chatBody.scrollHeight + 1000;
+        const finalTop = chatBody.scrollHeight - chatBody.clientHeight;
+        chatBody.scrollTop = finalTop > 0 ? finalTop : 0;
     });
 }
 
 function scrollToBottomSmooth() {
+    if (!chatBody) return;
     unreadPostsCount = 0;
     if (unreadBadge) {
         unreadBadge.innerText = '0';
         unreadBadge.classList.remove('active');
     }
-    chatBody.scrollTo({ top: chatBody.scrollHeight + 1000, behavior: 'smooth' });
+    const targetTop = chatBody.scrollHeight - chatBody.clientHeight;
+    chatBody.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
 }
 
 if (scrollDownBtn) scrollDownBtn.addEventListener('click', scrollToBottomSmooth);
@@ -419,13 +453,12 @@ function updateReactionInDOM(postId) {
     }
 }
 
-// Optimized View Register (Server request spam rokne ke liye localStorage debounced)
+// Optimized Unique View Register
 async function registerUniqueView(postId) {
     if (!auth.currentUser || !postId) return;
     const uid = auth.currentUser.uid;
     const viewKey = `viewed_post_${uid}_${postId}`;
     
-    // Agar user ne post pehle dekh liya hai toh server call mat bhejo (Saves Vercel/Firebase Limits)
     if (localStorage.getItem(viewKey)) return;
 
     try {
@@ -808,7 +841,7 @@ function renderSavedBooksUI() {
 }
 
 // ==========================================
-// 7. REALTIME PAGINATION & DATA FETCH
+// 7. REALTIME PAGINATION & PARALLEL DATA FETCH
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -1139,7 +1172,7 @@ window.openSubjectModulesList = function(subjectKey) {
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
-// Distinct Module Opener (Module 1 vs 2 Collision Fixed)
+// Distinct Module Opener
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
         triggerLoginModal();
@@ -1175,7 +1208,6 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 
     showCenteredPdfLoader("Just a Moment… Your Module Is Almost Ready..!! 🚀📚");
 
-    // Module-specific unique cache slug
     const distinctModuleSlug = generateCleanSlug(title || pdfKeyOrUrl || "module-pack");
 
     if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
@@ -1363,7 +1395,11 @@ function checkAndOpenTargetPost() {
 // 11. EVENT LISTENERS & SERVERLESS FORM SUBMIT
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Initialize Sub-modules
+    // 1. Parallel Fast Startup Fetch
+    loadInitialBooksBatch();
+    fetchGlobalFilterMetadata();
+
+    // 2. Initialize Sub-modules
     initAuthSystem(() => {
         if (isDeepLinkLoad && pendingBookSlug) {
             document.getElementById('mainAppWrapper').style.display = 'block';
@@ -1380,7 +1416,7 @@ document.addEventListener("DOMContentLoaded", () => {
         applyMasterFilter(false);
     });
 
-    // 2. Header Buttons Event Listeners
+    // 3. Header Buttons Event Listeners
     document.getElementById('open-search')?.addEventListener('click', () => { 
         history.pushState({ popup: 'search' }, ''); 
         document.getElementById('search-box')?.classList.add('active'); 
@@ -1444,7 +1480,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 3. Support Modal Listeners & Vercel API Email Send
+    // 4. Support Modal Listeners & Vercel API Email Send
     document.getElementById('menu-contact')?.addEventListener('click', (e) => {
         e.preventDefault();
         document.getElementById('sidebar')?.classList.remove('active');
@@ -1581,7 +1617,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 4. Report Broken Link Button & Modal Logic
+    // 5. Report Broken Link Button & Modal Logic
     document.getElementById('reportLinkBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1642,7 +1678,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 5. Global Infinite Scroll Observer
+    // 6. Global Infinite Scroll Observer
     const sentinel = document.getElementById('scroll-sentinel');
     if (sentinel) {
         const infiniteScrollObserver = new IntersectionObserver((entries) => {
@@ -1656,7 +1692,7 @@ document.addEventListener("DOMContentLoaded", () => {
         infiniteScrollObserver.observe(sentinel);
     }
 
-    // 6. Book Selection & Bookmark Clicks
+    // 7. Book Selection & Bookmark Clicks
     document.getElementById('bookContainer')?.addEventListener('click', (e) => {
         const card = e.target.closest('.book-card');
         if(card) {
@@ -1677,7 +1713,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 7. Download Modal Actions
+    // 8. Download Modal Actions
     document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
     document.getElementById('shareBookBtn')?.addEventListener('click', () => {
         const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
@@ -1689,7 +1725,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 8. Sidebar & Navigation
+    // 9. Sidebar & Navigation
     const sidebar = document.getElementById('sidebar'); 
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     document.getElementById('open-menu')?.addEventListener('click', () => { 
@@ -1716,8 +1752,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // 9. Mobile Native Step-by-Step Back Navigation
+    // 10. Native Mobile Step-by-Step Back Navigation (Double-Back Bug Resolved)
     window.addEventListener('popstate', (e) => {
+        // Go-To-Page sub modal inside PDF viewer
+        const goToPageModal = document.getElementById('goToPageModal');
+        if (goToPageModal && goToPageModal.style.display === 'flex') {
+            goToPageModal.style.display = 'none';
+            return;
+        }
+
         const loginOverlay = document.getElementById('loginOverlay');
         if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
             loginOverlay.style.opacity = '0';
@@ -1737,7 +1780,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const scroller = document.getElementById('pdfScrollContainer');
             if (scroller) scroller.innerHTML = '';
             cleanupPdfResources();
-            return;
+            return; // Stops here, preserving Module List or Download page
         }
 
         const reportModal = document.getElementById('reportModalOverlay');
@@ -1837,7 +1880,7 @@ document.addEventListener("DOMContentLoaded", () => {
         applyMasterFilter(false);
     });
 
-    // 10. Module Custom Back Button
+    // 11. Module Header Custom Back Button
     document.getElementById('moduleBackBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1860,15 +1903,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 11. Close PDF Viewer Button
+    // 12. Close PDF Viewer Button (Clean Single-Step Navigation)
     document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const pdfViewer = document.getElementById('pdfViewerOverlay');
-        if (pdfViewer) pdfViewer.style.display = 'none';
-        document.getElementById('pdfScrollContainer').innerHTML = ''; 
-        cleanupPdfResources();
-        if (history.state && history.state.popup === 'pdfViewer') history.back();
+        if (history.state && history.state.popup === 'pdfViewer') {
+            history.back();
+        } else {
+            const pdfViewer = document.getElementById('pdfViewerOverlay');
+            if (pdfViewer) pdfViewer.style.display = 'none';
+            document.getElementById('pdfScrollContainer').innerHTML = ''; 
+            cleanupPdfResources();
+        }
     });
 });
 
@@ -1914,13 +1960,16 @@ onAuthStateChanged(auth, async (user) => {
         if (sidebarAvatar) sidebarAvatar.src = DEFAULT_AVATAR;
     }
 
-    // Refresh Channel Reactions for the current user session (Active glow sync)
     if (livePosts.length > 0) {
         livePosts.forEach(post => updateReactionInDOM(post.id));
     }
 
     isAppReady.auth = true; 
     tryTransition();
+
+    // Prevent duplicate listener attachments on auth state toggle
+    if (hasRealtimeListenersBound) return;
+    hasRealtimeListenersBound = true;
 
     // Module Banners Realtime Sync
     onSnapshot(query(collection(db, "module_banners"), orderBy("createdAt", "desc")), (snapshot) => {
@@ -1933,7 +1982,7 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // Realtime Prompts Loader
+    // Realtime Prompts Loader (DocumentFragment Layout Batching)
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if (!container) return;
@@ -1942,6 +1991,7 @@ onAuthStateChanged(auth, async (user) => {
             container.innerHTML = `<div style="text-align:center; padding:20px; color:#8b949e; font-weight:700;">No prompts available yet.</div>`; 
             return; 
         }
+        let aggregatedHTML = '';
         snapshot.forEach(docSnap => {
             const data = docSnap.data(); 
             const safeText = sanitizeHTML(data.text);
@@ -1951,7 +2001,7 @@ onAuthStateChanged(auth, async (user) => {
             if (safeInstruction) { 
                 instructionHTML = `<div class="prompt-instruction-text">${safeInstruction}</div>`; 
             }
-            container.innerHTML += `
+            aggregatedHTML += `
             <div class="telegram-prompt-wrapper">
                 ${instructionHTML}
                 <div class="telegram-prompt-card">
@@ -1965,6 +2015,7 @@ onAuthStateChanged(auth, async (user) => {
                 </div>
             </div>`;
         });
+        container.innerHTML = aggregatedHTML;
     });
 
     // Realtime Channel Posts Listener
@@ -2026,8 +2077,4 @@ onAuthStateChanged(auth, async (user) => {
                 </div>`;
         }
     });
-
-    // Books & Metadata loader
-    await loadInitialBooksBatch();
-    fetchGlobalFilterMetadata();
 });
