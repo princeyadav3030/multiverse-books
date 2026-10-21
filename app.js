@@ -57,7 +57,11 @@ let dynamicBannersList = [];
 let activeBannerData = null;
 let activeSubjectKey = null;
 
+// Channel Feed State (WhatsApp/Telegram Style)
 let livePosts = [];
+let renderedPostsCount = 0;
+const CHANNEL_BATCH_SIZE = 15;
+let isLoadingOlderPosts = false;
 let activePost = null;
 let isInitialChannelLoad = true;
 let unreadPostsCount = 0;
@@ -96,6 +100,13 @@ const VERIFIED_CHECK_SVG = `
     <path d="M8 12.5L10.5 15L16 9.5" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
+// Helper: Remove lingering grey hover/focus boxes on mobile
+function clearActiveElementFocus() {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+    }
+}
+
 // ==========================================
 // 2. LOADER & TRANSITION ENGINE (SMOOTH 1%-BY-1% ADAPTIVE)
 // ==========================================
@@ -113,7 +124,6 @@ function updateLoaderUI(percent) {
     }
 }
 
-// 1% step progression (Dynamic speed controller: slow net par dheere, fast par instant smooth)
 function runSmoothLoaderTick() {
     if (hasTransitioned || isTransitioning) return;
 
@@ -122,7 +132,6 @@ function runSmoothLoaderTick() {
     } else if (loadingProgress < 85) {
         loadingProgress += 0.8;
     } else if (loadingProgress < 95) {
-        // Slow net safety margin: 85% par dead-stop hone ke bajaye 95% tak natural decelerate hoga
         loadingProgress += isAppReady.data ? 1 : 0.25;
     }
 
@@ -143,7 +152,6 @@ function runSmoothLoaderTick() {
 updateLoaderUI(1);
 loaderInterval = setTimeout(runSmoothLoaderTick, 40);
 
-// Emergency Fallback Timer (Only 20s, so slow networks never crash prematurely)
 setTimeout(() => {
     if (!hasTransitioned) {
         isAppReady.auth = true;
@@ -327,7 +335,7 @@ function initCommunityDualPopup() {
 }
 
 // ==========================================
-// 5. CHANNEL POSTS & USER-SPECIFIC REACTIONS
+// 5. CHANNEL POSTS & USER-SPECIFIC REACTIONS (WHATSAPP/TELEGRAM ENGINE)
 // ==========================================
 function renderChannelLoader() {
     if (!chatBody) return;
@@ -342,7 +350,6 @@ function renderChannelLoader() {
         </div>`;
 }
 
-// User-Bound Reaction Storage
 function getUserReaction(postId) { 
     const uid = auth.currentUser ? auth.currentUser.uid : 'guest';
     return localStorage.getItem(`reaction_${uid}_${postId}`); 
@@ -355,7 +362,7 @@ function setUserReaction(postId, emoji) {
     else localStorage.removeItem(key);
 }
 
-// Fixed Scroll Calculation (Exact scrollable boundary - No blue stretch)
+// Exact Bottom Glide (Zero black screens, instant accurate offset)
 function forceScrollChatToBottom() {
     if (!chatBody) return;
     unreadPostsCount = 0;
@@ -367,12 +374,7 @@ function forceScrollChatToBottom() {
         scrollDownWrapper.classList.remove('show');
     }
 
-    const targetTop = chatBody.scrollHeight - chatBody.clientHeight;
-    chatBody.scrollTop = targetTop > 0 ? targetTop : 0;
-    requestAnimationFrame(() => {
-        const finalTop = chatBody.scrollHeight - chatBody.clientHeight;
-        chatBody.scrollTop = finalTop > 0 ? finalTop : 0;
-    });
+    chatBody.scrollTop = chatBody.scrollHeight - chatBody.clientHeight;
 }
 
 function scrollToBottomSmooth() {
@@ -388,6 +390,7 @@ function scrollToBottomSmooth() {
 
 if (scrollDownBtn) scrollDownBtn.addEventListener('click', scrollToBottomSmooth);
 
+// Scroll Observer: Bottom badge & Top-Scroll Pagination Trigger
 if (chatBody) {
     chatBody.addEventListener('scroll', () => {
         const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
@@ -400,6 +403,11 @@ if (chatBody) {
                 unreadBadge.innerText = '0';
                 unreadBadge.classList.remove('active');
             }
+        }
+
+        // WhatsApp/Telegram style reverse scroll: load older messages when reaching top
+        if (chatBody.scrollTop < 60 && !isLoadingOlderPosts && renderedPostsCount < livePosts.length) {
+            loadOlderChannelPosts();
         }
     }, { passive: true });
 }
@@ -453,7 +461,6 @@ function updateReactionInDOM(postId) {
     }
 }
 
-// Optimized Unique View Register
 async function registerUniqueView(postId) {
     if (!auth.currentUser || !postId) return;
     const uid = auth.currentUser.uid;
@@ -481,6 +488,76 @@ const postViewObserver = new IntersectionObserver((entries) => {
     });
 }, { threshold: 0.5 });
 
+function createSinglePostElement(post) {
+    const dateObj = normalizeDate(post.createdAt);
+    const userSelectedEmoji = getUserReaction(post.id);
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+    bubble.id = `post_${post.id}`;
+    bubble.dataset.postId = post.id;
+
+    // Eager image rendering to prevent layout jump on scroll
+    let imageHTML = post.imageUrl 
+        ? `<img src="${getSecureAssetUrl(post.imageUrl)}" class="msg-image" alt="Post Image" onerror="this.style.display='none';">` 
+        : '';
+
+    let quoteHTML = '';
+    if (post.quote) {
+        const targetId = post.quote.targetPostId || '';
+        const cleanSnippet = sanitizeHTML(stripMarkdown(post.quote.text || ''));
+        quoteHTML = `
+        <div class="msg-quote" onclick="event.stopPropagation(); window.scrollToChannelPost('${targetId}')">
+             <div class="quote-author">SPIDY BOOK HUB</div>
+             <div class="quote-text">${cleanSnippet}</div>
+        </div>`;
+    }
+
+    const reactionPillsHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
+
+    bubble.innerHTML = `
+        ${quoteHTML}
+        ${imageHTML}
+        <div class="msg-text">${parseMarkdown(post.text)}</div>
+        <div class="post-footer">
+            <div class="inline-reactions">${reactionPillsHTML}</div>
+            <div class="msg-meta">
+                <i class="fas fa-eye"></i> ${formatViewsCount(post.views || 1)} &nbsp; ${formatTime(dateObj)}
+            </div>
+        </div>
+    `;
+
+    bubble.querySelectorAll('.reaction-pill').forEach(pill => {
+        pill.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            applyReaction(post.id, pill.dataset.emoji);
+        });
+    });
+
+    bubble.addEventListener('click', (e) => {
+        if (
+            e.target.tagName === 'A' || 
+            e.target.closest('.tg-copy-action-btn') || 
+            e.target.closest('.telegram-copy-btn') ||
+            e.target.closest('.reaction-pill') ||
+            e.target.closest('.tg-copy-card')
+        ) {
+            return;
+        }
+        if (!isUserLoggedIn || !auth.currentUser) {
+            triggerLoginModal();
+            return;
+        }
+        activePost = post;
+        if (contextOverlay) contextOverlay.classList.add('show');
+        if (navigator.vibrate) navigator.vibrate(20);
+    });
+
+    postViewObserver.observe(bubble);
+    return bubble;
+}
+
+// Initial Batch Rendering (Pre-loaded from bottom)
 function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
     if (!chatBody) return;
 
@@ -495,10 +572,24 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
 
     if (postViewObserver) postViewObserver.disconnect();
 
+    chatBody.innerHTML = '';
     const fragment = document.createDocumentFragment();
-    let lastDateStr = '';
 
-    posts.forEach(post => {
+    // Top Pagination Loader Element
+    const topLoader = document.createElement('div');
+    topLoader.id = 'topHistoryLoader';
+    topLoader.className = 'top-history-loader';
+    topLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading older messages...`;
+    fragment.appendChild(topLoader);
+
+    // Render latest slice
+    const total = posts.length;
+    const startIndex = Math.max(0, total - CHANNEL_BATCH_SIZE);
+    const initialBatch = posts.slice(startIndex, total);
+    renderedPostsCount = initialBatch.length;
+
+    let lastDateStr = '';
+    initialBatch.forEach(post => {
         const dateObj = normalizeDate(post.createdAt);
         const dateStr = formatDateDivider(dateObj);
 
@@ -510,106 +601,76 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
             lastDateStr = dateStr;
         }
 
-        const userSelectedEmoji = getUserReaction(post.id);
-        const bubble = document.createElement('div');
-        bubble.className = 'message-bubble';
-        bubble.id = `post_${post.id}`;
-        bubble.dataset.postId = post.id;
-
-        let imageHTML = post.imageUrl 
-            ? `<img src="${getSecureAssetUrl(post.imageUrl)}" loading="lazy" class="msg-image" alt="Post Image" onload="window.handlePostImgLoaded()" onerror="this.style.display='none'; window.handlePostImgLoaded();">` 
-            : '';
-
-        let quoteHTML = '';
-        if (post.quote) {
-            const targetId = post.quote.targetPostId || '';
-            const cleanSnippet = sanitizeHTML(stripMarkdown(post.quote.text || ''));
-            quoteHTML = `
-            <div class="msg-quote" onclick="event.stopPropagation(); window.scrollToChannelPost('${targetId}')">
-                 <div class="quote-author">SPIDY BOOK HUB</div>
-                 <div class="quote-text">${cleanSnippet}</div>
-            </div>`;
-        }
-
-        const reactionPillsHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
-
-        bubble.innerHTML = `
-            ${quoteHTML}
-            ${imageHTML}
-            <div class="msg-text">${parseMarkdown(post.text)}</div>
-            <div class="post-footer">
-                <div class="inline-reactions">${reactionPillsHTML}</div>
-                <div class="msg-meta">
-                    <i class="fas fa-eye"></i> ${formatViewsCount(post.views || 1)} &nbsp; ${formatTime(dateObj)}
-                </div>
-            </div>
-        `;
-
-        bubble.querySelectorAll('.reaction-pill').forEach(pill => {
-            pill.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                applyReaction(post.id, pill.dataset.emoji);
-            });
-        });
-
-        bubble.addEventListener('click', (e) => {
-            if (
-                e.target.tagName === 'A' || 
-                e.target.closest('.tg-copy-action-btn') || 
-                e.target.closest('.telegram-copy-btn') ||
-                e.target.closest('.reaction-pill') ||
-                e.target.closest('.tg-copy-card')
-            ) {
-                return;
-            }
-            if (!isUserLoggedIn || !auth.currentUser) {
-                triggerLoginModal();
-                return;
-            }
-            activePost = post;
-            if (contextOverlay) contextOverlay.classList.add('show');
-            if (navigator.vibrate) navigator.vibrate(20);
-        });
-
-        fragment.appendChild(bubble);
-        postViewObserver.observe(bubble);
+        fragment.appendChild(createSinglePostElement(post));
     });
 
+    chatBody.appendChild(fragment);
+
     const hasTargetPost = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
-
     if (isInitialOrPanelOpen && !hasTargetPost) {
-        chatBody.style.visibility = 'hidden';
-        chatBody.innerHTML = '';
-        chatBody.appendChild(fragment);
-
         requestAnimationFrame(() => {
             forceScrollChatToBottom();
-            requestAnimationFrame(() => {
-                forceScrollChatToBottom();
-                chatBody.style.visibility = 'visible';
-            });
         });
-    } else {
-        const prevScrollTop = chatBody.scrollTop;
-        chatBody.innerHTML = '';
-        chatBody.appendChild(fragment);
-        chatBody.style.visibility = 'visible';
-        if (!hasTargetPost) {
-            chatBody.scrollTop = prevScrollTop;
-        }
     }
 }
 
-window.handlePostImgLoaded = function() {
-    const notiPanel = document.getElementById('noti-panel');
-    if (notiPanel && notiPanel.classList.contains('active')) {
-        const hasTargetPost = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
-        if (!hasTargetPost) {
-            setTimeout(forceScrollChatToBottom, 50);
+// Reverse Scroll: Load older posts at the top without jumping scroll position
+function loadOlderChannelPosts() {
+    if (isLoadingOlderPosts || renderedPostsCount >= livePosts.length) return;
+    isLoadingOlderPosts = true;
+
+    const topLoader = document.getElementById('topHistoryLoader');
+    if (topLoader) topLoader.classList.add('active');
+
+    setTimeout(() => {
+        const total = livePosts.length;
+        const currentStartIndex = total - renderedPostsCount;
+        const newStartIndex = Math.max(0, currentStartIndex - CHANNEL_BATCH_SIZE);
+        const olderBatch = livePosts.slice(newStartIndex, currentStartIndex);
+
+        if (olderBatch.length === 0) {
+            if (topLoader) topLoader.classList.remove('active');
+            isLoadingOlderPosts = false;
+            return;
         }
-    }
-};
+
+        const prevScrollHeight = chatBody.scrollHeight;
+        const prevScrollTop = chatBody.scrollTop;
+
+        const fragment = document.createDocumentFragment();
+        let lastDateStr = '';
+
+        olderBatch.forEach(post => {
+            const dateObj = normalizeDate(post.createdAt);
+            const dateStr = formatDateDivider(dateObj);
+
+            if (dateStr !== lastDateStr) {
+                const divider = document.createElement('div');
+                divider.className = 'date-divider';
+                divider.innerText = dateStr;
+                fragment.appendChild(divider);
+                lastDateStr = dateStr;
+            }
+            fragment.appendChild(createSinglePostElement(post));
+        });
+
+        // Insert older batch right after the top loader
+        if (topLoader && topLoader.nextSibling) {
+            chatBody.insertBefore(fragment, topLoader.nextSibling);
+        } else {
+            chatBody.prepend(fragment);
+        }
+
+        renderedPostsCount += olderBatch.length;
+        if (topLoader) topLoader.classList.remove('active');
+
+        // Maintain exact scroll position so the user experiences zero jump
+        const heightDifference = chatBody.scrollHeight - prevScrollHeight;
+        chatBody.scrollTop = prevScrollTop + heightDifference;
+
+        isLoadingOlderPosts = false;
+    }, 250);
+}
 
 async function applyReaction(postId, newEmoji) {
     if (!isUserLoggedIn || !auth.currentUser) {
@@ -1172,7 +1233,6 @@ window.openSubjectModulesList = function(subjectKey) {
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
-// Distinct Module Opener
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
         triggerLoginModal();
@@ -1358,6 +1418,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
 }
 
 function closeDownloadPageLocal() {
+    clearActiveElementFocus();
     if (history.state && history.state.popup === 'book') { 
         history.back(); 
     } else { 
@@ -1416,14 +1477,16 @@ document.addEventListener("DOMContentLoaded", () => {
         applyMasterFilter(false);
     });
 
-    // 3. Header Buttons Event Listeners
+    // 3. Header Buttons Event Listeners (With clean focus clears)
     document.getElementById('open-search')?.addEventListener('click', () => { 
+        clearActiveElementFocus();
         history.pushState({ popup: 'search' }, ''); 
         document.getElementById('search-box')?.classList.add('active'); 
         setTimeout(() => { document.getElementById('app-search-input')?.focus(); }, 300); 
     });
 
     document.getElementById('open-noti')?.addEventListener('click', () => { 
+        clearActiveElementFocus();
         if (!isUserLoggedIn || !auth.currentUser) {
             triggerLoginModal();
             return;
@@ -1439,7 +1502,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const hasTarget = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
             renderChannelFeed(livePosts, !hasTarget);
             if (!hasTarget) {
-                setTimeout(forceScrollChatToBottom, 60);
+                setTimeout(forceScrollChatToBottom, 40);
             } else {
                 checkAndOpenTargetPost();
             }
@@ -1449,6 +1512,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById('close-noti-btn')?.addEventListener('click', () => {
+        clearActiveElementFocus();
         if (history.state && history.state.popup === 'noti') {
             history.back();
         } else {
@@ -1460,6 +1524,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById('open-upload-btn')?.addEventListener('click', () => {
+        clearActiveElementFocus();
         if (!isUserLoggedIn || !auth.currentUser) {
             triggerLoginModal();
             return;
@@ -1473,6 +1538,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById('closeUploadHubBtn')?.addEventListener('click', () => {
+        clearActiveElementFocus();
         if (history.state && history.state.popup === 'uploadModal') {
             history.back();
         } else {
@@ -1483,6 +1549,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 4. Support Modal Listeners & Vercel API Email Send
     document.getElementById('menu-contact')?.addEventListener('click', (e) => {
         e.preventDefault();
+        clearActiveElementFocus();
         document.getElementById('sidebar')?.classList.remove('active');
         document.getElementById('sidebar-overlay')?.classList.remove('active');
         
@@ -1502,6 +1569,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById('closeSupportBtn')?.addEventListener('click', () => {
+        clearActiveElementFocus();
         if (history.state && history.state.popup === 'support') {
             history.back();
         } else {
@@ -1510,15 +1578,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById('openIssueModalBtn')?.addEventListener('click', () => {
+        clearActiveElementFocus();
         document.getElementById('issueModal')?.classList.add('active');
     });
 
     document.getElementById('closeIssueModalBtn')?.addEventListener('click', () => {
+        clearActiveElementFocus();
         document.getElementById('issueModal')?.classList.remove('active');
     });
 
     document.getElementById('issueModal')?.addEventListener('click', (e) => {
         if (e.target === document.getElementById('issueModal')) {
+            clearActiveElementFocus();
             document.getElementById('issueModal').classList.remove('active');
         }
     });
@@ -1536,6 +1607,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (subDisplay) subDisplay.innerText = selectedValue;
             
             setTimeout(() => {
+                clearActiveElementFocus();
                 document.getElementById('issueModal')?.classList.remove('active');
             }, 150);
         });
@@ -1600,6 +1672,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (btnText) btnText.innerText = originalText;
                     if (btnIcon) btnIcon.innerHTML = originalIcon;
                     
+                    clearActiveElementFocus();
                     if (history.state && history.state.popup === 'support') {
                         history.back();
                     } else {
@@ -1621,6 +1694,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('reportLinkBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        clearActiveElementFocus();
         const reportModal = document.getElementById('reportModalOverlay');
         if (reportModal) {
             reportModal.classList.add('active');
@@ -1628,11 +1702,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById('closeReportBtn')?.addEventListener('click', () => {
+        clearActiveElementFocus();
         document.getElementById('reportModalOverlay')?.classList.remove('active');
     });
 
     document.getElementById('reportModalOverlay')?.addEventListener('click', (e) => {
         if (e.target === document.getElementById('reportModalOverlay')) {
+            clearActiveElementFocus();
             document.getElementById('reportModalOverlay').classList.remove('active');
         }
     });
@@ -1667,6 +1743,7 @@ document.addEventListener("DOMContentLoaded", () => {
             submitReportBtn.style.background = '#10b981';
             
             setTimeout(() => {
+                clearActiveElementFocus();
                 document.getElementById('reportModalOverlay')?.classList.remove('active');
                 setTimeout(() => {
                     submitReportBtn.innerHTML = 'Submit Report';
@@ -1729,6 +1806,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const sidebar = document.getElementById('sidebar'); 
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     document.getElementById('open-menu')?.addEventListener('click', () => { 
+        clearActiveElementFocus();
         history.pushState({ popup: 'sidebar' }, ''); 
         sidebar?.classList.add('active'); 
         sidebarOverlay?.classList.add('active'); 
@@ -1737,6 +1815,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('menu-home-side')?.addEventListener('click', (e) => {
         e.preventDefault();
+        clearActiveElementFocus();
         sidebar?.classList.remove('active');
         sidebarOverlay?.classList.remove('active');
         document.getElementById('mainContentArea')?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1744,6 +1823,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => { 
         e.preventDefault(); 
+        clearActiveElementFocus();
         history.pushState({ popup: 'bookmarks' }, ''); 
         document.getElementById('bookmarks-panel')?.classList.add('active'); 
         sidebar?.classList.remove('active'); 
@@ -1752,9 +1832,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // 10. Native Mobile Step-by-Step Back Navigation (Double-Back Bug Resolved)
+    // 10. Native Mobile Step-by-Step Back Navigation (No double-back jump)
     window.addEventListener('popstate', (e) => {
-        // Go-To-Page sub modal inside PDF viewer
+        clearActiveElementFocus();
+
         const goToPageModal = document.getElementById('goToPageModal');
         if (goToPageModal && goToPageModal.style.display === 'flex') {
             goToPageModal.style.display = 'none';
@@ -1780,7 +1861,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const scroller = document.getElementById('pdfScrollContainer');
             if (scroller) scroller.innerHTML = '';
             cleanupPdfResources();
-            return; // Stops here, preserving Module List or Download page
+            return; 
         }
 
         const reportModal = document.getElementById('reportModalOverlay');
@@ -1884,6 +1965,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('moduleBackBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        clearActiveElementFocus();
         const modulesView = document.getElementById('bannerModulesView');
         if (modulesView && !modulesView.classList.contains('hidden-view')) {
             if (history.state && history.state.popup === 'moduleList') {
@@ -1903,10 +1985,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 12. Close PDF Viewer Button (Clean Single-Step Navigation)
+    // 12. Close PDF Viewer Button
     document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        clearActiveElementFocus();
         if (history.state && history.state.popup === 'pdfViewer') {
             history.back();
         } else {
@@ -1967,7 +2050,6 @@ onAuthStateChanged(auth, async (user) => {
     isAppReady.auth = true; 
     tryTransition();
 
-    // Prevent duplicate listener attachments on auth state toggle
     if (hasRealtimeListenersBound) return;
     hasRealtimeListenersBound = true;
 
@@ -1982,7 +2064,7 @@ onAuthStateChanged(auth, async (user) => {
         renderDynamicBanners(dynamicBannersList);
     });
 
-    // Realtime Prompts Loader (DocumentFragment Layout Batching)
+    // Realtime Prompts Loader
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if (!container) return;
@@ -2018,7 +2100,7 @@ onAuthStateChanged(auth, async (user) => {
         container.innerHTML = aggregatedHTML;
     });
 
-    // Realtime Channel Posts Listener
+    // Realtime Channel Posts Listener (WhatsApp Pre-load & Sync)
     renderChannelLoader();
     const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
     onSnapshot(channelQuery, (snapshot) => {
