@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
     <!-- Primary Meta Tags -->
-    <title>SPIDY BOOK HUB</title>
+    <title>Spidy Book Hub</title>
     <meta name="title" content="SPIDY BOOK HUB — ALL EXAM BOOKS • 100% FREE 📚">
     <meta name="description" content="SSC • Railway • Banking • NEET • JEE & More One Hub. Every Exam. Free Study Material. 🚀">
     <meta name="theme-color" content="#000000">
@@ -17,11 +17,11 @@
     <meta property="og:description" content="SSC • Railway • Banking • NEET • JEE & More One Hub. Every Exam. Free Study Material. 🚀">
     <meta property="og:image" content="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png">
 
-    <!-- Fonts & Icons -->
+    <!-- Fonts & Icons (Added Norican Font) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Playfair+Display:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;600;700&family=Merriweather:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Norican&family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Playfair+Display:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;600;700&family=Merriweather:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
     
     <!-- DOMPurify for Security -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
@@ -170,7 +170,7 @@
         </defs>
     </svg>
 
-    <!-- Loader Screen with Original Grey Border & Pure White Inner Background -->
+    <!-- Loader Screen -->
     <div class="loader-screen" id="loaderScreen" style="display: flex; opacity: 1;">
         <div class="loader-logo">
             <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
@@ -421,7 +421,7 @@
         </div>
 
         <div class="app-container">
-            <!-- Persistent Header -->
+            <!-- Persistent Header (Updated to Spidy Book Hub Chrome Text Style) -->
             <header id="main-header" class="modern-glow-header">
                 <div class="header-left">
                     <div class="icon-box modern-menu-box" id="open-menu" title="Menu" style="cursor: pointer;">
@@ -431,7 +431,7 @@
                             <rect x="0" y="12.4" width="10" height="2.6" rx="1.3" fill="#FFFFFF"/>
                         </svg>
                     </div>
-                    <span class="header-title" id="dynamic-header-title">SPIDY BOOK HUB</span>
+                    <span class="header-title spidy-title-chrome" id="dynamic-header-title">Spidy Book Hub</span>
                 </div>
                 <div class="header-icons" id="dynamic-header-icons">
                     <div class="icon-box" id="open-upload-btn" title="Upload Book"><i class="fa-solid fa-arrow-up-from-bracket"></i></div>
@@ -521,11 +521,12 @@
 
                     <div class="book-container" id="bookContainer"></div>
 
+                    <!-- Book Not Found Card (Clean Text for Sans-Serif & Serif Bold) -->
                     <div id="no-results-msg" style="display: none; padding-bottom: 20px;">
                         <div class="no-results-card">
                             <div class="no-results-icon"><i class="fas fa-book-open"></i></div>
                             <h2 class="no-results-title">BOOK NOT FOUND</h2>
-                            <p class="no-results-desc">𝐒𝐨𝐫𝐫𝐲, 𝐰𝐞 𝐜𝐨𝐮𝐥𝐝𝐧'𝐭 𝐟𝐢𝐧𝐝 𝐚𝐧𝐲 𝐛𝐨𝐨𝐤 𝐦𝐚𝐭𝐜𝐡𝐢𝐧𝐠 𝐲𝐨𝐮𝐫 𝐬𝐞𝐚𝐫𝐜𝐡.</p>
+                            <p class="no-results-desc">Sorry, we couldn't find any book matching your search.</p>
                             <div class="no-results-badge">❁ POWERED BY : PRINCE YADAV ❁</div>
                         </div>
                     </div>
@@ -548,7 +549,7 @@
                     <div class="back-icon-box" id="closeUploadHubBtn" title="Back">
                         <i class="fas fa-chevron-left"></i>
                     </div>
-                    <div class="header-title-centered">UPLOAD BOOKS</div>
+                    <div class="header-title-centered spidy-title-chrome">Upload Books</div>
                     <div class="header-right-logo">
                         <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
                             <use href="#spidy-3d-spider-symbol"></use>
@@ -703,7 +704,7 @@
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
                         <button class="back-btn back-chevron-btn" id="moduleBackBtn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
-                        <h1 class="modal-title" id="moduleHeaderTitle">MODULE PACK</h1>
+                        <h1 class="modal-title spidy-title-chrome" id="moduleHeaderTitle">Module Pack</h1>
                     </div>
                     <div class="header-right-logo">
                         <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
@@ -867,7 +868,7 @@
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
                         <button class="back-btn back-chevron-btn" id="closeDlBtn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
-                        <h1 class="modal-title">SPIDY BOOK HUB</h1>
+                        <h1 class="modal-title spidy-title-chrome">Spidy Book Hub</h1>
                     </div>
                     <div class="header-right-logo">
                         <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
@@ -970,7 +971,7 @@
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
                         <button class="back-btn back-chevron-btn" id="close-bookmarks-btn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
-                        <h1 class="modal-title">SAVED BOOKS</h1>
+                        <h1 class="modal-title spidy-title-chrome">Saved Books</h1>
                     </div>
                     <div class="header-right-logo">
                         <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
@@ -1198,7 +1199,7 @@
                         <button class="back-btn back-chevron-btn" id="closeSupportBtn" title="Back" type="button">
                             <i class="fas fa-chevron-left"></i>
                         </button>
-                        <h1 class="modal-title">SUPPORT &amp; HELP</h1>
+                        <h1 class="modal-title spidy-title-chrome">Support &amp; Help</h1>
                     </div>
                     <div class="header-right-logo">
                         <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
@@ -1502,12 +1503,12 @@
       </div>
     </div>
     
-    <!-- Custom Logout Modal -->
+    <!-- Custom Logout Modal (Clean Text for Sans-Serif & Serif Bold) -->
     <div class="custom-logout-overlay" id="customLogoutOverlay">
         <div class="custom-logout-card">
             <div class="logout-icon-wrapper"><i class="fas fa-sign-out-alt"></i></div>
             <h3 class="logout-title">Sign Out?</h3>
-            <p class="logout-desc">𝐀𝐫𝐞 𝐲𝐨𝐮 𝐬𝐮𝐫𝐞 𝐲𝐨𝐮 𝐰𝐚𝐧𝐭 𝐭𝐨 𝐥𝐨𝐠 𝐨𝐮𝐭 𝐨𝐟 𝐲𝐨𝐮𝐫 𝐚𝐜𝐜𝐨𝐮𝐧𝐭..?</p>
+            <p class="logout-desc">Are you sure you want to log out of your account..?</p>
             <div class="logout-actions">
                 <button class="btn-cancel-logout" id="cancelLogoutBtn" type="button">Cancel</button>
                 <button class="btn-confirm-logout" id="confirmLogoutBtn" type="button">Yes, Log Out</button>
