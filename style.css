@@ -299,7 +299,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .modal-header-fixed .back-btn { width: 40px; height: 40px; border-radius: 50%; background-color: transparent; border: 1px solid rgba(255, 255, 255, 0.18); color: #ffffff; font-size: 16px; display: flex; justify-content: center; align-items: center; cursor: pointer; flex-shrink: 0; outline: none; transition: 0.2s ease; }
 .modal-header-fixed .back-btn:active { transform: scale(0.95); background-color: rgba(255, 255, 255, 0.1); }
 
-/* MODULE HEADER RESTORED: SIMPLE BOLD UPPERCASE SANS-SERIF */
+/* DEFAULT MODAL TITLE (SIMPLE BOLD UPPERCASE SANS-SERIF: FOR MODULE, SUPPORT & SAVED BOOKS) */
 .modal-header-fixed .modal-title { position: absolute; left: 50%; transform: translateX(-50%); font-family: 'Poppins', 'Inter', sans-serif !important; font-size: 17px !important; font-weight: 800 !important; color: #ffffff !important; text-transform: uppercase !important; letter-spacing: 0.5px !important; margin: 0; white-space: nowrap; filter: none !important; -webkit-text-fill-color: #ffffff !important; background: none !important; }
 .header-content-wrapper { display: flex; align-items: center; gap: 15px; flex-grow: 1; }
 
@@ -481,7 +481,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .loader-progress-text { width: 290px; display: flex; justify-content: space-between; margin-top: 10px; z-index: 5; font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; color: #a1a1aa; letter-spacing: 0.3px; }
 .loader-powered-text { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); color: #ffffff; font-size: 10.5px; font-weight: 900; letter-spacing: 1.5px; font-family: 'Poppins', sans-serif; text-transform: uppercase; z-index: 10; white-space: nowrap; }
 
-/* 22. COMMUNITY POPUP (RED SHIMMER WAVE GLOW FIXED) */
+/* 22. COMMUNITY POPUP */
 .community-popup-overlay { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-height: 100dvh !important; background: rgba(0, 0, 0, 0.82) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; display: none !important; align-items: center !important; justify-content: center !important; padding: 16px !important; box-sizing: border-box !important; z-index: 99999999 !important; opacity: 0; transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 .community-popup-overlay.active { display: flex !important; opacity: 1 !important; }
 .community-popup-wrapper { position: relative; width: 100%; max-width: 380px; margin: auto; display: flex; justify-content: center; align-items: center; }
@@ -696,8 +696,10 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .filter-item.type-year:hover .label-icon, .filter-item.type-year:hover .filter-label { stroke: #f59e0b; color: #fbbf24; }
 .filter-item.type-year .filter-select-box.has-val { border-color: rgba(245, 158, 11, 0.6); }
 .filter-item.type-year .filter-select-box.has-val span { color: #fbbf24; }
+
+/* 4 Main Filter Display Boxes: Value Selected Fonts Set to Serif Bold */
 .filter-select-box { background: #141720; border: 1.5px solid #202432; border-radius: 14px; padding: 13px 13px; display: flex; align-items: center; justify-content: space-between; color: #ffffff; transition: all 0.2s ease; min-width: 0; width: 100%; }
-.filter-select-box span { font-family: 'Poppins', sans-serif; font-size: 13.5px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 6px; flex-grow: 1; }
+.filter-select-box span { font-family: 'Playfair Display', 'Merriweather', Georgia, serif !important; font-size: 13.5px; font-weight: 700 !important; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 6px; flex-grow: 1; letter-spacing: 0.2px; }
 .arrow-icon { width: 16px; height: 16px; stroke: #737887; stroke-width: 2.2; fill: none; flex-shrink: 0; }
 .center-modal-card { width: 100%; max-width: 365px; background: #111317; border: 1px solid #1f232b; border-radius: 24px; box-shadow: 0 35px 80px rgba(0, 0, 0, 0.95); transform: scale(0.93) translateY(8px); transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; max-height: 94vh !important; overflow: hidden; cursor: default; }
 .modal-overlay.active .center-modal-card { transform: scale(1) translateY(0); }
@@ -746,7 +748,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .btn-cancel-logout { flex: 1; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; }
 .btn-confirm-logout { flex: 1; background: #ef4444; color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; }
 
-/* 30. SUPPORT & CONTACT MODAL */
+/* 30. SUPPORT & CONTACT MODAL (FORM PLACEHOLDERS & INPUTS PROPERLY BALANCED) */
 .support-modal-fullscreen { position: fixed; top: 0; left: 0; right: 0; width: 100%; height: 100%; min-height: 100dvh; background-color: #030305 !important; background-image: radial-gradient(at 50% 0%, rgba(255, 255, 255, 0.08) 0px, transparent 60%), radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px); background-size: 100% 100%, 28px 28px; z-index: 100000; display: flex; flex-direction: column; overflow: hidden; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .support-modal-fullscreen.active { transform: translateX(0); }
 .support-header-fixed { background: transparent !important; backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important; border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: none !important; }
@@ -760,8 +762,8 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 .contact-card .input-group { margin-bottom: 12px; position: relative; }
 .contact-card .input-group label { display: block; font-size: 12px !important; color: #ffffff !important; margin-bottom: 6px; font-weight: 800 !important; font-family: 'Poppins', 'Inter', sans-serif !important; letter-spacing: 0.3px; padding-left: 2px; }
-.contact-card input, .contact-card textarea, .contact-card .custom-select-trigger { width: 100%; padding: 12px 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; color: #ffffff; font-weight: 500 !important; font-size: 13.5px; outline: none; box-sizing: border-box; }
-.contact-card input::placeholder, .contact-card textarea::placeholder { color: #71717a; font-weight: 500 !important; }
+.contact-card input, .contact-card textarea, .contact-card .custom-select-trigger { width: 100%; padding: 12px 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; color: #ffffff; font-weight: 600 !important; font-size: 13.5px; outline: none; box-sizing: border-box; }
+.contact-card input::placeholder, .contact-card textarea::placeholder { color: #828b98 !important; font-weight: 600 !important; opacity: 0.85; }
 .support-input-icon-wrap { position: relative; width: 100%; display: flex; align-items: center; }
 .support-input-icon-wrap .sup-field-icon { position: absolute; left: 14px; font-size: 15px; color: #cbd5e1; pointer-events: none; z-index: 2; }
 .support-input-icon-wrap .input-with-icon { padding-left: 42px !important; }
