@@ -777,7 +777,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .submit-btn svg#supBtnIcon { width: 17px !important; height: 17px !important; margin-top: 1px !important; display: inline-block !important; flex-shrink: 0 !important; }
 .submit-btn.btn-success-active { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; border-color: rgba(52, 211, 153, 0.8) !important; color: #ffffff !important; box-shadow: 0 0 25px rgba(16, 185, 129, 0.55), inset 0 0 10px rgba(255, 255, 255, 0.3) !important; transform: scale(1.02); }
 .submit-btn.btn-success-active svg { stroke: #ffffff !important; filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6)); }
-.encryption-note { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 14px; font-size: 11px !important; color: #cbd5e1 !important; font-weight: 600 !important; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; width: 100%; box-sizing: border-box; letter-spacing: 0.1px; }
+.encryption-note { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 14px; font-size: 11px !important; color: #cbd5e1 !important; font-weight: 700 !important; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; width: 100%; box-sizing: border-box; letter-spacing: 0.1px; }
 .encryption-note svg { width: 12px; height: 12px; fill: #cbd5e1; flex-shrink: 0; }
 .encryption-note .green-text { color: #25D366; font-weight: 600; }
 
