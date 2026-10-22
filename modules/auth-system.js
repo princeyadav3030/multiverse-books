@@ -10,9 +10,8 @@ import { showToast, generateDeviceFingerprint } from "./helpers.js";
 // ==========================================
 // CONFIGURATION
 // ==========================================
-// Yahan apna Cloudflare Worker ka exact URL lagayein (bina aakhri slash ke)
+// Aapka active Cloudflare Worker URL
 const TOKEN_WORKER_URL = "https://auth.spidybookhub.workers.dev";
-const SHORTLINK_BASE_URL = "https://arolinks.com/r0Be";
 
 // ==========================================
 // LOGIN MODAL CONTROLS
@@ -254,7 +253,7 @@ export function initAuthSystem(onLoginSuccessCallback) {
         closeTokenBtn.addEventListener('touchstart', handleFastTokenClose, { passive: false });
     }
 
-    // 7. Get Key Link Generation (Connected to Cloudflare Worker Session)
+    // 7. Get Key Link Generation (Connected to Cloudflare Worker Auto-Short Engine)
     getKeyBtn?.addEventListener('click', async () => {
         const originalContent = getKeyBtn.innerHTML;
         getKeyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Securing Link...';
@@ -263,25 +262,22 @@ export function initAuthSystem(onLoginSuccessCallback) {
         try {
             const currentFp = generateDeviceFingerprint(auth.currentUser?.uid);
             
-            // Worker se encrypted session token fetch karein
+            // Worker se direct unique Arolinks shortlink mangwayein
             const sessionRes = await fetch(`${TOKEN_WORKER_URL}/create-session?fp=${encodeURIComponent(currentFp)}`);
             const sessionData = await sessionRes.json();
 
-            if (!sessionRes.ok || !sessionData.success || !sessionData.sessionToken) {
-                throw new Error("Failed to initialize session");
+            if (!sessionRes.ok || !sessionData.success || !sessionData.shortUrl) {
+                throw new Error(sessionData.error || "Failed to initialize secured link");
             }
 
-            // Landing URL jo Arolinks shortlink ke baad khulega
-            const destinationUrl = `${TOKEN_WORKER_URL}/generate?session=${encodeURIComponent(sessionData.sessionToken)}&fp=${encodeURIComponent(currentFp)}`;
-            const finalRedirect = encodeURIComponent(destinationUrl);
-
-            // Arolinks redirect
-            window.location.href = `${SHORTLINK_BASE_URL}?url=${finalRedirect}`;
+            // Direct auto-generated short link par user ko bhejein
+            window.location.href = sessionData.shortUrl;
 
         } catch (e) {
             console.error("Key generation error:", e);
-            // Fallback direct link
-            window.location.href = SHORTLINK_BASE_URL;
+            showToast("Failed to connect to gateway. Retrying...", "error");
+            // Fallback link
+            window.location.href = "https://arolinks.com/r0Be";
         } finally {
             setTimeout(() => {
                 getKeyBtn.innerHTML = originalContent;
@@ -290,13 +286,13 @@ export function initAuthSystem(onLoginSuccessCallback) {
         }
     });
 
-    // 8. Token Verification
+    // 8. Token Verification (Worker Signed Keys + Super Admin Multi-Slots)
     verifyBtn?.addEventListener('click', async () => {
         const tokenValue = tokenInput ? tokenInput.value.trim() : "";
 
         inputBox?.classList.remove('error-state', 'success-state', 'filled-state');
         
-        if (tokenValue.length < 15 || !tokenValue.startsWith('SPIDY-')) {
+        if (tokenValue.length < 10) {
             inputBox?.classList.add('error-state');
             showToast('Invalid token format', 'error');
             setTimeout(() => {
@@ -308,19 +304,25 @@ export function initAuthSystem(onLoginSuccessCallback) {
 
         verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
         const currentFingerprint = generateDeviceFingerprint(auth.currentUser?.uid);
+        const currentUid = auth.currentUser ? auth.currentUser.uid : null;
 
         try {
             const response = await fetch('/api/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: tokenValue, fingerprint: currentFingerprint })
+                body: JSON.stringify({ 
+                    token: tokenValue, 
+                    fingerprint: currentFingerprint,
+                    userUid: currentUid
+                })
             });
             const data = await response.json();
 
             if (response.ok && data.success) {
                 inputBox?.classList.add('success-state');
-                showToast(data.message || 'Access Granted! 10 Days.', 'success');
+                showToast(data.message || 'Access Granted!', 'success');
                 
+                // Active session store karein
                 localStorage.setItem('spidy_secure_session', JSON.stringify({
                     token: tokenValue,
                     fp: currentFingerprint,
