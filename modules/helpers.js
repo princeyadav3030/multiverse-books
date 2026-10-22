@@ -15,30 +15,40 @@ export function getSecureAssetUrl(fileKeyOrUrl) {
     const rawStr = fileKeyOrUrl.toString().trim();
     if (!rawStr) return DEFAULT_BOOK_COVER;
 
-    // Handle full external URLs
+    const baseWorker = WORKER_PROXY_URL.replace(/\/+$/, "");
+
+    // 1. Agar full HTTP/HTTPS URL hai
     if (rawStr.startsWith("http://") || rawStr.startsWith("https://")) {
-        // Direct worker proxy URL
-        if (rawStr.includes("spidy-proxy.spidybookhub.workers.dev")) {
-            return rawStr;
-        }
-        // Cloudflare R2 bucket endpoint conversion
-        if (rawStr.includes(".r2.cloudflarestorage.com")) {
-            try {
-                const parsed = new URL(rawStr);
+        try {
+            const parsed = new URL(rawStr);
+
+            // Agar koi bhi workers.dev URL hai (chahe purana ho ya naya)
+            if (parsed.hostname.endsWith(".workers.dev")) {
                 const pathKey = parsed.pathname.replace(/^\/+/, '');
-                return `${WORKER_PROXY_URL}/${pathKey}`;
-            } catch (e) {
-                return rawStr;
+                const cleanKey = pathKey.replace(/^stream\/?/, '').replace(/^upload\/?/, '');
+                return cleanKey ? `${baseWorker}/${cleanKey}` : DEFAULT_BOOK_COVER;
             }
+
+            // Agar Cloudflare R2 bucket endpoint direct save hua ho
+            if (parsed.hostname.includes(".r2.cloudflarestorage.com")) {
+                const pathKey = parsed.pathname.replace(/^\/+/, '');
+                return pathKey ? `${baseWorker}/${pathKey}` : DEFAULT_BOOK_COVER;
+            }
+
+            // External third-party hosted image (jaise postimg.cc, etc.)
+            return rawStr;
+        } catch (e) {
+            // URL parse fail hone par string clean karke worker ke saath jod dein
+            const cleanKey = rawStr.replace(/^https?:\/\/[^/]+\/+/, '').replace(/^\/+/, '');
+            return cleanKey ? `${baseWorker}/${cleanKey}` : DEFAULT_BOOK_COVER;
         }
-        return rawStr;
     }
 
-    // Clean internal relative storage key
+    // 2. Relative storage key (e.g., "covers/123_test.jpg")
     const cleanKey = rawStr.replace(/^\/+/, '');
     if (!cleanKey) return DEFAULT_BOOK_COVER;
     
-    return `${WORKER_PROXY_URL}/${cleanKey}`;
+    return `${baseWorker}/${cleanKey}`;
 }
 
 export function generateCleanSlug(titleStr, fallbackId = "") {
