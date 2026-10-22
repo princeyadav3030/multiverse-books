@@ -11,8 +11,8 @@ import { showToast, generateDeviceFingerprint } from "./helpers.js";
 // CONFIGURATION
 // ==========================================
 // Yahan apna Cloudflare Worker ka exact URL lagayein (bina aakhri slash ke)
-const TOKEN_WORKER_URL = "https://token-gen.spidybookhub.workers.dev";
-const SHORTLINK_BASE_URL = "https://arolinks.com/6RTf5";
+const TOKEN_WORKER_URL = "https://auth.spidybookhub.workers.dev";
+const SHORTLINK_BASE_URL = "https://arolinks.com/r0Be";
 
 // ==========================================
 // LOGIN MODAL CONTROLS
