@@ -5,7 +5,7 @@ import { Timestamp } from "./firebase-config.js";
 // ==========================================
 // CONSTANTS & ASSET HELPERS
 // ==========================================
-export const WORKER_PROXY_URL = "https://spidy-proxy.spidybookhub-backend.workers.dev";
+export const WORKER_PROXY_URL = "https://spidy-proxy.spidybookhub.workers.dev";
 export const DEFAULT_AVATAR = "https://i.postimg.cc/D0BF1b77/file-00000000e847207a64f6711d825a859.png";
 export const DEFAULT_BOOK_COVER = "https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png";
 
@@ -18,7 +18,7 @@ export function getSecureAssetUrl(fileKeyOrUrl) {
     // Handle full external URLs
     if (rawStr.startsWith("http://") || rawStr.startsWith("https://")) {
         // Direct worker proxy URL
-        if (rawStr.includes("spidy-proxy.spidybookhub-backend.workers.dev")) {
+        if (rawStr.includes("spidy-proxy.spidybookhub.workers.dev")) {
             return rawStr;
         }
         // Cloudflare R2 bucket endpoint conversion
