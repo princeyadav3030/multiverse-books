@@ -112,15 +112,20 @@ module.exports = async function handler(req, res) {
       return res.status(404).json({ success: false, error: 'PDF file link missing!' });
     }
 
-    // Sanitize Key Path
-    let cleanKey = String(fileKey).trim().replace(/^\/+/, '');
+    // Sanitize Key Path (Purana domain ya full URL strip karna)
+    let cleanKey = String(fileKey).trim();
 
     if (cleanKey.startsWith('http://') || cleanKey.startsWith('https://')) {
       try {
         const parsedUrl = new URL(cleanKey);
         cleanKey = parsedUrl.pathname.replace(/^\/+/, '');
-      } catch (e) {}
+        cleanKey = cleanKey.replace(/^stream\/?/, '').replace(/^upload\/?/, '');
+      } catch (e) {
+        cleanKey = cleanKey.replace(/^https?:\/\/[^/]+\/+/, '');
+      }
     }
+
+    cleanKey = cleanKey.replace(/^\/+/, '');
 
     // Isolate Folder Hierarchies strictly
     const isModule = docType === 'module' || cleanKey.includes('module_pdfs') || (!bookId && pdfKey);
@@ -193,8 +198,8 @@ module.exports = async function handler(req, res) {
       }, { merge: true });
     }
 
-    // 6. Secure URL Generation
-    const workerBaseUrl = (process.env.WORKER_URL || "https://spidy-proxy.spidybookhub-backend.workers.dev").replace(/\/+$/, "");
+    // 6. Secure URL Generation (Updated to new active worker)
+    const workerBaseUrl = (process.env.WORKER_URL || "https://spidy-proxy.spidybookhub.workers.dev").replace(/\/+$/, "");
     const secureWorkerUrl = `${workerBaseUrl}/${cleanKey}`;
 
     let remainingCredits = isSuperAdmin ? 9999 : Math.max(0, 20 - uniqueAccessedSlugs.size);
