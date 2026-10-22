@@ -1,11 +1,18 @@
 // File: modules/auth-system.js
 
 import { 
-    auth, provider, db, doc, getDoc, setDoc, 
+    auth, provider, db, doc, getDoc, 
     signInWithEmailAndPassword, sendPasswordResetEmail, 
     signInWithPopup, signOut, syncUserProfileToFirestore 
 } from "./firebase-config.js";
 import { showToast, generateDeviceFingerprint } from "./helpers.js";
+
+// ==========================================
+// CONFIGURATION
+// ==========================================
+// Yahan apna Cloudflare Worker ka exact URL lagayein (bina aakhri slash ke)
+const TOKEN_WORKER_URL = "https://token-gen.spidybookhub.workers.dev";
+const SHORTLINK_BASE_URL = "https://arolinks.com/6RTf5";
 
 // ==========================================
 // LOGIN MODAL CONTROLS
@@ -247,42 +254,34 @@ export function initAuthSystem(onLoginSuccessCallback) {
         closeTokenBtn.addEventListener('touchstart', handleFastTokenClose, { passive: false });
     }
 
-    // 7. Get Key Link Generation
+    // 7. Get Key Link Generation (Connected to Cloudflare Worker Session)
     getKeyBtn?.addEventListener('click', async () => {
         const originalContent = getKeyBtn.innerHTML;
         getKeyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Securing Link...';
         getKeyBtn.style.pointerEvents = 'none';
 
         try {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            let rawCode = 'SPIDY-';
-            for (let i = 0; i < 16; i++) {
-                rawCode += chars.charAt(Math.floor(Math.random() * chars.length));
+            const currentFp = generateDeviceFingerprint(auth.currentUser?.uid);
+            
+            // Worker se encrypted session token fetch karein
+            const sessionRes = await fetch(`${TOKEN_WORKER_URL}/create-session?fp=${encodeURIComponent(currentFp)}`);
+            const sessionData = await sessionRes.json();
+
+            if (!sessionRes.ok || !sessionData.success || !sessionData.sessionToken) {
+                throw new Error("Failed to initialize session");
             }
 
-            const now = Date.now();
-            const expiresAt = now + (10 * 24 * 60 * 60 * 1000);
-            
-            await setDoc(doc(db, "tokens", rawCode), {
-                token: rawCode,
-                used: false,
-                createdAt: now,
-                expiresAt: expiresAt,
-                deviceBound: null,
-                isActivated: true,
-                source: 'shortlink_generated'
-            });
-
-            localStorage.setItem('spidy_pending_generated_key', rawCode);
-            localStorage.setItem('spidy_pending_key_time', now.toString());
-
-            const destinationUrl = `https://multiverse-books.vercel.app/api/generate?code=${encodeURIComponent(rawCode)}`;
+            // Landing URL jo Arolinks shortlink ke baad khulega
+            const destinationUrl = `${TOKEN_WORKER_URL}/generate?session=${encodeURIComponent(sessionData.sessionToken)}&fp=${encodeURIComponent(currentFp)}`;
             const finalRedirect = encodeURIComponent(destinationUrl);
 
-            window.location.href = `https://arolinks.com/6RTf5?url=${finalRedirect}`;
+            // Arolinks redirect
+            window.location.href = `${SHORTLINK_BASE_URL}?url=${finalRedirect}`;
 
         } catch (e) {
-            window.location.href = "https://arolinks.com/6RTf5";
+            console.error("Key generation error:", e);
+            // Fallback direct link
+            window.location.href = SHORTLINK_BASE_URL;
         } finally {
             setTimeout(() => {
                 getKeyBtn.innerHTML = originalContent;
@@ -297,7 +296,7 @@ export function initAuthSystem(onLoginSuccessCallback) {
 
         inputBox?.classList.remove('error-state', 'success-state', 'filled-state');
         
-        if (tokenValue.length < 5) {
+        if (tokenValue.length < 15 || !tokenValue.startsWith('SPIDY-')) {
             inputBox?.classList.add('error-state');
             showToast('Invalid token format', 'error');
             setTimeout(() => {
@@ -320,15 +319,12 @@ export function initAuthSystem(onLoginSuccessCallback) {
 
             if (response.ok && data.success) {
                 inputBox?.classList.add('success-state');
-                showToast('Access Granted! 10 Days.', 'success');
+                showToast(data.message || 'Access Granted! 10 Days.', 'success');
                 
-                localStorage.removeItem('spidy_pending_generated_key');
-                localStorage.removeItem('spidy_pending_key_time');
-
                 localStorage.setItem('spidy_secure_session', JSON.stringify({
                     token: tokenValue,
                     fp: currentFingerprint,
-                    expiry: Date.now() + (10 * 24 * 60 * 60 * 1000)
+                    expiry: data.expiresAt || (Date.now() + (10 * 24 * 60 * 60 * 1000))
                 }));
 
                 setTimeout(() => {
@@ -340,7 +336,7 @@ export function initAuthSystem(onLoginSuccessCallback) {
                 }, 1000);
             } else {
                 inputBox?.classList.add('error-state');
-                showToast('Token expired or invalid', 'error');
+                showToast(data.error || 'Token expired or invalid', 'error');
                 verifyBtn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
                 setTimeout(() => {
                     inputBox?.classList.remove('error-state');
