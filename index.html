@@ -17,11 +17,11 @@
     <meta property="og:description" content="SSC • Railway • Banking • NEET • JEE & More One Hub. Every Exam. Free Study Material. 🚀">
     <meta property="og:image" content="https://i.postimg.cc/zBRdPBRy/file-000000002a4c81fb9aaf77416ad909c7.png">
 
-    <!-- Fonts & Icons (Added Norican & Playfair Display Italic 600 for proper 'k') -->
+    <!-- Fonts & Icons (Added Norican Font) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Norican&family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,600;1,700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;600;700&family=Merriweather:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Norican&family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700&family=Playfair+Display:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;0,900;1,500&family=JetBrains+Mono:wght@400;500;600;700&family=Merriweather:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
     
     <!-- DOMPurify for Security -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
@@ -37,24 +37,6 @@
 
     <!-- Main External CSS File -->
     <link rel="stylesheet" href="./style.css">
-
-    <!-- Inline Style Guarantee for Proper 'k' & Login Brand Title -->
-    <style>
-        .proper-k {
-            font-family: 'Playfair Display', serif !important;
-            font-style: italic !important;
-            font-weight: 600 !important;
-            font-size: 0.92em !important;
-            margin-left: -1px !important;
-            display: inline !important;
-        }
-        .login-container .brand-title.spidy-title-chrome {
-            font-size: 32px !important;
-            text-transform: none !important;
-            letter-spacing: 0.4px !important;
-            display: inline-block !important;
-        }
-    </style>
 </head>
 <body>
 
@@ -238,7 +220,7 @@
         <div class="loader-powered-text">POWERED BY SPIDYUNIVERSE</div>
     </div>
 
-    <!-- LOGIN OVERLAY (Updated with Spidy Book Hub Chrome Cursive & Proper 'k') -->
+    <!-- LOGIN OVERLAY -->
     <div id="loginOverlay" class="login-container" style="display: none; opacity: 0;">
         <header class="top-curved-header">
             <div class="logo-frame">
@@ -250,7 +232,10 @@
                 </div>
             </div>
 
-            <h1 class="brand-title spidy-title-chrome">Spidy Boo<span class="proper-k">k</span> Hub</h1>
+            <h1 class="brand-title">
+                <span class="brand-spidy">SPIDY BOOK</span> 
+                <span class="brand-hub">HUB</span>
+            </h1>
         </header>
 
         <main class="form-wrapper">
@@ -436,7 +421,7 @@
         </div>
 
         <div class="app-container">
-            <!-- Persistent Header (Updated to Spidy Book Hub Chrome Text Style with Proper 'k') -->
+            <!-- Persistent Header (Updated to Spidy Book Hub Chrome Text Style) -->
             <header id="main-header" class="modern-glow-header">
                 <div class="header-left">
                     <div class="icon-box modern-menu-box" id="open-menu" title="Menu" style="cursor: pointer;">
@@ -446,7 +431,7 @@
                             <rect x="0" y="12.4" width="10" height="2.6" rx="1.3" fill="#FFFFFF"/>
                         </svg>
                     </div>
-                    <span class="header-title spidy-title-chrome" id="dynamic-header-title">Spidy Boo<span class="proper-k">k</span> Hub</span>
+                    <span class="header-title spidy-title-chrome" id="dynamic-header-title">Spidy Book Hub</span>
                 </div>
                 <div class="header-icons" id="dynamic-header-icons">
                     <div class="icon-box" id="open-upload-btn" title="Upload Book"><i class="fa-solid fa-arrow-up-from-bracket"></i></div>
@@ -459,7 +444,7 @@
                 </div>
             </header>
 
-            <!-- Sidebar (Support Hub Removed) -->
+            <!-- Sidebar -->
             <div class="sidebar-overlay" id="sidebar-overlay"></div>
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-header-new" id="sidebarHeader">
@@ -480,6 +465,7 @@
                     <div class="menu-section">
                         <div class="section-title">MAIN MENU</div>
                         <a href="#" class="menu-item active" id="menu-home-side"><i class="fas fa-home"></i><span>Home</span></a>
+                        <a href="#" class="menu-item normal" id="menu-contact"><i class="fas fa-headset"></i><span>Support Hub</span></a>
                         <a href="#" class="menu-item normal" id="menu-bookmarks"><i class="far fa-bookmark"></i><span>Saved Books</span></a>
                     </div>
                     <div class="menu-section">
@@ -527,7 +513,7 @@
                     </div>
 
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <div class="section-header-title" style="margin-bottom: 0;"><i class="fas fa-book-open" style="color: #10b981;"></i> <span>Trending Boo<span class="proper-k">k</span>s 🔥</span> </div>
+                        <div class="section-header-title" style="margin-bottom: 0;"><i class="fas fa-book-open" style="color: #10b981;"></i> Trending Books 🔥 </div>
                         <div class="app-filter-icon" id="openAuthorFilterBtn">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
                         </div>
@@ -535,7 +521,7 @@
 
                     <div class="book-container" id="bookContainer"></div>
 
-                    <!-- Book Not Found Card -->
+                    <!-- Book Not Found Card (Clean Text for Sans-Serif & Serif Bold) -->
                     <div id="no-results-msg" style="display: none; padding-bottom: 20px;">
                         <div class="no-results-card">
                             <div class="no-results-icon"><i class="fas fa-book-open"></i></div>
@@ -563,7 +549,7 @@
                     <div class="back-icon-box" id="closeUploadHubBtn" title="Back">
                         <i class="fas fa-chevron-left"></i>
                     </div>
-                    <div class="header-title-centered spidy-title-chrome">Upload Boo<span class="proper-k">k</span>s</div>
+                    <div class="header-title-centered spidy-title-chrome">Upload Books</div>
                     <div class="header-right-logo">
                         <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
                             <use href="#spidy-3d-spider-symbol"></use>
@@ -718,7 +704,7 @@
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
                         <button class="back-btn back-chevron-btn" id="moduleBackBtn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
-                        <h1 class="modal-title spidy-title-chrome" id="moduleHeaderTitle">Module Pac<span class="proper-k">k</span></h1>
+                        <h1 class="modal-title spidy-title-chrome" id="moduleHeaderTitle">Module Pack</h1>
                     </div>
                     <div class="header-right-logo">
                         <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
@@ -877,12 +863,12 @@
                 </div>
             </div>
 
-            <!-- Download Modal (Updated Title with Proper 'k') -->
+            <!-- Download Modal -->
             <div class="download-modal" id="downloadModal" style="display: none;">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
                         <button class="back-btn back-chevron-btn" id="closeDlBtn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
-                        <h1 class="modal-title spidy-title-chrome">Spidy Boo<span class="proper-k">k</span> Hub</h1>
+                        <h1 class="modal-title spidy-title-chrome">Spidy Book Hub</h1>
                     </div>
                     <div class="header-right-logo">
                         <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
@@ -980,12 +966,12 @@
                 </div>
             </div>
             
-            <!-- Bookmarks Panel (Updated Title with Proper 'k') -->
+            <!-- Bookmarks Panel -->
             <div class="overlay-panel" id="bookmarks-panel">
                 <div class="modal-header-fixed">
                     <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
                         <button class="back-btn back-chevron-btn" id="close-bookmarks-btn" title="Back" type="button"><i class="fas fa-chevron-left"></i></button>
-                        <h1 class="modal-title spidy-title-chrome">Saved Boo<span class="proper-k">k</span>s</h1>
+                        <h1 class="modal-title spidy-title-chrome">Saved Books</h1>
                     </div>
                     <div class="header-right-logo">
                         <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
@@ -1206,6 +1192,164 @@
                 </div>
             </div>
 
+            <!-- SUPPORT & HELP OVERLAY -->
+            <div class="overlay-panel support-modal-fullscreen" id="supportModalOverlay">
+                <div class="modal-header-fixed support-header-fixed">
+                    <div class="header-content-wrapper" style="display: flex; align-items: center; gap: 15px; flex-grow: 1;">
+                        <button class="back-btn back-chevron-btn" id="closeSupportBtn" title="Back" type="button">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <h1 class="modal-title spidy-title-chrome">Support &amp; Help</h1>
+                    </div>
+                    <div class="header-right-logo">
+                        <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
+                            <use href="#spidy-3d-spider-symbol"></use>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="support-scroll-content">
+                    <div class="contact-card">
+                        <div class="header">
+                            <h2>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#purpleGlowGradient)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.7));">
+                                    <defs>
+                                        <linearGradient id="purpleGlowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#c084fc" />
+                                            <stop offset="100%" stop-color="#8b5cf6" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"></path>
+                                    <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"></path>
+                                </svg>
+                                <span class="header-text">Spidy Book Hub Support</span>
+                            </h2>
+                            <div class="dotted-divider"></div>
+                        </div>
+
+                        <form id="supportContactForm">
+                            <div class="form-row">
+                                <div class="input-group">
+                                    <label>First Name</label>
+                                    <input type="text" id="supFirstName" name="firstName" placeholder="Prince" required autocomplete="off">
+                                </div>
+                                <div class="input-group">
+                                    <label>Last Name</label>
+                                    <input type="text" id="supLastName" name="lastName" placeholder="Yadav" required autocomplete="off">
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label>Email Address</label>
+                                <div class="support-input-icon-wrap">
+                                    <i class="fa-regular fa-envelope sup-field-icon"></i>
+                                    <input type="email" id="supEmail" name="email" class="input-with-icon" placeholder="Loading your registered email..." 
+                                           readonly
+                                           required autocomplete="off">
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label>How can we help?</label>
+                                <input type="hidden" id="selectedSubjectInput" name="subject" value="⚠️ Report Broken Download Link">
+                                
+                                <div class="custom-select-trigger" id="openIssueModalBtn" role="button">
+                                    <span class="select-text-content" id="selectedSubjectDisplay">⚠️ Report Broken Download Link</span>
+                                    <div class="select-arrow-icon">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="6 9 12 15 18 9"></polyline>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label>Message</label>
+                                <textarea id="supMessage" name="message" placeholder="E.g., The link for 'Atomic Habits' is broken, or Please add this new book..." required></textarea>
+                            </div>
+
+                            <button type="submit" id="supSubmitBtn" class="submit-btn">
+                                <span id="supBtnText">Send Message</span>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" id="supBtnIcon">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </form>
+
+                        <div class="encryption-note">
+                            <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"></path></svg>
+                            <span>Your personal messages are <span class="green-text">end-to-end encrypted</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Issues Select Modal Dialog -->
+            <div class="modal-overlay-issue" id="issueModal">
+                <div class="modal-card">
+                    <div class="modal-header">
+                        <div class="modal-title-wrap">
+                            <span style="font-size: 19px;">🚨</span>
+                            <span class="modal-title">Select Issue</span>
+                        </div>
+                        <button type="button" class="modal-close-btn" id="closeIssueModalBtn">
+                            ✕
+                        </button>
+                    </div>
+                    
+                    <p class="modal-subtitle">Please select how we can assist you with your request:</p>
+
+                    <div class="modal-options-list">
+                        <button type="button" class="modal-option-btn selected" data-value="⚠️ Report Broken Download Link">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m15 15 6 6m-6-6v4.5m0-4.5h4.5M9 9 3 3m6 6V4.5M9 9H4.5"/>
+                            </svg>
+                            <span>⚠️ Report Broken Download Link</span>
+                        </button>
+
+                        <button type="button" class="modal-option-btn" data-value="📖 Request New Book">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+                                <path d="M12 7v6m-3-3h6"/>
+                            </svg>
+                            <span>📖 Request New Book</span>
+                        </button>
+
+                        <button type="button" class="modal-option-btn" data-value="📑 Read Online Issue">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                            </svg>
+                            <span>📑 Read Online Issue</span>
+                        </button>
+
+                        <button type="button" class="modal-option-btn" data-value="❌ Wrong Book or Pages Missing">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="9" y1="15" x2="15" y2="15"></line>
+                            </svg>
+                            <span>❌ Wrong Book or Pages Missing</span>
+                        </button>
+
+                        <button type="button" class="modal-option-btn" data-value="💬 General Inquiry">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <span>💬 General Inquiry</span>
+                        </button>
+
+                        <button type="button" class="modal-option-btn" data-value="❤️ Saying Thanks">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path>
+                            </svg>
+                            <span>❤️ Saying Thanks</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -1359,7 +1503,7 @@
       </div>
     </div>
     
-    <!-- Custom Logout Modal -->
+    <!-- Custom Logout Modal (Clean Text for Sans-Serif & Serif Bold) -->
     <div class="custom-logout-overlay" id="customLogoutOverlay">
         <div class="custom-logout-card">
             <div class="logout-icon-wrapper"><i class="fas fa-sign-out-alt"></i></div>
@@ -1375,4 +1519,4 @@
     <!-- App Logic JS -->
     <script type="module" src="./app.js"></script>
 </body>
-</html>
+    </html>
