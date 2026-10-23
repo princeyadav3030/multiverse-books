@@ -237,7 +237,7 @@ module.exports = async function handler(req, res) {
     // Agar na format valid hai aur na database me mila
     return res.status(400).json({ 
       success: false, 
-      error: 'Invalid or Expired Token! Please generate a fresh key via Get Key.' 
+      error: 'Key expired or invalid. Get a new key.' 
     });
 
   } catch (err) {
