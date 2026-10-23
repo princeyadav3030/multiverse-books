@@ -10,7 +10,6 @@ import { showToast, generateDeviceFingerprint } from "./helpers.js";
 // ==========================================
 // CONFIGURATION
 // ==========================================
-// Aapka active Cloudflare Worker URL
 const TOKEN_WORKER_URL = "https://auth.spidybookhub.workers.dev";
 
 // ==========================================
@@ -202,6 +201,7 @@ export function initAuthSystem(onLoginSuccessCallback) {
         }
     });
 
+    // Full Secure Logout Cleanup
     document.getElementById('confirmLogoutBtn')?.addEventListener('click', async (e) => {
         e.preventDefault();
         const confirmBtn = document.getElementById('confirmLogoutBtn');
@@ -212,6 +212,8 @@ export function initAuthSystem(onLoginSuccessCallback) {
         try {
             await signOut(auth);
             localStorage.removeItem('isUserLoggedIn');
+            localStorage.removeItem('spidy_secure_session');
+            localStorage.removeItem('spidy_pending_generated_key');
             window.location.reload();
         } catch (error) {
             if (confirmBtn) {
@@ -253,30 +255,37 @@ export function initAuthSystem(onLoginSuccessCallback) {
         closeTokenBtn.addEventListener('touchstart', handleFastTokenClose, { passive: false });
     }
 
-    // 7. Get Key Link Generation (Connected to Cloudflare Worker Auto-Short Engine)
+    // 7. Get Key Button (Mandatory Login Enforcement + Cloudflare Worker Session)
     getKeyBtn?.addEventListener('click', async () => {
+        // Enforce Login Guard
+        if (!auth.currentUser) {
+            showToast("Please login first to generate access key", "error");
+            triggerLoginModal();
+            return;
+        }
+
         const originalContent = getKeyBtn.innerHTML;
         getKeyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Securing Link...';
         getKeyBtn.style.pointerEvents = 'none';
 
         try {
-            const currentFp = generateDeviceFingerprint(auth.currentUser?.uid);
+            const currentUid = auth.currentUser.uid;
+            const currentFp = generateDeviceFingerprint(currentUid);
             
-            // Worker se direct unique Arolinks shortlink mangwayein
-            const sessionRes = await fetch(`${TOKEN_WORKER_URL}/create-session?fp=${encodeURIComponent(currentFp)}`);
+            // Send both device fingerprint and account UID to Worker
+            const sessionRes = await fetch(`${TOKEN_WORKER_URL}/create-session?fp=${encodeURIComponent(currentFp)}&uid=${encodeURIComponent(currentUid)}`);
             const sessionData = await sessionRes.json();
 
             if (!sessionRes.ok || !sessionData.success || !sessionData.shortUrl) {
                 throw new Error(sessionData.error || "Failed to initialize secured link");
             }
 
-            // Direct auto-generated short link par user ko bhejein
+            // Direct auto-generated short link redirect
             window.location.href = sessionData.shortUrl;
 
         } catch (e) {
             console.error("Key generation error:", e);
             showToast("Failed to connect to gateway. Retrying...", "error");
-            // Fallback link
             window.location.href = "https://arolinks.com/r0Be";
         } finally {
             setTimeout(() => {
@@ -286,8 +295,14 @@ export function initAuthSystem(onLoginSuccessCallback) {
         }
     });
 
-    // 8. Token Verification (Worker Signed Keys + Super Admin Multi-Slots)
+    // 8. Token Verification (Bound to Specific UID & Device)
     verifyBtn?.addEventListener('click', async () => {
+        if (!auth.currentUser) {
+            showToast("Please login first to verify key", "error");
+            triggerLoginModal();
+            return;
+        }
+
         const tokenValue = tokenInput ? tokenInput.value.trim() : "";
 
         inputBox?.classList.remove('error-state', 'success-state', 'filled-state');
@@ -303,8 +318,9 @@ export function initAuthSystem(onLoginSuccessCallback) {
         }
 
         verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
-        const currentFingerprint = generateDeviceFingerprint(auth.currentUser?.uid);
-        const currentUid = auth.currentUser ? auth.currentUser.uid : null;
+        const currentUid = auth.currentUser.uid;
+        const currentEmail = auth.currentUser.email || "";
+        const currentFingerprint = generateDeviceFingerprint(currentUid);
 
         try {
             const response = await fetch('/api/verify', {
@@ -313,7 +329,8 @@ export function initAuthSystem(onLoginSuccessCallback) {
                 body: JSON.stringify({ 
                     token: tokenValue, 
                     fingerprint: currentFingerprint,
-                    userUid: currentUid
+                    userUid: currentUid,
+                    userEmail: currentEmail
                 })
             });
             const data = await response.json();
@@ -322,9 +339,10 @@ export function initAuthSystem(onLoginSuccessCallback) {
                 inputBox?.classList.add('success-state');
                 showToast(data.message || 'Access Granted!', 'success');
                 
-                // Active session store karein
+                // Store verified session locked to this device and UID
                 localStorage.setItem('spidy_secure_session', JSON.stringify({
                     token: tokenValue,
+                    uid: currentUid,
                     fp: currentFingerprint,
                     expiry: data.expiresAt || (Date.now() + (10 * 24 * 60 * 60 * 1000))
                 }));
@@ -338,16 +356,16 @@ export function initAuthSystem(onLoginSuccessCallback) {
                 }, 1000);
             } else {
                 inputBox?.classList.add('error-state');
-                showToast(data.error || 'Token expired or invalid', 'error');
+                showToast(data.error || 'Token expired or bound to another account', 'error');
                 verifyBtn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
                 setTimeout(() => {
                     inputBox?.classList.remove('error-state');
                     updateTokenInputState();
-                }, 2000);
+                }, 2200);
             }
         } catch (err) {
             inputBox?.classList.add('error-state');
-            showToast('Verification failed', 'error');
+            showToast('Verification failed. Try again.', 'error');
             verifyBtn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
             setTimeout(() => {
                 inputBox?.classList.remove('error-state');
