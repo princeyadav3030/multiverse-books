@@ -109,7 +109,7 @@ module.exports = async function handler(req, res) {
         if (tokenData.boundUid && tokenData.boundUid !== userUid) {
           return res.status(403).json({ 
             success: false, 
-            error: 'Security Alert: This key is already claimed by another account and cannot be transferred!' 
+            error: 'Key already claimed by another account.' 
           });
         }
 
@@ -117,7 +117,7 @@ module.exports = async function handler(req, res) {
         if (tokenData.boundFp && tokenData.boundFp !== currentFp) {
           return res.status(403).json({ 
             success: false, 
-            error: 'This key is bound to another device. Please get a fresh key for this device.' 
+            error: 'Key bound to another device. Get a fresh key.' 
           });
         }
 
