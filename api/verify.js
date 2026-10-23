@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 
-// 1. Firebase Admin Initialization (Admin Custom Tokens & Device Tracking ke liye)
+// 1. Firebase Admin Initialization (Server-Side Secure)
 function getCleanPrivateKey() {
   let key = process.env.FIREBASE_PRIVATE_KEY || "";
   if (!key) return undefined;
@@ -30,11 +30,8 @@ if (!admin.apps.length) {
 
 const db = admin.apps.length ? admin.firestore() : null;
 
-// Worker HMAC Secret Key (Worker ke SECRET_SALT se exact match honi chahiye)
-const HMAC_SECRET = "SPIDY_SUPER_SECRET_HMAC_SALT_KEY_2026_XYZ";
-
 module.exports = async function handler(req, res) {
-  // Strict CORS Headers
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -57,149 +54,194 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const { token, fingerprint, userUid } = bodyData || {};
+    const { token, fingerprint, userUid, userEmail } = bodyData || {};
 
     if (!token) {
       return res.status(400).json({ success: false, error: 'Token is required' });
     }
 
-    const cleanToken = String(token).trim();
+    // Mandatory Login Check (Bina account binding ke verify nahi hoga)
+    if (!userUid) {
+      return res.status(401).json({ success: false, error: 'Please login to verify your key.' });
+    }
+
+    const cleanToken = String(token).trim().toUpperCase();
     const now = Date.now();
     const currentFp = fingerprint ? String(fingerprint).trim() : 'device_bound';
     const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown_ip';
 
-    // =========================================================================
-    // CASE 1: SUPER ADMIN CUSTOM TOKEN VERIFICATION (Firestore Checked)
-    // =========================================================================
-    if (db) {
-      try {
-        const tokenDocRef = db.collection('tokens').doc(cleanToken);
-        const tokenSnap = await tokenDocRef.get();
-
-        if (tokenSnap.exists) {
-          const tokenData = tokenSnap.data();
-
-          // 1. Status Check
-          if (tokenData.status === 'Revoked' || tokenData.status === 'Disabled') {
-            return res.status(403).json({ success: false, error: 'This token has been revoked by admin.' });
-          }
-
-          // 2. Expiry Check
-          let expiryMs = 0;
-          if (tokenData.expiresAt && typeof tokenData.expiresAt.toMillis === 'function') {
-            expiryMs = tokenData.expiresAt.toMillis();
-          } else if (typeof tokenData.expiresAt === 'number') {
-            expiryMs = tokenData.expiresAt;
-          } else if (tokenData.durationDays) {
-            // Agar token banate waqt createdAt + durationDays diya ho
-            const created = tokenData.createdAt || now;
-            expiryMs = created + (Number(tokenData.durationDays) * 24 * 60 * 60 * 1000);
-          }
-
-          if (expiryMs > 0 && now > expiryMs) {
-            return res.status(400).json({ success: false, error: 'Token has expired! Please get a new key.' });
-          }
-
-          // 3. Multi-User / Slot Capacity Check (Super Admin Tracking)
-          const maxAllowedUses = Number(tokenData.maxUses) || 1;
-          const currentUsedCount = Number(tokenData.usedCount) || 0;
-          const usedByList = Array.isArray(tokenData.usedBy) ? tokenData.usedBy : [];
-
-          // Check if this device/user already used this token earlier
-          const isExistingUser = usedByList.some(entry => entry.fp === currentFp || (userUid && entry.uid === userUid));
-
-          if (!isExistingUser && currentUsedCount >= maxAllowedUses) {
-            return res.status(403).json({ 
-              success: false, 
-              error: `Token usage limit reached (${currentUsedCount}/${maxAllowedUses} slots filled).` 
-            });
-          }
-
-          // 4. Update Token Stats for Super Admin Dashboard
-          const sessionDurationMs = expiryMs > now ? (expiryMs - now) : (10 * 24 * 60 * 60 * 1000);
-          const finalExpiry = now + sessionDurationMs;
-
-          if (!isExistingUser) {
-            const newUsageEntry = {
-              uid: userUid || 'guest',
-              fp: currentFp,
-              ip: clientIp,
-              verifiedAt: now
-            };
-
-            await tokenDocRef.update({
-              usedCount: admin.firestore.FieldValue.increment(1),
-              usedBy: admin.firestore.FieldValue.arrayUnion(newUsageEntry),
-              lastVerifiedAt: now,
-              isActivated: true
-            });
-          }
-
-          const cookieMaxAge = Math.floor(sessionDurationMs / 1000);
-          res.setHeader('Set-Cookie', [
-            `spidy_auth=verified_${cleanToken}; Path=/; Max-Age=${cookieMaxAge}; SameSite=Lax; HttpOnly; Secure`
-          ]);
-
-          const remainingSlots = Math.max(0, maxAllowedUses - (isExistingUser ? currentUsedCount : currentUsedCount + 1));
-
-          return res.status(200).json({
-            success: true,
-            message: `Access Granted! Valid for ${Math.ceil(sessionDurationMs / (24 * 60 * 60 * 1000))} Days.`,
-            token: cleanToken,
-            expiresAt: finalExpiry,
-            remainingSlots: remainingSlots
-          });
-        }
-      } catch (dbErr) {
-        console.error("Firestore Admin Token lookup failed:", dbErr.message);
-      }
+    if (!db) {
+      return res.status(500).json({ success: false, error: 'Database service unavailable' });
     }
 
+    const tokenDocRef = db.collection('tokens').doc(cleanToken);
+    const tokenSnap = await tokenDocRef.get();
+
     // =========================================================================
-    // CASE 2: CLOUDFLARE WORKER SIGNED TOKEN VERIFICATION (Anti-Bypass HMAC)
-    // Format: SPIDY-<RANDOM16>-<SIG8>
+    // CASE 1: TOKEN PEHLE SE DATABASE ME EXIST KARTA HAI (Already Claimed / Admin Token)
     // =========================================================================
-    const tokenParts = cleanToken.split('-');
+    if (tokenSnap.exists) {
+      const tokenData = tokenSnap.data();
 
-    if (tokenParts.length === 3 && tokenParts[0] === 'SPIDY' && tokenParts[1].length === 16 && tokenParts[2].length === 8) {
-      const receivedRand = tokenParts[1];
-      const receivedSigPrefix = tokenParts[2];
+      // 1. Status Check
+      if (tokenData.status === 'Revoked' || tokenData.status === 'Disabled') {
+        return res.status(403).json({ success: false, error: 'This token has been revoked by admin.' });
+      }
 
-      // Verify HMAC consistency
-      const expectedFullHash = crypto.createHmac('sha256', HMAC_SECRET)
-        .update(receivedRand)
-        .digest('hex')
-        .toUpperCase();
+      // 2. Expiry Check
+      let expiryMs = 0;
+      if (tokenData.expiresAt && typeof tokenData.expiresAt.toMillis === 'function') {
+        expiryMs = tokenData.expiresAt.toMillis();
+      } else if (typeof tokenData.expiresAt === 'number') {
+        expiryMs = tokenData.expiresAt;
+      } else if (tokenData.durationDays) {
+        const created = tokenData.createdAt || now;
+        expiryMs = created + (Number(tokenData.durationDays) * 24 * 60 * 60 * 1000);
+      }
 
-      // Check if signature matches
-      const isSignatureMatch = expectedFullHash.startsWith(receivedSigPrefix);
+      if (expiryMs > 0 && now > expiryMs) {
+        return res.status(400).json({ success: false, error: 'Token has expired! Please generate a new key.' });
+      }
 
-      // Agar Worker se random seed verification pass ho gaya
-      if (isSignatureMatch || receivedSigPrefix.length === 8) {
-        const standardTenDays = 10 * 24 * 60 * 60 * 1000;
-        const expiryTimestamp = now + standardTenDays;
+      // 3. A. WORKER AD TOKEN CHECK (Strict 1 Token = 1 Account & 1 Device)
+      if (tokenData.type === 'worker_ad_token' || cleanToken.startsWith('SPIDY-')) {
+        // Dusre account se verify karne par seedha REJECT!
+        if (tokenData.boundUid && tokenData.boundUid !== userUid) {
+          return res.status(403).json({ 
+            success: false, 
+            error: 'Security Alert: This key is already claimed by another account and cannot be transferred!' 
+          });
+        }
+
+        // Agar same account hai, par doosre phone par dala gaya
+        if (tokenData.boundFp && tokenData.boundFp !== currentFp) {
+          return res.status(403).json({ 
+            success: false, 
+            error: 'This key is bound to another device. Please get a fresh key for this device.' 
+          });
+        }
+
+        // Same user usi device par dobara verify kar raha hai (Restore Access)
+        const remainingTimeMs = expiryMs > now ? (expiryMs - now) : 0;
+        const remainingDays = Math.max(1, Math.ceil(remainingTimeMs / (24 * 60 * 60 * 1000)));
 
         res.setHeader('Set-Cookie', [
-          `spidy_auth=verified_${cleanToken}; Path=/; Max-Age=${10 * 24 * 60 * 60}; SameSite=Lax; HttpOnly; Secure`
+          `spidy_auth=verified_${cleanToken}; Path=/; Max-Age=${Math.floor(remainingTimeMs / 1000)}; SameSite=Lax; HttpOnly; Secure`
         ]);
 
         return res.status(200).json({
           success: true,
-          message: 'Access Granted! Valid for 10 Days.',
+          message: `Access Restored! Valid for remaining ${remainingDays} Days.`,
           token: cleanToken,
-          expiresAt: expiryTimestamp
+          expiresAt: expiryMs
         });
       }
+
+      // 3. B. SUPER ADMIN CUSTOM TOKEN (Multi-User Slots Tracking)
+      const maxAllowedUses = Number(tokenData.maxUses) || 1;
+      const currentUsedCount = Number(tokenData.usedCount) || 0;
+      const usedByList = Array.isArray(tokenData.usedBy) ? tokenData.usedBy : [];
+
+      const isExistingUser = usedByList.some(entry => entry.uid === userUid || entry.fp === currentFp);
+
+      if (!isExistingUser && currentUsedCount >= maxAllowedUses) {
+        return res.status(403).json({ 
+          success: false, 
+          error: `Token usage limit reached (${currentUsedCount}/${maxAllowedUses} slots already used).` 
+        });
+      }
+
+      const sessionDurationMs = expiryMs > now ? (expiryMs - now) : (10 * 24 * 60 * 60 * 1000);
+      const finalExpiry = now + sessionDurationMs;
+
+      if (!isExistingUser) {
+        const newUsageEntry = {
+          uid: userUid,
+          email: userEmail || "unknown",
+          fp: currentFp,
+          ip: clientIp,
+          verifiedAt: now
+        };
+
+        await tokenDocRef.update({
+          usedCount: admin.firestore.FieldValue.increment(1),
+          usedBy: admin.firestore.FieldValue.arrayUnion(newUsageEntry),
+          lastVerifiedAt: now,
+          isActivated: true
+        });
+      }
+
+      const cookieMaxAge = Math.floor(sessionDurationMs / 1000);
+      res.setHeader('Set-Cookie', [
+        `spidy_auth=verified_${cleanToken}; Path=/; Max-Age=${cookieMaxAge}; SameSite=Lax; HttpOnly; Secure`
+      ]);
+
+      const remainingSlots = Math.max(0, maxAllowedUses - (isExistingUser ? currentUsedCount : currentUsedCount + 1));
+
+      return res.status(200).json({
+        success: true,
+        message: `Admin Access Granted! Valid for ${Math.ceil(sessionDurationMs / (24 * 60 * 60 * 1000))} Days.`,
+        token: cleanToken,
+        expiresAt: finalExpiry,
+        remainingSlots: remainingSlots
+      });
     }
 
-    // Agar na toh Admin Token mila aur na hi valid Worker Token format hai
+    // =========================================================================
+    // CASE 2: NAYA WORKER SIGNED TOKEN (First Time Verification & Iron Lock)
+    // Format: SPIDY-<RANDOM16>-<SIG8> (e.g. SPIDY-7FCA27D54C1B4475-74A25A4B)
+    // =========================================================================
+    const tokenParts = cleanToken.split('-');
+
+    // Strict Format Validation (Exact 3 parts: SPIDY, 16 hex, 8 hex)
+    const isValidFormat = (
+      tokenParts.length === 3 && 
+      tokenParts[0] === 'SPIDY' && 
+      tokenParts[1].length === 16 && 
+      /^[0-9A-F]{16}$/i.test(tokenParts[1]) &&
+      tokenParts[2].length === 8 &&
+      /^[0-9A-F]{8}$/i.test(tokenParts[2])
+    );
+
+    if (isValidFormat) {
+      // 10 Days Access Duration
+      const standardTenDays = 10 * 24 * 60 * 60 * 1000;
+      const expiryTimestamp = now + standardTenDays;
+
+      // DATABASE LOCK: Pehli baar aate hi token ko is User UID aur Device ke sath lock kar do!
+      await tokenDocRef.set({
+        token: cleanToken,
+        boundUid: userUid,
+        boundEmail: userEmail || "",
+        boundFp: currentFp,
+        firstVerifiedIp: clientIp,
+        createdAt: now,
+        expiresAt: expiryTimestamp,
+        durationDays: 10,
+        status: 'Active',
+        type: 'worker_ad_token'
+      });
+
+      res.setHeader('Set-Cookie', [
+        `spidy_auth=verified_${cleanToken}; Path=/; Max-Age=${10 * 24 * 60 * 60}; SameSite=Lax; HttpOnly; Secure`
+      ]);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Access Granted! Valid for 10 Days.',
+        token: cleanToken,
+        expiresAt: expiryTimestamp
+      });
+    }
+
+    // Agar na format valid hai aur na database me mila
     return res.status(400).json({ 
       success: false, 
-      error: 'Invalid or Expired Token! Please generate a genuine key via Get Key.' 
+      error: 'Invalid or Expired Token! Please generate a fresh key via Get Key.' 
     });
 
   } catch (err) {
     console.error("Fatal Verify Error:", err);
-    return res.status(500).json({ success: false, error: 'Verification service error. Please try again later.' });
+    return res.status(500).json({ success: false, error: 'Verification service error. Please try again.' });
   }
 };
