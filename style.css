@@ -20,24 +20,24 @@ body { background-color: #000000; color: #ffffff; display: flex; justify-content
 .custom-logo-token { width: 44px !important; height: 44px !important; min-width: 44px !important; min-height: 44px !important; border-radius: 13px !important; background: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.25) !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 5px !important; box-sizing: border-box !important; overflow: hidden !important; }
 
 /* METALLIC PLATINUM CHROME UNIVERSAL STYLE */
-.spidy-title-chrome { font-family: 'Norican', cursive !important; font-size: 26px !important; line-height: 1.1 !important; letter-spacing: 0.3px !important; white-space: nowrap !important; user-select: none !important; text-transform: none !important; background: linear-gradient(180deg, #ffffff 10%, #cbd5e1 50%, #64748b 100%) !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important; filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.25)) !important; }
+.spidy-title-chrome { font-family: 'Norican', cursive !important; font-size: 24px !important; line-height: 1.15 !important; letter-spacing: 0.4px !important; white-space: nowrap !important; user-select: none !important; text-transform: none !important; background: linear-gradient(180deg, #ffffff 10%, #cbd5e1 50%, #64748b 100%) !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important; filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.25)) !important; }
 
-/* PROPER 'k' FIX (PLAYFAIR DISPLAY ITALIC SHARP 'k') */
-.proper-k { font-family: 'Playfair Display', serif !important; font-style: italic !important; font-weight: 600 !important; font-size: 0.94em !important; line-height: inherit !important; display: inline-block !important; margin-left: -1px !important; margin-right: 0.5px !important; background: inherit !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important; }
-.section-header-title .proper-k { font-size: 0.92em !important; }
+/* PROPER 'k' FIX (PLAYFAIR DISPLAY ITALIC SHARP 'k') - GRADIENT RECOVERED & GAP FIXED */
+.proper-k { font-family: 'Playfair Display', serif !important; font-style: italic !important; font-weight: 600 !important; font-size: 0.94em !important; line-height: inherit !important; display: inline-block !important; margin-left: 0.5px !important; margin-right: 3.5px !important; background: linear-gradient(180deg, #ffffff 10%, #cbd5e1 50%, #64748b 100%) !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important; vertical-align: baseline !important; }
+.section-header-title .proper-k { font-size: 0.9em !important; margin-left: 0px !important; margin-right: 0px !important; background: linear-gradient(180deg, #ffffff 10%, #cbd5e1 50%, #64748b 100%) !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important; }
 
 /* 1. HEADER */
-header#main-header.modern-glow-header, header { display: flex; align-items: center; justify-content: space-between; padding: 13px 15px; background: rgba(10, 12, 16, 0.94) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; z-index: 100; gap: 10px; position: relative; flex-shrink: 0; transition: all 0.3s ease; border-bottom: 1px solid rgba(255, 255, 255, 0.09) !important; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75) !important; }
-.header-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
-.modern-menu-box { width: 40px !important; height: 40px !important; background: rgba(255, 255, 255, 0.04) !important; border: 1px solid rgba(255, 255, 255, 0.12) !important; border-radius: 11px !important; display: flex !important; align-items: center !important; justify-content: center !important; box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important; outline: none !important; -webkit-tap-highlight-color: transparent !important; }
+header#main-header.modern-glow-header, header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: rgba(10, 12, 16, 0.94) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; z-index: 100; gap: 8px; position: relative; flex-shrink: 0; transition: all 0.3s ease; border-bottom: 1px solid rgba(255, 255, 255, 0.09) !important; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75) !important; }
+.header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; overflow: hidden; }
+.modern-menu-box { width: 38px !important; height: 38px !important; background: rgba(255, 255, 255, 0.04) !important; border: 1px solid rgba(255, 255, 255, 0.12) !important; border-radius: 11px !important; display: flex !important; align-items: center !important; justify-content: center !important; box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important; outline: none !important; -webkit-tap-highlight-color: transparent !important; flex-shrink: 0; }
 .modern-menu-box svg { filter: none !important; }
-.header-title { font-family: 'Norican', cursive !important; font-weight: normal !important; font-size: 26px !important; line-height: 1.1 !important; white-space: nowrap !important; letter-spacing: 0.3px !important; text-transform: none !important; background: linear-gradient(180deg, #ffffff 10%, #cbd5e1 50%, #64748b 100%) !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important; filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.25)) !important; display: flex !important; align-items: center !important; }
-.icon-box { width: 36px; height: 36px; border: none !important; border-radius: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #ffffff !important; flex-shrink: 0; background-color: transparent !important; outline: none !important; -webkit-tap-highlight-color: transparent !important; -webkit-user-select: none; user-select: none; }
-.icon-box i { font-size: 1.15rem !important; font-weight: 900 !important; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55)); }
+.header-title { font-family: 'Norican', cursive !important; font-weight: normal !important; font-size: 23px !important; line-height: 1.1 !important; white-space: nowrap !important; letter-spacing: 0.4px !important; text-transform: none !important; background: linear-gradient(180deg, #ffffff 10%, #cbd5e1 50%, #64748b 100%) !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important; filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.25)) !important; display: flex !important; align-items: center !important; overflow: hidden; text-overflow: ellipsis; }
+.icon-box { width: 34px; height: 34px; border: none !important; border-radius: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #ffffff !important; flex-shrink: 0; background-color: transparent !important; outline: none !important; -webkit-tap-highlight-color: transparent !important; -webkit-user-select: none; user-select: none; }
+.icon-box i { font-size: 1.1rem !important; font-weight: 900 !important; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55)); }
 @media (hover: hover) and (pointer: fine) { .icon-box:hover { background-color: rgba(255, 255, 255, 0.08) !important; transform: scale(1.05); } }
 .icon-box:active, .modern-menu-box:active { transform: scale(0.92) !important; background-color: rgba(255, 255, 255, 0.08) !important; }
 .icon-box:focus, .modern-menu-box:focus { background-color: transparent !important; outline: none !important; }
-.header-icons { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.header-icons { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 .bell-wrapper { position: relative; }
 .blink-dot { position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; animation: blink 1.5s infinite; border: 1.5px solid var(--bg-main); box-shadow: 0 0 8px rgba(239, 68, 68, 0.9); }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
@@ -100,7 +100,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 @keyframes fadeInTab { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
 /* 5. PROMO CAROUSEL */
-.promo-carousel-container { width: 100%; aspect-ratio: 1918 / 820; margin-bottom: 22px; border-radius: 20px; overflow: hidden; position: relative; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.22); flex-shrink: 0; background-color: #0d0d12; }
+.promo-carousel-container { width: 100%; aspect-ratio: 1918 / 820; margin-bottom: 20px; border-radius: 20px; overflow: hidden; position: relative; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.22); flex-shrink: 0; background-color: #0d0d12; }
 .promo-carousel-track { display: flex; width: 100%; height: 100%; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1); touch-action: pan-y; }
 .promo-slide { flex: 0 0 100%; width: 100%; height: 100%; position: relative; display: block; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .promo-banner-img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
@@ -311,7 +311,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 
 /* NORICAN CURSIVE PLATINUM CHROME */
 #bookmarks-panel .modal-title,
-.download-modal .modal-title { font-family: 'Norican', cursive !important; font-size: 26px !important; font-weight: normal !important; text-transform: none !important; letter-spacing: 0.3px !important; background: linear-gradient(180deg, #ffffff 10%, #cbd5e1 50%, #64748b 100%) !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important; filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.25)) !important; }
+.download-modal .modal-title { font-family: 'Norican', cursive !important; font-size: 24px !important; font-weight: normal !important; text-transform: none !important; letter-spacing: 0.3px !important; background: linear-gradient(180deg, #ffffff 10%, #cbd5e1 50%, #64748b 100%) !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important; filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.25)) !important; }
 
 /* 16. DOWNLOAD MODAL */
 .download-modal { position: absolute; inset: 0; background-color: #000000; z-index: 9999; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; width: 100%; box-shadow: 0 0 20px rgba(0,0,0,0.8); overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
@@ -555,10 +555,10 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 
 /* 24. LOGIN SCREEN */
 .login-container { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; z-index: 99999; display: flex; flex-direction: column; align-items: center; background: #0b0c0f !important; backdrop-filter: blur(10px); transition: opacity 0.4s ease; overflow-y: auto; overflow-x: hidden; touch-action: manipulation; }
-.top-curved-header { width: 100% !important; background: linear-gradient(165deg, #2a2e37 0%, #1c1f26 60%, #13151b 100%) !important; border-bottom-right-radius: 65px !important; padding: 24px 20px 24px 20px !important; display: flex !important; flex-direction: column !important; align-items: center !important; text-align: center !important; position: relative !important; z-index: 5 !important; border-bottom: 1.5px solid #282c35 !important; border-right: 1.5px solid #282c35 !important; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.65) !important; }
-.logo-frame { position: relative; width: 88px; height: 88px; display: flex; justify-content: center; align-items: center; margin-bottom: 10px; }
-.logo-rotating-ring { position: absolute; width: 87px; height: 87px; border-radius: 50%; border: 1.8px dashed rgba(255, 255, 255, 0.7); box-shadow: 0 0 12px rgba(255, 255, 255, 0.25); animation: spinRing 8s linear infinite; z-index: 3; pointer-events: none; }
-#loginHeaderTitle { font-size: 28px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; margin: 4px 0 0 0 !important; }
+.top-curved-header { width: 100% !important; background: linear-gradient(165deg, #2a2e37 0%, #1c1f26 60%, #13151b 100%) !important; border-bottom-right-radius: 65px !important; padding: 30px 20px 26px 20px !important; display: flex !important; flex-direction: column !important; align-items: center !important; text-align: center !important; position: relative !important; z-index: 5 !important; border-bottom: 1.5px solid #282c35 !important; border-right: 1.5px solid #282c35 !important; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.65) !important; }
+.logo-frame { position: relative; width: 92px !important; height: 92px !important; display: flex; justify-content: center; align-items: center; margin-bottom: 12px !important; }
+.logo-rotating-ring { position: absolute; width: 90px !important; height: 90px !important; border-radius: 50%; border: 1.8px dashed rgba(255, 255, 255, 0.7); box-shadow: 0 0 12px rgba(255, 255, 255, 0.25); animation: spinRing 8s linear infinite; z-index: 3; pointer-events: none; }
+#loginHeaderTitle { font-size: 27px !important; display: flex !important; align-items: center !important; justify-content: center !important; margin: 4px 0 0 0 !important; letter-spacing: 0.5px !important; text-align: center !important; }
 .form-wrapper { width: 100%; max-width: 380px; flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 10px 22px 18px 22px; z-index: 4; }
 .form-wrapper .card-title { font-size: 24px; font-weight: 900; letter-spacing: -0.3px; color: #ffffff; margin-bottom: 3px; font-family: 'Montserrat', sans-serif; }
 .form-wrapper .card-subtitle { font-size: 11px; color: #a1a1aa; margin-bottom: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Montserrat', sans-serif; }
@@ -601,7 +601,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .icon-hex { width: 58px; height: 58px; margin: 0 auto 14px; background: rgba(255, 255, 255, 0.05); border: 1.5px solid rgba(255, 255, 255, 0.2); border-radius: 17px; display: flex; align-items: center; justify-content: center; position: relative; }
 .icon-hex::after { content: ''; position: absolute; inset: -4px; border-radius: 21px; border: 1.6px dashed rgba(255, 255, 255, 0.65); animation: rotatePerimeter 14s linear infinite; pointer-events: none; }
 @keyframes rotatePerimeter { 100% { transform: rotate(360deg); } }
-.token-brand-title { font-size: 26px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; margin: 0 auto 6px !important; text-align: center !important; }
+.token-brand-title { font-size: 25px !important; display: flex !important; align-items: center !important; justify-content: center !important; margin: 0 auto 6px !important; text-align: center !important; }
 .auth-card .card-subtitle { font-size: 10px; font-weight: 700; color: #94a3b8; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 6px; }
 .auth-card .card-subtitle i { color: #38bdf8; font-size: 12px; }
 .input-section-token { text-align: left; margin-bottom: 13px; width: 100%; }
@@ -754,7 +754,8 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 
 /* 31. RESPONSIVE BREAKPOINTS */
 @media (max-width: 450px) { .uc-body { flex-direction: column; border-bottom: none; padding-bottom: 0; gap: 12px; } .uc-actions { border-left: none; border-top: 1px dashed rgba(255, 255, 255, 0.15); padding-left: 0; padding-top: 15px; width: 100%; } .uc-illustration { height: 75px; } }
-@media (max-width: 420px) { .brand-title { font-size: 22px; } .form-wrapper { padding: 10px 16px 16px 16px; } .auth-card { padding: 18px 16px 14px; } .header-title { font-size: 24px !important; } #loginHeaderTitle { font-size: 25px !important; } .token-brand-title { font-size: 23px !important; } }
+@media (max-width: 420px) { .brand-title { font-size: 22px; } .form-wrapper { padding: 10px 16px 16px 16px; } .auth-card { padding: 18px 16px 14px; } .header-title { font-size: 22px !important; } #loginHeaderTitle { font-size: 24px !important; } .token-brand-title { font-size: 23px !important; } }
+@media (max-width: 360px) { .header-title { font-size: 20px !important; } }
 @media screen and (min-width: 600px) { .app-container { max-width: 100%; } .book-container { grid-template-columns: repeat(3, 1fr); } }
 @media screen and (min-width: 768px) { .app-container { max-width: 100%; border-radius: 0; box-shadow: none; } .app-tab { padding: 20px 5%; } .card-img-wrapper { height: 260px; } .download-modal .dl-content-wrapper, .overlay-panel .dmca-content { max-width: 800px; margin: 0 auto; width: 100%; } .dl-preview-image { max-width: 350px; height: 350px; margin: 0 auto; } .download-modal { max-width: 100%; } header, header#main-header.modern-glow-header { padding: 20px 5%; } .modal-header-fixed, .noti-header-premium { padding: 15px 5%; } .adm-content-area { padding: 30px 10%; } }
 @media screen and (min-width: 900px) { .book-container { grid-template-columns: repeat(4, 1fr); } }
