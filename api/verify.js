@@ -87,12 +87,12 @@ module.exports = async function handler(req, res) {
     if (tokenSnap.exists) {
       const tokenData = tokenSnap.data();
 
-      // Status Check
+      // 1. Status Check
       if (tokenData.status === 'Revoked' || tokenData.status === 'Disabled') {
         return res.status(403).json({ success: false, error: 'This token has been revoked by admin.' });
       }
 
-      // Expiry Check
+      // 2. Expiry Check
       let expiryMs = 0;
       if (tokenData.expiresAt && typeof tokenData.expiresAt.toMillis === 'function') {
         expiryMs = tokenData.expiresAt.toMillis();
@@ -107,7 +107,7 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ success: false, error: 'Token has expired! Please generate a new key.' });
       }
 
-      // Strict 1 Token = 1 Account & 1 Device
+      // 3. Strict 1 Token = 1 Account & 1 Device
       if (tokenData.type === 'worker_ad_token' || cleanToken.startsWith('SPIDY-')) {
         if (tokenData.boundUid && tokenData.boundUid !== userUid) {
           return res.status(403).json({ 
@@ -186,14 +186,16 @@ module.exports = async function handler(req, res) {
     }
 
     // =========================================================================
-    // CASE 2: PEHLI BAAR VERIFICATION (Cloudflare KV Validation - Bypass Blocked)
+    // CASE 2: FIRST TIME VERIFICATION (Alphanumeric 0-9 & A-Z Support + KV Check)
     // =========================================================================
     const tokenParts = cleanToken.split('-');
+    
+    // Yahan A-Z allow kiya hai taaki format error na aaye
     const isValidFormat = (
       tokenParts.length === 3 && 
       tokenParts[0] === 'SPIDY' && 
       tokenParts[1].length === 16 && 
-      /^[0-9A-F]{16}$/i.test(tokenParts[1]) &&
+      /^[0-9A-Z]{16}$/i.test(tokenParts[1]) &&
       tokenParts[2].length === 8 &&
       /^[0-9A-F]{8}$/i.test(tokenParts[2])
     );
@@ -205,7 +207,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Cloudflare Worker KV se cross-check karna
+    // Worker ke KV database se confirm karein ki yeh key genuine hai
     const verifyKvRes = await fetch(`${WORKER_GATEWAY_URL}/verify-token-kv`, {
       method: 'POST',
       headers: {
@@ -225,7 +227,7 @@ module.exports = async function handler(req, res) {
     const kvData = await verifyKvRes.json();
     const tokenMeta = kvData.data || {};
 
-    // Account verification
+    // Account verification check
     if (tokenMeta.uid && tokenMeta.uid !== "guest_user" && tokenMeta.uid !== userUid) {
       return res.status(403).json({ 
         success: false, 
