@@ -63,7 +63,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    let { bookId, userToken, bookSlug, pdfKey, docType } = bodyData || {};
+    let { bookId, userToken, bookSlug, pdfKey, docType, token: clientAccessToken, fingerprint } = bodyData || {};
 
     // 1. Validation Checks
     if (!userToken) {
@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ success: false, error: 'Missing parameters: Either bookId or pdfKey must be provided' });
     }
 
-    // 2. Verify User Token
+    // 2. Verify Firebase User Auth Token
     let uid = null;
     let userEmail = "";
     try {
@@ -96,7 +96,94 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 4. Resolve File Key & Distinct Unique Tracking Key
+    // 4. Access Token & Device Fingerprint Security Guard (Bypass Blocked)
+    const now = Date.now();
+    const currentFp = fingerprint ? String(fingerprint).trim() : '';
+
+    if (!isSuperAdmin) {
+      if (!clientAccessToken || String(clientAccessToken).trim() === "") {
+        return res.status(403).json({ 
+          success: false, 
+          requireToken: true,
+          error: 'Access key missing! Please generate or verify your key first.' 
+        });
+      }
+
+      const cleanToken = String(clientAccessToken).trim().toUpperCase();
+      const tokenDocRef = db.collection('tokens').doc(cleanToken);
+      const tokenSnap = await tokenDocRef.get();
+
+      if (!tokenSnap.exists) {
+        return res.status(403).json({ 
+          success: false, 
+          requireToken: true,
+          error: 'Invalid or unregistered key. Please get a valid key.' 
+        });
+      }
+
+      const tokenData = tokenSnap.data();
+
+      // Status check
+      if (tokenData.status === 'Revoked' || tokenData.status === 'Disabled') {
+        return res.status(403).json({ 
+          success: false, 
+          requireToken: true,
+          error: 'This access key has been revoked.' 
+        });
+      }
+
+      // Expiry check
+      let expiryMs = 0;
+      if (tokenData.expiresAt && typeof tokenData.expiresAt.toMillis === 'function') {
+        expiryMs = tokenData.expiresAt.toMillis();
+      } else if (typeof tokenData.expiresAt === 'number') {
+        expiryMs = tokenData.expiresAt;
+      } else if (tokenData.durationDays) {
+        const created = tokenData.createdAt || now;
+        expiryMs = created + (Number(tokenData.durationDays) * 24 * 60 * 60 * 1000);
+      }
+
+      if (expiryMs > 0 && now > expiryMs) {
+        return res.status(403).json({ 
+          success: false, 
+          requireToken: true,
+          error: 'Your access key has expired! Please generate a new key.' 
+        });
+      }
+
+      // Account & Device Binding check for Ad tokens
+      if (tokenData.type === 'worker_ad_token' || cleanToken.startsWith('SPIDY-')) {
+        if (tokenData.boundUid && tokenData.boundUid !== uid) {
+          return res.status(403).json({ 
+            success: false, 
+            requireToken: true,
+            error: 'This key is bound to another account.' 
+          });
+        }
+
+        if (currentFp && tokenData.boundFp && tokenData.boundFp !== currentFp) {
+          return res.status(403).json({ 
+            success: false, 
+            requireToken: true,
+            error: 'This key is bound to another device. Please get a fresh key.' 
+          });
+        }
+      } else {
+        // Super Admin Custom/VIP multi-user token check
+        const usedByList = Array.isArray(tokenData.usedBy) ? tokenData.usedBy : [];
+        const isUserAuthorized = usedByList.some(entry => entry.uid === uid || (currentFp && entry.fp === currentFp));
+
+        if (!isUserAuthorized) {
+          return res.status(403).json({ 
+            success: false, 
+            requireToken: true,
+            error: 'You are not registered under this VIP token.' 
+          });
+        }
+      }
+    }
+
+    // 5. Resolve File Key & Distinct Unique Tracking Key
     let fileKey = pdfKey;
 
     if (!fileKey && bookId) {
@@ -112,7 +199,7 @@ module.exports = async function handler(req, res) {
       return res.status(404).json({ success: false, error: 'PDF file link missing!' });
     }
 
-    // Sanitize Key Path (Purana domain ya full URL strip karna)
+    // Sanitize Key Path
     let cleanKey = String(fileKey).trim();
 
     if (cleanKey.startsWith('http://') || cleanKey.startsWith('https://')) {
@@ -138,18 +225,17 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // Generate Guaranteed Unique Resource Key (prevents Module 1 & Module 2 collision)
+    // Unique Tracking Key
     let uniqueTrackingKey = bookSlug;
     if (!uniqueTrackingKey || isModule) {
       const hash = crypto.createHash('md5').update(cleanKey).digest('hex').slice(0, 12);
       uniqueTrackingKey = isModule ? `module_${hash}` : (bookId || `book_${hash}`);
     }
 
-    // 5. 24-Hours Unique Book Limit Logic
+    // 6. 24-Hours Unique Book Limit Logic
     const userRef = db.collection('users').doc(uid);
     const userSnap = await userRef.get();
     
-    let now = Date.now();
     let validHistory = [];
     let uniqueAccessedSlugs = new Set();
     let currentLifetimeDownloads = 0;
@@ -163,7 +249,6 @@ module.exports = async function handler(req, res) {
         let itemTime = typeof item === 'number' ? item : item.time;
         let itemSlug = typeof item === 'number' ? null : item.slug;
 
-        // 24 ghante ke andar ke reads retain karein
         if (itemTime && (now - itemTime < 24 * 60 * 60 * 1000)) {
           validHistory.push({ slug: itemSlug, time: itemTime });
           if (itemSlug) uniqueAccessedSlugs.add(itemSlug);
@@ -173,15 +258,15 @@ module.exports = async function handler(req, res) {
 
     const isAlreadyOpened = uniqueAccessedSlugs.has(uniqueTrackingKey);
 
-    // Limit Check (Admin bypass, 20 unique items daily)
+    // Limit Check (20 unique items daily)
     if (!isAlreadyOpened && !isSuperAdmin && uniqueAccessedSlugs.size >= 20) {
       return res.status(403).json({ 
         success: false,
-        error: 'Daily reading limit reached (20 items). You can still re-read your already opened books/modules today!' 
+        error: 'Daily reading limit reached (20 books).' 
       });
     }
 
-    // Update DB (Nayi book open hone par count badhao, purani open par extra limit mat kaato)
+    // Update DB
     if (!isAlreadyOpened) {
       validHistory.push({ slug: uniqueTrackingKey, time: now });
       uniqueAccessedSlugs.add(uniqueTrackingKey);
@@ -192,13 +277,12 @@ module.exports = async function handler(req, res) {
         lifetimeDownloads: admin.firestore.FieldValue.increment(1)
       }, { merge: true });
     } else {
-      // Purane expired records clean rakhein bina count badhaye
       await userRef.set({
         recentDownloads: validHistory
       }, { merge: true });
     }
 
-    // 6. Secure URL Generation (Updated to new active worker)
+    // 7. Secure URL Generation
     const workerBaseUrl = (process.env.WORKER_URL || "https://spidy-proxy.spidybookhub.workers.dev").replace(/\/+$/, "");
     const secureWorkerUrl = `${workerBaseUrl}/${cleanKey}`;
 
