@@ -1223,6 +1223,9 @@ window.openSubjectModulesList = function(subjectKey) {
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
+// =========================================================================
+// READ MODULE PDF DIRECTLY (SECURED: NO LOCALSTORAGE SPOOFING & NO FALLBACK LEAK)
+// =========================================================================
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
         triggerLoginModal();
@@ -1231,11 +1234,15 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 
     const savedData = localStorage.getItem('spidy_secure_session');
     let hasValidToken = false;
+    let clientToken = "";
+    const currentFp = generateDeviceFingerprint(auth.currentUser?.uid);
+
     if (savedData) {
         try {
             const parsed = JSON.parse(savedData);
-            if (parsed.fp === generateDeviceFingerprint(auth.currentUser?.uid) && parsed.expiry > Date.now()) {
+            if (parsed.fp === currentFp && parsed.expiry > Date.now()) {
                 hasValidToken = true;
+                clientToken = parsed.token || "";
             }
         } catch(e) {}
     }
@@ -1261,7 +1268,8 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     const distinctModuleSlug = generateCleanSlug(title || pdfKeyOrUrl || "module-pack");
 
     if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
-        renderPdfInModal("", true, "module", distinctModuleSlug); 
+        showToast("Invalid module document link", "error");
+        if (pdfViewer) pdfViewer.style.display = 'none';
         return;
     }
 
@@ -1275,7 +1283,8 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
                 bookSlug: distinctModuleSlug,
                 docType: "module",
                 userToken: userToken,
-                fingerprint: generateDeviceFingerprint(auth.currentUser?.uid)
+                token: clientToken,
+                fingerprint: currentFp
             })
         });
 
@@ -1283,10 +1292,22 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
         if (response.ok && data.success) {
             renderPdfInModal(data.pdfLink, true, "module", distinctModuleSlug);
         } else {
-            renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true, "module", distinctModuleSlug);
+            // Strict Security: Reject and open token modal if required
+            if (pdfViewer) pdfViewer.style.display = 'none';
+            cleanupPdfResources();
+            showToast(data.error || "Access denied. Key required.", "error");
+
+            if (data.requireToken) {
+                localStorage.removeItem('spidy_secure_session');
+                history.pushState({ popup: 'tokenModal', returnTo: 'module' }, '');
+                const tModal = document.getElementById('tokenModalOverlay');
+                if (tModal) tModal.style.display = 'flex';
+            }
         }
     } catch (err) {
-        renderPdfInModal(getSecureAssetUrl(pdfKeyOrUrl), true, "module", distinctModuleSlug);
+        if (pdfViewer) pdfViewer.style.display = 'none';
+        cleanupPdfResources();
+        showToast("Failed to load module. Please try again.", "error");
     }
 };
 
@@ -1332,6 +1353,9 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         totalPagesSub.innerText = (!isNaN(pNum) && pNum > 0) ? `${pNum} Pages Included` : `${book.totalPages || "Complete Book"} Included`;
     }
 
+    // =========================================================================
+    // READ ONLINE BUTTON CLICK (SECURED BACKEND TOKEN CHECK)
+    // =========================================================================
     document.getElementById("dlReadOnlineBtn").onclick = async function() {
         if(!isUserLoggedIn || !auth.currentUser) { 
             triggerLoginModal();
@@ -1343,11 +1367,15 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
         const savedData = localStorage.getItem('spidy_secure_session');
         let hasValidToken = false;
+        let clientToken = "";
+        const currentFp = generateDeviceFingerprint(auth.currentUser?.uid);
+
         if (savedData) {
             try {
                 const parsed = JSON.parse(savedData);
-                if (parsed.fp === generateDeviceFingerprint(auth.currentUser?.uid) && parsed.expiry > Date.now()) {
+                if (parsed.fp === currentFp && parsed.expiry > Date.now()) {
                     hasValidToken = true;
+                    clientToken = parsed.token || "";
                 }
             } catch(e) {}
         }
@@ -1371,7 +1399,9 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
                     bookId: book.id, 
                     bookSlug: book.slug || book.id,
                     docType: "book",
-                    userToken: userToken 
+                    userToken: userToken,
+                    token: clientToken,
+                    fingerprint: currentFp
                 })
             });
 
@@ -1385,6 +1415,12 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
                 renderPdfInModal(data.pdfLink, false, "book", book.slug || book.id);
             } else {
                 showToast(data.error || "Access denied", "error");
+                if (data.requireToken) {
+                    localStorage.removeItem('spidy_secure_session');
+                    history.pushState({ popup: 'tokenModal', returnTo: 'book' }, '');
+                    const tModal = document.getElementById('tokenModalOverlay');
+                    if (tModal) tModal.style.display = 'flex';
+                }
             }
             btn.innerHTML = originalText; 
             btn.disabled = false;
@@ -1431,7 +1467,7 @@ function checkAndOpenTargetPost() {
 
     if (targetPostId) {
         const notiPanel = document.getElementById('noti-panel');
-        if (notiPanel && !notiPanel.classList.contains('active')) {
+        if (notiPanel && notiPanel.classList.contains('active')) {
             history.pushState({ popup: 'noti' }, '');
             notiPanel.classList.add('active');
         }
