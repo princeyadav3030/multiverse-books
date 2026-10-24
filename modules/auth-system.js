@@ -255,9 +255,8 @@ export function initAuthSystem(onLoginSuccessCallback) {
         closeTokenBtn.addEventListener('touchstart', handleFastTokenClose, { passive: false });
     }
 
-    // 7. Get Key Button (Mandatory Login Enforcement + Cloudflare Worker Session)
+    // 7. Get Key Button (Secured Flow - No Leak, No Fake Redirect)
     getKeyBtn?.addEventListener('click', async () => {
-        // Enforce Login Guard
         if (!auth.currentUser) {
             showToast("Please login first to generate access key", "error");
             triggerLoginModal();
@@ -272,7 +271,6 @@ export function initAuthSystem(onLoginSuccessCallback) {
             const currentUid = auth.currentUser.uid;
             const currentFp = generateDeviceFingerprint(currentUid);
             
-            // Send both device fingerprint and account UID to Worker
             const sessionRes = await fetch(`${TOKEN_WORKER_URL}/create-session?fp=${encodeURIComponent(currentFp)}&uid=${encodeURIComponent(currentUid)}`);
             const sessionData = await sessionRes.json();
 
@@ -280,13 +278,12 @@ export function initAuthSystem(onLoginSuccessCallback) {
                 throw new Error(sessionData.error || "Failed to initialize secured link");
             }
 
-            // Direct auto-generated short link redirect
+            // Clean direct redirect to short URL
             window.location.href = sessionData.shortUrl;
 
         } catch (e) {
             console.error("Key generation error:", e);
-            showToast("Failed to connect to gateway. Retrying...", "error");
-            window.location.href = "https://arolinks.com/r0Be";
+            showToast("Gateway error. Please try again.", "error");
         } finally {
             setTimeout(() => {
                 getKeyBtn.innerHTML = originalContent;
@@ -295,7 +292,7 @@ export function initAuthSystem(onLoginSuccessCallback) {
         }
     });
 
-    // 8. Token Verification (Bound to Specific UID & Device)
+    // 8. Token Verification
     verifyBtn?.addEventListener('click', async () => {
         if (!auth.currentUser) {
             showToast("Please login first to verify key", "error");
@@ -339,7 +336,6 @@ export function initAuthSystem(onLoginSuccessCallback) {
                 inputBox?.classList.add('success-state');
                 showToast(data.message || 'Access Granted!', 'success');
                 
-                // Store verified session locked to this device and UID
                 localStorage.setItem('spidy_secure_session', JSON.stringify({
                     token: tokenValue,
                     uid: currentUid,
@@ -356,7 +352,7 @@ export function initAuthSystem(onLoginSuccessCallback) {
                 }, 1000);
             } else {
                 inputBox?.classList.add('error-state');
-                showToast(data.error || 'Token expired or bound to another account', 'error');
+                showToast(data.error || 'Token expired or invalid', 'error');
                 verifyBtn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
                 setTimeout(() => {
                     inputBox?.classList.remove('error-state');
