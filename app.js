@@ -108,7 +108,7 @@ function clearActiveElementFocus() {
 }
 
 // ==========================================
-// 2. LOADER & TRANSITION ENGINE (SMOOTH 1%-BY-1% ADAPTIVE)
+// 2. LOADER & TRANSITION ENGINE
 // ==========================================
 function updateLoaderUI(percent) {
     const loaderFill = document.getElementById('loaderFill');
@@ -335,7 +335,7 @@ function initCommunityDualPopup() {
 }
 
 // ==========================================
-// 5. CHANNEL POSTS & USER-SPECIFIC REACTIONS (WHATSAPP/TELEGRAM ENGINE)
+// 5. CHANNEL POSTS & USER-SPECIFIC REACTIONS
 // ==========================================
 function renderChannelLoader() {
     if (!chatBody) return;
@@ -362,7 +362,6 @@ function setUserReaction(postId, emoji) {
     else localStorage.removeItem(key);
 }
 
-// Exact Bottom Glide (Zero black screens, instant accurate offset)
 function forceScrollChatToBottom() {
     if (!chatBody) return;
     unreadPostsCount = 0;
@@ -390,7 +389,6 @@ function scrollToBottomSmooth() {
 
 if (scrollDownBtn) scrollDownBtn.addEventListener('click', scrollToBottomSmooth);
 
-// Scroll Observer: Bottom badge & Top-Scroll Pagination Trigger
 if (chatBody) {
     chatBody.addEventListener('scroll', () => {
         const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
@@ -405,7 +403,6 @@ if (chatBody) {
             }
         }
 
-        // WhatsApp/Telegram style reverse scroll: load older messages when reaching top
         if (chatBody.scrollTop < 60 && !isLoadingOlderPosts && renderedPostsCount < livePosts.length) {
             loadOlderChannelPosts();
         }
@@ -496,7 +493,6 @@ function createSinglePostElement(post) {
     bubble.id = `post_${post.id}`;
     bubble.dataset.postId = post.id;
 
-    // Eager image rendering to prevent layout jump on scroll
     let imageHTML = post.imageUrl 
         ? `<img src="${getSecureAssetUrl(post.imageUrl)}" class="msg-image" alt="Post Image" onerror="this.style.display='none';">` 
         : '';
@@ -557,7 +553,6 @@ function createSinglePostElement(post) {
     return bubble;
 }
 
-// Initial Batch Rendering (Pre-loaded from bottom)
 function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
     if (!chatBody) return;
 
@@ -575,14 +570,12 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
     chatBody.innerHTML = '';
     const fragment = document.createDocumentFragment();
 
-    // Top Pagination Loader Element
     const topLoader = document.createElement('div');
     topLoader.id = 'topHistoryLoader';
     topLoader.className = 'top-history-loader';
     topLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading older messages...`;
     fragment.appendChild(topLoader);
 
-    // Render latest slice
     const total = posts.length;
     const startIndex = Math.max(0, total - CHANNEL_BATCH_SIZE);
     const initialBatch = posts.slice(startIndex, total);
@@ -614,7 +607,6 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
     }
 }
 
-// Reverse Scroll: Load older posts at the top without jumping scroll position
 function loadOlderChannelPosts() {
     if (isLoadingOlderPosts || renderedPostsCount >= livePosts.length) return;
     isLoadingOlderPosts = true;
@@ -654,7 +646,6 @@ function loadOlderChannelPosts() {
             fragment.appendChild(createSinglePostElement(post));
         });
 
-        // Insert older batch right after the top loader
         if (topLoader && topLoader.nextSibling) {
             chatBody.insertBefore(fragment, topLoader.nextSibling);
         } else {
@@ -664,7 +655,6 @@ function loadOlderChannelPosts() {
         renderedPostsCount += olderBatch.length;
         if (topLoader) topLoader.classList.remove('active');
 
-        // Maintain exact scroll position so the user experiences zero jump
         const heightDifference = chatBody.scrollHeight - prevScrollHeight;
         chatBody.scrollTop = prevScrollTop + heightDifference;
 
@@ -993,7 +983,7 @@ async function loadNextBooksBatch() {
 }
 
 // ==========================================
-// 8. PROMO CAROUSEL & DISTINCT MODULE PACKS
+// 8. PROMO CAROUSEL & MODULE PACKS
 // ==========================================
 let currentPromoIndex = 0;
 let promoAutoSlideInterval = null;
@@ -1453,14 +1443,12 @@ function checkAndOpenTargetPost() {
 }
 
 // ==========================================
-// 11. EVENT LISTENERS & SERVERLESS FORM SUBMIT
+// 11. EVENT LISTENERS
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Parallel Fast Startup Fetch
     loadInitialBooksBatch();
     fetchGlobalFilterMetadata();
 
-    // 2. Initialize Sub-modules
     initAuthSystem(() => {
         if (isDeepLinkLoad && pendingBookSlug) {
             document.getElementById('mainAppWrapper').style.display = 'block';
@@ -1477,7 +1465,6 @@ document.addEventListener("DOMContentLoaded", () => {
         applyMasterFilter(false);
     });
 
-    // 3. Header Buttons Event Listeners (With clean focus clears)
     document.getElementById('open-search')?.addEventListener('click', () => { 
         clearActiveElementFocus();
         history.pushState({ popup: 'search' }, ''); 
@@ -1546,151 +1533,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 4. Support Modal Listeners & Vercel API Email Send
-    document.getElementById('menu-contact')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        clearActiveElementFocus();
-        document.getElementById('sidebar')?.classList.remove('active');
-        document.getElementById('sidebar-overlay')?.classList.remove('active');
-        
-        if (!isUserLoggedIn || !auth.currentUser) {
-            triggerLoginModal();
-            return;
-        }
-
-        history.pushState({ popup: 'support' }, '');
-        document.getElementById('supportModalOverlay')?.classList.add('active');
-
-        const supEmail = document.getElementById('supEmail');
-        if (supEmail && auth.currentUser) {
-            supEmail.value = auth.currentUser.email || "";
-            supEmail.readOnly = true;
-        }
-    });
-
-    document.getElementById('closeSupportBtn')?.addEventListener('click', () => {
-        clearActiveElementFocus();
-        if (history.state && history.state.popup === 'support') {
-            history.back();
-        } else {
-            document.getElementById('supportModalOverlay')?.classList.remove('active');
-        }
-    });
-
-    document.getElementById('openIssueModalBtn')?.addEventListener('click', () => {
-        clearActiveElementFocus();
-        document.getElementById('issueModal')?.classList.add('active');
-    });
-
-    document.getElementById('closeIssueModalBtn')?.addEventListener('click', () => {
-        clearActiveElementFocus();
-        document.getElementById('issueModal')?.classList.remove('active');
-    });
-
-    document.getElementById('issueModal')?.addEventListener('click', (e) => {
-        if (e.target === document.getElementById('issueModal')) {
-            clearActiveElementFocus();
-            document.getElementById('issueModal').classList.remove('active');
-        }
-    });
-
-    const issueOptions = document.querySelectorAll('#issueModal .modal-option-btn');
-    issueOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            issueOptions.forEach(btn => btn.classList.remove('selected'));
-            option.classList.add('selected');
-            
-            const selectedValue = option.getAttribute('data-value');
-            const subInput = document.getElementById('selectedSubjectInput');
-            const subDisplay = document.getElementById('selectedSubjectDisplay');
-            if (subInput) subInput.value = selectedValue;
-            if (subDisplay) subDisplay.innerText = selectedValue;
-            
-            setTimeout(() => {
-                clearActiveElementFocus();
-                document.getElementById('issueModal')?.classList.remove('active');
-            }, 150);
-        });
-    });
-
-    document.getElementById('supportContactForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const btn = document.getElementById('supSubmitBtn');
-        const btnText = document.getElementById('supBtnText');
-        const btnIcon = document.getElementById('supBtnIcon');
-        
-        const originalText = btnText ? btnText.innerText : "Send Message";
-        const originalIcon = btnIcon ? btnIcon.innerHTML : "";
-
-        if (btnText) btnText.innerText = "Sending...";
-        if (btnIcon) {
-            btnIcon.innerHTML = `<circle cx="12" cy="12" r="10" stroke-width="3" stroke="currentColor" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="1s" values="0 12 12;360 12 12"/></circle>`;
-        }
-        if (btn) btn.style.pointerEvents = "none";
-
-        const userEmail = (auth.currentUser && auth.currentUser.email) 
-            ? auth.currentUser.email 
-            : (document.getElementById('supEmail')?.value.trim() || "");
-
-        const formData = {
-            firstName: document.getElementById('supFirstName')?.value.trim() || "",
-            lastName: document.getElementById('supLastName')?.value.trim() || "",
-            email: userEmail,
-            subject: document.getElementById('selectedSubjectInput')?.value.trim() || "General Inquiry",
-            message: document.getElementById('supMessage')?.value.trim() || "",
-            timestamp: Date.now()
-        };
-
-        try {
-            const response = await fetch('/api/contact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                if (btn) btn.classList.add('btn-success-active');
-                if (btnText) btnText.innerText = "Successfully Sent";
-                if (btnIcon) btnIcon.innerHTML = `<polyline points="20 6 9 17 4 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>`;
-                
-                const fName = document.getElementById('supFirstName');
-                const lName = document.getElementById('supLastName');
-                const msg = document.getElementById('supMessage');
-                if (fName) fName.value = "";
-                if (lName) lName.value = "";
-                if (msg) msg.value = "";
-
-                showToast("Message sent successfully!", "success");
-
-                setTimeout(() => {
-                    if (btn) {
-                        btn.classList.remove('btn-success-active');
-                        btn.style.pointerEvents = "auto";
-                    }
-                    if (btnText) btnText.innerText = originalText;
-                    if (btnIcon) btnIcon.innerHTML = originalIcon;
-                    
-                    clearActiveElementFocus();
-                    if (history.state && history.state.popup === 'support') {
-                        history.back();
-                    } else {
-                        document.getElementById('supportModalOverlay')?.classList.remove('active');
-                    }
-                }, 2400);
-            } else {
-                throw new Error(data.error || "Failed to send message");
-            }
-        } catch (error) {
-            showToast(error.message || "Failed to send message", "error");
-            if (btn) btn.style.pointerEvents = "auto";
-            if (btnText) btnText.innerText = originalText;
-            if (btnIcon) btnIcon.innerHTML = originalIcon;
-        }
-    });
-
-    // 5. Report Broken Link Button & Modal Logic
+    // Report Broken Link Button & Modal Logic
     document.getElementById('reportLinkBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1755,7 +1598,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 6. Global Infinite Scroll Observer
+    // Global Infinite Scroll Observer
     const sentinel = document.getElementById('scroll-sentinel');
     if (sentinel) {
         const infiniteScrollObserver = new IntersectionObserver((entries) => {
@@ -1769,7 +1612,7 @@ document.addEventListener("DOMContentLoaded", () => {
         infiniteScrollObserver.observe(sentinel);
     }
 
-    // 7. Book Selection & Bookmark Clicks
+    // Book Selection & Bookmark Clicks
     document.getElementById('bookContainer')?.addEventListener('click', (e) => {
         const card = e.target.closest('.book-card');
         if(card) {
@@ -1790,7 +1633,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 8. Download Modal Actions
+    // Download Modal Actions
     document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
     document.getElementById('shareBookBtn')?.addEventListener('click', () => {
         const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
@@ -1802,7 +1645,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 9. Sidebar & Navigation
+    // Sidebar & Navigation
     const sidebar = document.getElementById('sidebar'); 
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     document.getElementById('open-menu')?.addEventListener('click', () => { 
@@ -1832,7 +1675,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // 10. Native Mobile Step-by-Step Back Navigation (No double-back jump)
+    // Native Mobile Step-by-Step Back Navigation
     window.addEventListener('popstate', (e) => {
         clearActiveElementFocus();
 
@@ -1879,18 +1722,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const mainFilterModal = document.getElementById('mainFilterOverlay');
         if (mainFilterModal && mainFilterModal.classList.contains('active')) {
             closeMainFilterModal();
-            return;
-        }
-
-        const issueModal = document.getElementById('issueModal');
-        if (issueModal && issueModal.classList.contains('active')) {
-            issueModal.classList.remove('active');
-            return;
-        }
-
-        const supportModal = document.getElementById('supportModalOverlay');
-        if (supportModal && supportModal.classList.contains('active')) {
-            supportModal.classList.remove('active');
             return;
         }
 
@@ -1961,7 +1792,7 @@ document.addEventListener("DOMContentLoaded", () => {
         applyMasterFilter(false);
     });
 
-    // 11. Module Header Custom Back Button
+    // Module Header Custom Back Button
     document.getElementById('moduleBackBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1985,7 +1816,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 12. Close PDF Viewer Button
+    // Close PDF Viewer Button
     document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -2100,7 +1931,7 @@ onAuthStateChanged(auth, async (user) => {
         container.innerHTML = aggregatedHTML;
     });
 
-    // Realtime Channel Posts Listener (WhatsApp Pre-load & Sync)
+    // Realtime Channel Posts Listener
     renderChannelLoader();
     const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
     onSnapshot(channelQuery, (snapshot) => {
