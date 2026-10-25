@@ -73,9 +73,19 @@ let loadingProgress = 1;
 let loaderInterval = null;
 let hasRealtimeListenersBound = false;
 
+// URL Check for Direct Deeplinks
 const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
+
+// Post Deeplink Resolver (Preserves post id until fully ready & logged in)
+let pendingTargetPostId = "";
+const currentHash = window.location.hash || "";
+if (currentHash.includes("post/")) {
+    pendingTargetPostId = currentHash.split("post/")[1].replace(/[^a-zA-Z0-9_-]/g, '');
+} else if (urlParamsCheck.has("post")) {
+    pendingTargetPostId = urlParamsCheck.get("post").replace(/[^a-zA-Z0-9_-]/g, '');
+}
 
 // Channel UI elements
 const chatBody = document.getElementById('chatBody');
@@ -177,7 +187,18 @@ function tryTransition() {
                 setTimeout(() => {
                     const mainApp = document.getElementById('mainAppWrapper');
                     if (mainApp) mainApp.style.display = 'block';
-                    checkAndOpenTargetPost();
+
+                    const loader = document.getElementById("loaderScreen");
+                    if (loader) {
+                        loader.style.opacity = "0"; 
+                        setTimeout(() => { 
+                            loader.style.display = "none"; 
+                            // Check target post after loader is hidden completely
+                            if (pendingTargetPostId) {
+                                checkAndOpenTargetPost();
+                            }
+                        }, 300);
+                    }
 
                     if (isDeepLinkLoad && pendingBookSlug) {
                         if (isUserLoggedIn) { 
@@ -185,13 +206,8 @@ function tryTransition() {
                         } else {
                             triggerLoginModal();
                         }
-                    } else {
+                    } else if (!pendingTargetPostId) {
                         initCommunityDualPopup(); 
-                    }
-                    const loader = document.getElementById("loaderScreen");
-                    if (loader) {
-                        loader.style.opacity = "0"; 
-                        setTimeout(() => { loader.style.display = "none"; }, 300);
                     }
                 }, 220);
             } else {
@@ -213,22 +229,24 @@ function syncAndSanitizeBookmarks() {
 }
 
 // ==========================================
-// 4. COMMUNITY POPUP ENGINE
+// 4. COMMUNITY POPUP ENGINE (2 MIN DELAY + 3 DAYS LOCK)
 // ==========================================
 function initCommunityDualPopup() {
     const popup = document.getElementById('communityPopup');
     if (!popup) return;
 
-    const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+    // 3 Days lock in milliseconds
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
     const lastLockedTime = localStorage.getItem('spidy_community_popup_locked_until');
     const now = Date.now();
 
     if (lastLockedTime && now < parseInt(lastLockedTime, 10)) return;
 
     clearTimeout(communityPopupTimer);
+    // Popup appears after 2 minutes (120,000 ms)
     communityPopupTimer = setTimeout(() => {
         popup.classList.add('active');
-    }, 180000);
+    }, 120000);
 
     const waCard = document.getElementById('btnJoinWhatsApp');
     const tgCard = document.getElementById('btnJoinTelegram');
@@ -241,7 +259,7 @@ function initCommunityDualPopup() {
 
     function checkAndComplete() {
         if (hasClickedWA && hasClickedTG && hasClickedIG) {
-            localStorage.setItem('spidy_community_popup_locked_until', (Date.now() + FIVE_DAYS_MS).toString());
+            localStorage.setItem('spidy_community_popup_locked_until', (Date.now() + THREE_DAYS_MS).toString());
             showToast("Community joined successfully!", "success");
             setTimeout(() => { popup.classList.remove('active'); }, 800);
         }
@@ -335,7 +353,7 @@ function initCommunityDualPopup() {
 }
 
 // ==========================================
-// 5. CHANNEL POSTS & USER-SPECIFIC REACTIONS
+// 5. CHANNEL POSTS & TELEGRAM-STYLE REACTIONS
 // ==========================================
 function renderChannelLoader() {
     if (!chatBody) return;
@@ -409,13 +427,14 @@ if (chatBody) {
     }, { passive: true });
 }
 
+// Master Function: Scrolls and triggers luxury blue glow pulse
 window.scrollToChannelPost = function(postId) {
     if (!postId) return;
     const target = document.getElementById(`post_${postId}`);
     if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
         target.classList.remove('highlight-post');
-        void target.offsetWidth; 
+        void target.offsetWidth; // Force Reflow
         target.classList.add('highlight-post');
         setTimeout(() => target.classList.remove('highlight-post'), 2900);
     }
@@ -439,23 +458,49 @@ function buildReactionsHTML(reactionsObj, userSelectedEmoji) {
     return pillsHTML;
 }
 
-function updateReactionInDOM(postId) {
+// Seamless Number Rolling DOM Updater
+function updateReactionInDOM(postId, changedEmoji = null, direction = 'up') {
     const post = livePosts.find(p => p.id === postId);
     const bubble = document.getElementById(`post_${postId}`);
     if (!post || !bubble) return;
 
     const userSelectedEmoji = getUserReaction(postId);
     const reactionsContainer = bubble.querySelector('.inline-reactions');
-    if (reactionsContainer) {
-        reactionsContainer.innerHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
-        reactionsContainer.querySelectorAll('.reaction-pill').forEach(pill => {
-            pill.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                applyReaction(post.id, pill.dataset.emoji);
-            });
-        });
+    if (!reactionsContainer) return;
+
+    // Check if we can animate count in-place
+    if (changedEmoji) {
+        const pill = reactionsContainer.querySelector(`.reaction-pill[data-emoji="${changedEmoji}"]`);
+        if (pill) {
+            const countEl = pill.querySelector('.count');
+            const newCount = post.reactions?.[changedEmoji] || 0;
+            
+            if (newCount > 0 && countEl) {
+                countEl.innerText = formatReactionCount(newCount);
+                countEl.classList.remove('count-roll-up', 'count-roll-down');
+                void countEl.offsetWidth;
+                countEl.classList.add(direction === 'up' ? 'count-roll-up' : 'count-roll-down');
+
+                pill.classList.remove('bump-emoji');
+                void pill.offsetWidth;
+                pill.classList.add('bump-emoji');
+
+                if (userSelectedEmoji === changedEmoji) pill.classList.add('active');
+                else pill.classList.remove('active');
+                return;
+            }
+        }
     }
+
+    // Fallback: Full rebuild if new emoji was introduced or removed
+    reactionsContainer.innerHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
+    reactionsContainer.querySelectorAll('.reaction-pill').forEach(pill => {
+        pill.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            applyReaction(post.id, pill.dataset.emoji);
+        });
+    });
 }
 
 async function registerUniqueView(postId) {
@@ -553,7 +598,7 @@ function createSinglePostElement(post) {
     return bubble;
 }
 
-function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
+function renderChannelFeed(posts, isInitialOrPanelOpen = false, targetPostId = "") {
     if (!chatBody) return;
 
     if (!posts || posts.length === 0) {
@@ -577,7 +622,16 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
     fragment.appendChild(topLoader);
 
     const total = posts.length;
-    const startIndex = Math.max(0, total - CHANNEL_BATCH_SIZE);
+    let startIndex = Math.max(0, total - CHANNEL_BATCH_SIZE);
+
+    // If target post exists in history, ensure it is within rendered slice
+    if (targetPostId) {
+        const targetIdx = posts.findIndex(p => p.id === targetPostId);
+        if (targetIdx !== -1 && targetIdx < startIndex) {
+            startIndex = Math.max(0, targetIdx - 3);
+        }
+    }
+
     const initialBatch = posts.slice(startIndex, total);
     renderedPostsCount = initialBatch.length;
 
@@ -599,8 +653,7 @@ function renderChannelFeed(posts, isInitialOrPanelOpen = false) {
 
     chatBody.appendChild(fragment);
 
-    const hasTargetPost = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
-    if (isInitialOrPanelOpen && !hasTargetPost) {
+    if (isInitialOrPanelOpen && !targetPostId) {
         requestAnimationFrame(() => {
             forceScrollChatToBottom();
         });
@@ -677,9 +730,10 @@ async function applyReaction(postId, newEmoji) {
         livePosts[pIdx].reactions = livePosts[pIdx].reactions || {};
         if (existing && livePosts[pIdx].reactions[existing]) {
             livePosts[pIdx].reactions[existing] = Math.max(0, livePosts[pIdx].reactions[existing] - 1);
+            updateReactionInDOM(postId, existing, 'down');
         }
         livePosts[pIdx].reactions[newEmoji] = (livePosts[pIdx].reactions[newEmoji] || 0) + 1;
-        updateReactionInDOM(postId);
+        updateReactionInDOM(postId, newEmoji, 'up');
     }
     if (navigator.vibrate) navigator.vibrate(15);
 
@@ -1223,9 +1277,9 @@ window.openSubjectModulesList = function(subjectKey) {
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
-// =========================================================================
-// READ MODULE PDF DIRECTLY (SECURED: NO LOCALSTORAGE SPOOFING & NO FALLBACK LEAK)
-// =========================================================================
+// ==========================================
+// READ MODULE PDF DIRECTLY
+// ==========================================
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
         triggerLoginModal();
@@ -1292,7 +1346,6 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
         if (response.ok && data.success) {
             renderPdfInModal(data.pdfLink, true, "module", distinctModuleSlug);
         } else {
-            // Strict Security: Reject and open token modal if required
             if (pdfViewer) pdfViewer.style.display = 'none';
             cleanupPdfResources();
             showToast(data.error || "Access denied. Key required.", "error");
@@ -1353,9 +1406,6 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         totalPagesSub.innerText = (!isNaN(pNum) && pNum > 0) ? `${pNum} Pages Included` : `${book.totalPages || "Complete Book"} Included`;
     }
 
-    // =========================================================================
-    // READ ONLINE BUTTON CLICK (SECURED BACKEND TOKEN CHECK)
-    // =========================================================================
     document.getElementById("dlReadOnlineBtn").onclick = async function() {
         if(!isUserLoggedIn || !auth.currentUser) { 
             triggerLoginModal();
@@ -1454,28 +1504,41 @@ function closeDownloadPageLocal() {
 }
 
 // ==========================================
-// 10. NOTIFICATION TARGET SCROLL
+// 10. ACCURATE TARGET SCROLL & POST HIGHLIGHT GLOW
 // ==========================================
 function checkAndOpenTargetPost() {
-    let targetPostId = "";
-    const hash = window.location.hash || "";
-    if (hash.includes("post/")) {
-        targetPostId = hash.split("post/")[1].replace(/[^a-zA-Z0-9_-]/g, '');
-    }
-    const params = new URLSearchParams(window.location.search);
-    if (!targetPostId && params.has("post")) targetPostId = params.get("post");
+    if (!pendingTargetPostId) return;
 
-    if (targetPostId) {
-        const notiPanel = document.getElementById('noti-panel');
-        if (notiPanel && notiPanel.classList.contains('active')) {
-            history.pushState({ popup: 'noti' }, '');
-            notiPanel.classList.add('active');
-        }
-        setTimeout(() => {
-            const el = document.getElementById(`post_${targetPostId}`);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 500);
+    // Must be logged in to view channel posts
+    if (!isUserLoggedIn || !auth.currentUser) {
+        triggerLoginModal();
+        return;
     }
+
+    const notiPanel = document.getElementById('noti-panel');
+    if (!notiPanel) return;
+
+    // Open channel panel if not already open
+    if (!notiPanel.classList.contains('active')) {
+        history.pushState({ popup: 'noti' }, '');
+        notiPanel.classList.add('active');
+    }
+
+    // Hide unread badge on panel launch
+    const blinkDot = document.querySelector('.blink-dot');
+    if (blinkDot) blinkDot.style.display = 'none';
+
+    // Render feed including target post if not yet loaded
+    if (livePosts.length > 0) {
+        renderChannelFeed(livePosts, false, pendingTargetPostId);
+    }
+
+    // Delay slightly for smooth mobile slide transition, then scroll + trigger glow
+    setTimeout(() => {
+        window.scrollToChannelPost(pendingTargetPostId);
+        // Clear pending target after successful trigger
+        pendingTargetPostId = "";
+    }, 450);
 }
 
 // ==========================================
@@ -1489,6 +1552,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isDeepLinkLoad && pendingBookSlug) {
             document.getElementById('mainAppWrapper').style.display = 'block';
             setTimeout(() => openDownloadPageLocal(pendingBookSlug, true), 300);
+        } else if (pendingTargetPostId) {
+            document.getElementById('mainAppWrapper').style.display = 'block';
+            setTimeout(checkAndOpenTargetPost, 350);
         }
     });
 
@@ -1522,13 +1588,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (blinkDot) blinkDot.style.display = 'none'; 
 
         if (livePosts.length > 0) {
-            const hasTarget = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
-            renderChannelFeed(livePosts, !hasTarget);
-            if (!hasTarget) {
-                setTimeout(forceScrollChatToBottom, 40);
-            } else {
-                checkAndOpenTargetPost();
-            }
+            renderChannelFeed(livePosts, true);
         } else {
             renderChannelLoader();
         }
@@ -1898,6 +1958,15 @@ onAuthStateChanged(auth, async (user) => {
         } catch (error) { 
             IS_SUPER_ADMIN = false; 
         }
+
+        // If a deeplink was waiting for authentication, handle now
+        if (hasTransitioned) {
+            if (pendingTargetPostId) {
+                checkAndOpenTargetPost();
+            } else if (isDeepLinkLoad && pendingBookSlug) {
+                openDownloadPageLocal(pendingBookSlug, true);
+            }
+        }
     } else {
         isUserLoggedIn = false; 
         IS_SUPER_ADMIN = false; 
@@ -1991,12 +2060,13 @@ onAuthStateChanged(auth, async (user) => {
         const notiPanel = document.getElementById('noti-panel');
         const isNotiPanelOpen = notiPanel && notiPanel.classList.contains('active');
         const blinkDot = document.querySelector('.blink-dot');
-        const hasTargetPost = window.location.hash.includes("post/") || new URLSearchParams(window.location.search).has("post");
 
         if (isInitialChannelLoad) {
-            renderChannelFeed(livePosts, !hasTargetPost);
+            renderChannelFeed(livePosts, !pendingTargetPostId, pendingTargetPostId);
             isInitialChannelLoad = false;
-            checkAndOpenTargetPost();
+            if (hasTransitioned && pendingTargetPostId) {
+                checkAndOpenTargetPost();
+            }
         } else if (livePosts.length !== prevCount) {
             if (!isNotiPanelOpen && blinkDot && livePosts.length > prevCount) {
                 blinkDot.style.display = 'block';
@@ -2012,7 +2082,7 @@ onAuthStateChanged(auth, async (user) => {
                 if (scrollDownWrapper) scrollDownWrapper.classList.add('show');
                 renderChannelFeed(livePosts, false);
             } else {
-                renderChannelFeed(livePosts, !hasTargetPost);
+                renderChannelFeed(livePosts, !pendingTargetPostId, pendingTargetPostId);
             }
         } else {
             livePosts.forEach(p => updateReactionInDOM(p.id));
