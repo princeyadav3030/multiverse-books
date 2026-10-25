@@ -13,19 +13,26 @@ import { showToast, generateDeviceFingerprint } from "./helpers.js";
 const TOKEN_WORKER_URL = "https://auth.spidybookhub.workers.dev";
 
 // ==========================================
-// LOGIN MODAL CONTROLS
+// LOGIN MODAL CONTROLS (NATIVE BACK BUTTON SYNC)
 // ==========================================
 export function triggerLoginModal() {
     const loginOverlay = document.getElementById('loginOverlay');
     if (loginOverlay) {
+        // Push state only if not already on login history state
+        if (!window.history.state || window.history.state.popup !== 'login') {
+            window.history.pushState({ popup: 'login' }, '');
+        }
         loginOverlay.style.display = 'flex';
-        setTimeout(() => loginOverlay.style.opacity = '1', 10);
+        setTimeout(() => {
+            loginOverlay.style.opacity = '1';
+        }, 10);
     }
 }
 
 export function closeLoginOverlayLocal() {
     const loginOverlay = document.getElementById('loginOverlay');
     if (!loginOverlay) return;
+    
     loginOverlay.style.opacity = '0';
     setTimeout(() => { 
         loginOverlay.style.display = 'none'; 
@@ -33,7 +40,12 @@ export function closeLoginOverlayLocal() {
         if (urlParams.has('book') && !auth.currentUser) {
             window.history.replaceState({}, '', window.location.pathname);
         }
-    }, 500);
+    }, 400);
+
+    // If currently on login state, step back once cleanly
+    if (window.history.state && window.history.state.popup === 'login') {
+        window.history.back();
+    }
 }
 
 // ==========================================
@@ -64,7 +76,7 @@ export function closeLogoutDialog() {
 }
 
 // ==========================================
-// TOKEN MODAL CONTROLS
+// TOKEN MODAL CONTROLS (SINGLE CLEAN BACK POP)
 // ==========================================
 export function handleFastTokenClose(e) {
     if (e) {
@@ -75,6 +87,7 @@ export function handleFastTokenClose(e) {
     if (tokenModal) {
         tokenModal.style.display = 'none';
     }
+    // Prevent double back: pop only if tokenModal is the current head state
     if (window.history.state && window.history.state.popup === 'tokenModal') {
         window.history.back();
     }
@@ -250,12 +263,12 @@ export function initAuthSystem(onLoginSuccessCallback) {
         }
     });
 
+    // Use only click listener to stop touchstart + click race condition
     if (closeTokenBtn) {
         closeTokenBtn.addEventListener('click', handleFastTokenClose);
-        closeTokenBtn.addEventListener('touchstart', handleFastTokenClose, { passive: false });
     }
 
-    // 7. Get Key Button (Secured Flow - No Leak, No Fake Redirect)
+    // 7. Get Key Button Flow
     getKeyBtn?.addEventListener('click', async () => {
         if (!auth.currentUser) {
             showToast("Please login first to generate access key", "error");
@@ -278,7 +291,6 @@ export function initAuthSystem(onLoginSuccessCallback) {
                 throw new Error(sessionData.error || "Failed to initialize secured link");
             }
 
-            // Clean direct redirect to short URL
             window.location.href = sessionData.shortUrl;
 
         } catch (e) {
@@ -344,7 +356,7 @@ export function initAuthSystem(onLoginSuccessCallback) {
                 }));
 
                 setTimeout(() => {
-                    if (tokenModal) tokenModal.style.display = 'none';
+                    handleFastTokenClose();
                     verifyBtn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify';
                     if (document.getElementById("downloadModal")?.style.display === "flex") {
                         document.getElementById("dlReadOnlineBtn")?.click();
