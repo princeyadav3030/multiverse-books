@@ -7,9 +7,7 @@ import {
 
 import { 
     getSecureAssetUrl, generateCleanSlug, sanitizeHTML, escapeHTML, 
-    stripMarkdown, parseMarkdown, formatViewsCount, formatTime, 
-    formatDateDivider, normalizeDate, showToast, DEFAULT_AVATAR, 
-    getHighQualityAvatar, generateDeviceFingerprint, formatReactionCount 
+    showToast, DEFAULT_AVATAR, getHighQualityAvatar, generateDeviceFingerprint 
 } from "./modules/helpers.js";
 
 import { 
@@ -29,6 +27,12 @@ import {
 import { 
     initUploadPipeline 
 } from "./modules/upload-pipeline.js";
+
+// Linked Channel Engine Module
+import { 
+    initChannelEngine, renderChannelFeed, renderChannelLoader, 
+    checkAndOpenTargetPost, pendingTargetPostId 
+} from "./modules/channel-engine.js";
 
 // ==========================================
 // 1. GLOBAL APP STATE & CONSTANTS
@@ -57,15 +61,6 @@ let dynamicBannersList = [];
 let activeBannerData = null;
 let activeSubjectKey = null;
 
-// Channel Feed State (WhatsApp/Telegram Style)
-let livePosts = [];
-let renderedPostsCount = 0;
-const CHANNEL_BATCH_SIZE = 15;
-let isLoadingOlderPosts = false;
-let activePost = null;
-let isInitialChannelLoad = true;
-let unreadPostsCount = 0;
-
 let isAppReady = { auth: false, data: false }; 
 let hasTransitioned = false;
 let isTransitioning = false;
@@ -77,23 +72,6 @@ let hasRealtimeListenersBound = false;
 const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
-
-// Post Deeplink Resolver (Preserves post id until fully ready & logged in)
-let pendingTargetPostId = "";
-const currentHash = window.location.hash || "";
-if (currentHash.includes("post/")) {
-    pendingTargetPostId = currentHash.split("post/")[1].replace(/[^a-zA-Z0-9_-]/g, '');
-} else if (urlParamsCheck.has("post")) {
-    pendingTargetPostId = urlParamsCheck.get("post").replace(/[^a-zA-Z0-9_-]/g, '');
-}
-
-// Channel UI elements
-const chatBody = document.getElementById('chatBody');
-const contextOverlay = document.getElementById('contextOverlay');
-const scrollDownWrapper = document.getElementById('scrollDownWrapper');
-const scrollDownBtn = document.getElementById('scrollDownBtn');
-const unreadBadge = document.getElementById('unreadBadge');
-const closeNotiBtn = document.getElementById('close-noti-btn');
 
 // Community Popup Controls & Verified SVG
 let hasClickedWA = false;
@@ -115,6 +93,14 @@ function clearActiveElementFocus() {
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
     }
+}
+
+// Helper: Safe History Push (Prevents duplicate states on rapid taps)
+function safePushHistory(stateObj, url = '') {
+    if (window.history.state && window.history.state.popup === stateObj.popup) {
+        return;
+    }
+    window.history.pushState(stateObj, '', url || window.location.href);
 }
 
 // ==========================================
@@ -193,7 +179,6 @@ function tryTransition() {
                         loader.style.opacity = "0"; 
                         setTimeout(() => { 
                             loader.style.display = "none"; 
-                            // Check target post after loader is hidden completely
                             if (pendingTargetPostId) {
                                 checkAndOpenTargetPost();
                             }
@@ -218,13 +203,13 @@ function tryTransition() {
 }
 
 // ==========================================
-// 3. BOOKMARK CACHE SANITIZER
+// 3. BOOKMARK CACHE SANITIZER (FIXED BUG)
 // ==========================================
+// Fixed: Purani saved books delete nahi hongi jo batch me abhi load nahi hui hain
 function syncAndSanitizeBookmarks() {
-    if (!booksData || booksData.length === 0) return;
-    const existingSlugs = new Set(booksData.map(b => b.slug));
-    const existingIds = new Set(booksData.map(b => b.id));
-    savedBooks = savedBooks.filter(item => existingSlugs.has(item) || existingIds.has(item));
+    if (!Array.isArray(savedBooks)) {
+        savedBooks = [];
+    }
     localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
 }
 
@@ -235,7 +220,6 @@ function initCommunityDualPopup() {
     const popup = document.getElementById('communityPopup');
     if (!popup) return;
 
-    // 3 Days lock in milliseconds
     const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
     const lastLockedTime = localStorage.getItem('spidy_community_popup_locked_until');
     const now = Date.now();
@@ -243,7 +227,6 @@ function initCommunityDualPopup() {
     if (lastLockedTime && now < parseInt(lastLockedTime, 10)) return;
 
     clearTimeout(communityPopupTimer);
-    // Popup appears after 2 minutes (120,000 ms)
     communityPopupTimer = setTimeout(() => {
         popup.classList.add('active');
     }, 120000);
@@ -353,487 +336,7 @@ function initCommunityDualPopup() {
 }
 
 // ==========================================
-// 5. CHANNEL POSTS & TELEGRAM-STYLE REACTIONS
-// ==========================================
-function renderChannelLoader() {
-    if (!chatBody) return;
-    chatBody.innerHTML = `
-        <div class="empty-loading" id="channelLoader">
-            <div class="orbit-spinner">
-                <div class="orbit-ring"></div>
-                <div class="orbit-inner-ring"></div>
-                <div class="orbit-core"></div>
-            </div>
-            Connecting to live updates...
-        </div>`;
-}
-
-function getUserReaction(postId) { 
-    const uid = auth.currentUser ? auth.currentUser.uid : 'guest';
-    return localStorage.getItem(`reaction_${uid}_${postId}`); 
-}
-
-function setUserReaction(postId, emoji) {
-    const uid = auth.currentUser ? auth.currentUser.uid : 'guest';
-    const key = `reaction_${uid}_${postId}`;
-    if (emoji) localStorage.setItem(key, emoji);
-    else localStorage.removeItem(key);
-}
-
-function forceScrollChatToBottom() {
-    if (!chatBody) return;
-    unreadPostsCount = 0;
-    if (unreadBadge) {
-        unreadBadge.innerText = '0';
-        unreadBadge.classList.remove('active');
-    }
-    if (scrollDownWrapper) {
-        scrollDownWrapper.classList.remove('show');
-    }
-
-    chatBody.scrollTop = chatBody.scrollHeight - chatBody.clientHeight;
-}
-
-function scrollToBottomSmooth() {
-    if (!chatBody) return;
-    unreadPostsCount = 0;
-    if (unreadBadge) {
-        unreadBadge.innerText = '0';
-        unreadBadge.classList.remove('active');
-    }
-    const targetTop = chatBody.scrollHeight - chatBody.clientHeight;
-    chatBody.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
-}
-
-if (scrollDownBtn) scrollDownBtn.addEventListener('click', scrollToBottomSmooth);
-
-if (chatBody) {
-    chatBody.addEventListener('scroll', () => {
-        const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
-        if (distanceFromBottom > 140) {
-            scrollDownWrapper?.classList.add('show');
-        } else {
-            scrollDownWrapper?.classList.remove('show');
-            unreadPostsCount = 0;
-            if (unreadBadge) {
-                unreadBadge.innerText = '0';
-                unreadBadge.classList.remove('active');
-            }
-        }
-
-        if (chatBody.scrollTop < 60 && !isLoadingOlderPosts && renderedPostsCount < livePosts.length) {
-            loadOlderChannelPosts();
-        }
-    }, { passive: true });
-}
-
-// Master Function: Scrolls and triggers luxury blue glow pulse
-window.scrollToChannelPost = function(postId) {
-    if (!postId) return;
-    const target = document.getElementById(`post_${postId}`);
-    if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        target.classList.remove('highlight-post');
-        void target.offsetWidth; // Force Reflow
-        target.classList.add('highlight-post');
-        setTimeout(() => target.classList.remove('highlight-post'), 2900);
-    }
-};
-
-function buildReactionsHTML(reactionsObj, userSelectedEmoji) {
-    if (!reactionsObj) return '';
-    const sortedReactions = Object.entries(reactionsObj)
-        .filter(([_, count]) => count > 0)
-        .sort((a, b) => b[1] - a[1]);
-
-    let pillsHTML = '';
-    sortedReactions.forEach(([emoji, count]) => {
-        const isActive = userSelectedEmoji === emoji ? 'active' : '';
-        pillsHTML += `
-            <div class="reaction-pill ${isActive}" data-emoji="${emoji}">
-                <span class="emoji">${emoji}</span>
-                <span class="count">${formatReactionCount(count)}</span>
-            </div>`;
-    });
-    return pillsHTML;
-}
-
-// Seamless Number Rolling DOM Updater
-function updateReactionInDOM(postId, changedEmoji = null, direction = 'up') {
-    const post = livePosts.find(p => p.id === postId);
-    const bubble = document.getElementById(`post_${postId}`);
-    if (!post || !bubble) return;
-
-    const userSelectedEmoji = getUserReaction(postId);
-    const reactionsContainer = bubble.querySelector('.inline-reactions');
-    if (!reactionsContainer) return;
-
-    // Check if we can animate count in-place
-    if (changedEmoji) {
-        const pill = reactionsContainer.querySelector(`.reaction-pill[data-emoji="${changedEmoji}"]`);
-        if (pill) {
-            const countEl = pill.querySelector('.count');
-            const newCount = post.reactions?.[changedEmoji] || 0;
-            
-            if (newCount > 0 && countEl) {
-                countEl.innerText = formatReactionCount(newCount);
-                countEl.classList.remove('count-roll-up', 'count-roll-down');
-                void countEl.offsetWidth;
-                countEl.classList.add(direction === 'up' ? 'count-roll-up' : 'count-roll-down');
-
-                pill.classList.remove('bump-emoji');
-                void pill.offsetWidth;
-                pill.classList.add('bump-emoji');
-
-                if (userSelectedEmoji === changedEmoji) pill.classList.add('active');
-                else pill.classList.remove('active');
-                return;
-            }
-        }
-    }
-
-    // Fallback: Full rebuild if new emoji was introduced or removed
-    reactionsContainer.innerHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
-    reactionsContainer.querySelectorAll('.reaction-pill').forEach(pill => {
-        pill.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            applyReaction(post.id, pill.dataset.emoji);
-        });
-    });
-}
-
-async function registerUniqueView(postId) {
-    if (!auth.currentUser || !postId) return;
-    const uid = auth.currentUser.uid;
-    const viewKey = `viewed_post_${uid}_${postId}`;
-    
-    if (localStorage.getItem(viewKey)) return;
-
-    try {
-        localStorage.setItem(viewKey, '1');
-        const token = await auth.currentUser.getIdToken(false);
-        await fetch('/api/channel-action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'view', postId, userToken: token })
-        });
-    } catch (err) {}
-}
-
-const postViewObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            const postId = entry.target.dataset.postId;
-            if (postId) registerUniqueView(postId);
-        }
-    });
-}, { threshold: 0.5 });
-
-function createSinglePostElement(post) {
-    const dateObj = normalizeDate(post.createdAt);
-    const userSelectedEmoji = getUserReaction(post.id);
-    const bubble = document.createElement('div');
-    bubble.className = 'message-bubble';
-    bubble.id = `post_${post.id}`;
-    bubble.dataset.postId = post.id;
-
-    let imageHTML = post.imageUrl 
-        ? `<img src="${getSecureAssetUrl(post.imageUrl)}" class="msg-image" alt="Post Image" onerror="this.style.display='none';">` 
-        : '';
-
-    let quoteHTML = '';
-    if (post.quote) {
-        const targetId = post.quote.targetPostId || '';
-        const cleanSnippet = sanitizeHTML(stripMarkdown(post.quote.text || ''));
-        quoteHTML = `
-        <div class="msg-quote" onclick="event.stopPropagation(); window.scrollToChannelPost('${targetId}')">
-             <div class="quote-author">SPIDY BOOK HUB</div>
-             <div class="quote-text">${cleanSnippet}</div>
-        </div>`;
-    }
-
-    const reactionPillsHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
-
-    bubble.innerHTML = `
-        ${quoteHTML}
-        ${imageHTML}
-        <div class="msg-text">${parseMarkdown(post.text)}</div>
-        <div class="post-footer">
-            <div class="inline-reactions">${reactionPillsHTML}</div>
-            <div class="msg-meta">
-                <i class="fas fa-eye"></i> ${formatViewsCount(post.views || 1)} &nbsp; ${formatTime(dateObj)}
-            </div>
-        </div>
-    `;
-
-    bubble.querySelectorAll('.reaction-pill').forEach(pill => {
-        pill.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            applyReaction(post.id, pill.dataset.emoji);
-        });
-    });
-
-    bubble.addEventListener('click', (e) => {
-        if (
-            e.target.tagName === 'A' || 
-            e.target.closest('.tg-copy-action-btn') || 
-            e.target.closest('.telegram-copy-btn') ||
-            e.target.closest('.reaction-pill') ||
-            e.target.closest('.tg-copy-card')
-        ) {
-            return;
-        }
-        if (!isUserLoggedIn || !auth.currentUser) {
-            triggerLoginModal();
-            return;
-        }
-        activePost = post;
-        if (contextOverlay) contextOverlay.classList.add('show');
-        if (navigator.vibrate) navigator.vibrate(20);
-    });
-
-    postViewObserver.observe(bubble);
-    return bubble;
-}
-
-function renderChannelFeed(posts, isInitialOrPanelOpen = false, targetPostId = "") {
-    if (!chatBody) return;
-
-    if (!posts || posts.length === 0) {
-        chatBody.innerHTML = `
-            <div class="empty-loading">
-                <i class="fas fa-bullhorn" style="font-size:26px; color:var(--text-secondary); opacity:0.6;"></i>
-                No channel updates posted yet.
-            </div>`;
-        return;
-    }
-
-    if (postViewObserver) postViewObserver.disconnect();
-
-    chatBody.innerHTML = '';
-    const fragment = document.createDocumentFragment();
-
-    const topLoader = document.createElement('div');
-    topLoader.id = 'topHistoryLoader';
-    topLoader.className = 'top-history-loader';
-    topLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading older messages...`;
-    fragment.appendChild(topLoader);
-
-    const total = posts.length;
-    let startIndex = Math.max(0, total - CHANNEL_BATCH_SIZE);
-
-    // If target post exists in history, ensure it is within rendered slice
-    if (targetPostId) {
-        const targetIdx = posts.findIndex(p => p.id === targetPostId);
-        if (targetIdx !== -1 && targetIdx < startIndex) {
-            startIndex = Math.max(0, targetIdx - 3);
-        }
-    }
-
-    const initialBatch = posts.slice(startIndex, total);
-    renderedPostsCount = initialBatch.length;
-
-    let lastDateStr = '';
-    initialBatch.forEach(post => {
-        const dateObj = normalizeDate(post.createdAt);
-        const dateStr = formatDateDivider(dateObj);
-
-        if (dateStr !== lastDateStr) {
-            const divider = document.createElement('div');
-            divider.className = 'date-divider';
-            divider.innerText = dateStr;
-            fragment.appendChild(divider);
-            lastDateStr = dateStr;
-        }
-
-        fragment.appendChild(createSinglePostElement(post));
-    });
-
-    chatBody.appendChild(fragment);
-
-    if (isInitialOrPanelOpen && !targetPostId) {
-        requestAnimationFrame(() => {
-            forceScrollChatToBottom();
-        });
-    }
-}
-
-function loadOlderChannelPosts() {
-    if (isLoadingOlderPosts || renderedPostsCount >= livePosts.length) return;
-    isLoadingOlderPosts = true;
-
-    const topLoader = document.getElementById('topHistoryLoader');
-    if (topLoader) topLoader.classList.add('active');
-
-    setTimeout(() => {
-        const total = livePosts.length;
-        const currentStartIndex = total - renderedPostsCount;
-        const newStartIndex = Math.max(0, currentStartIndex - CHANNEL_BATCH_SIZE);
-        const olderBatch = livePosts.slice(newStartIndex, currentStartIndex);
-
-        if (olderBatch.length === 0) {
-            if (topLoader) topLoader.classList.remove('active');
-            isLoadingOlderPosts = false;
-            return;
-        }
-
-        const prevScrollHeight = chatBody.scrollHeight;
-        const prevScrollTop = chatBody.scrollTop;
-
-        const fragment = document.createDocumentFragment();
-        let lastDateStr = '';
-
-        olderBatch.forEach(post => {
-            const dateObj = normalizeDate(post.createdAt);
-            const dateStr = formatDateDivider(dateObj);
-
-            if (dateStr !== lastDateStr) {
-                const divider = document.createElement('div');
-                divider.className = 'date-divider';
-                divider.innerText = dateStr;
-                fragment.appendChild(divider);
-                lastDateStr = dateStr;
-            }
-            fragment.appendChild(createSinglePostElement(post));
-        });
-
-        if (topLoader && topLoader.nextSibling) {
-            chatBody.insertBefore(fragment, topLoader.nextSibling);
-        } else {
-            chatBody.prepend(fragment);
-        }
-
-        renderedPostsCount += olderBatch.length;
-        if (topLoader) topLoader.classList.remove('active');
-
-        const heightDifference = chatBody.scrollHeight - prevScrollHeight;
-        chatBody.scrollTop = prevScrollTop + heightDifference;
-
-        isLoadingOlderPosts = false;
-    }, 250);
-}
-
-async function applyReaction(postId, newEmoji) {
-    if (!isUserLoggedIn || !auth.currentUser) {
-        triggerLoginModal();
-        return;
-    }
-    
-    const existing = getUserReaction(postId);
-    if (existing === newEmoji) return;
-
-    setUserReaction(postId, newEmoji);
-    const pIdx = livePosts.findIndex(p => p.id === postId);
-    if (pIdx !== -1) {
-        livePosts[pIdx].reactions = livePosts[pIdx].reactions || {};
-        if (existing && livePosts[pIdx].reactions[existing]) {
-            livePosts[pIdx].reactions[existing] = Math.max(0, livePosts[pIdx].reactions[existing] - 1);
-            updateReactionInDOM(postId, existing, 'down');
-        }
-        livePosts[pIdx].reactions[newEmoji] = (livePosts[pIdx].reactions[newEmoji] || 0) + 1;
-        updateReactionInDOM(postId, newEmoji, 'up');
-    }
-    if (navigator.vibrate) navigator.vibrate(15);
-
-    try {
-        const token = await auth.currentUser.getIdToken(false);
-        const res = await fetch('/api/channel-action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'reaction', postId, emoji: newEmoji, userToken: token })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-            showToast(data.error || "Reaction failed", "error");
-        }
-    } catch (e) {}
-}
-
-if (contextOverlay) {
-    contextOverlay.addEventListener('click', (e) => {
-        if (e.target === contextOverlay) contextOverlay.classList.remove('show');
-    });
-
-    document.querySelectorAll('.cm-emoji').forEach(el => {
-        el.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const emoji = el.getAttribute('data-emoji');
-            if (activePost && emoji) {
-                applyReaction(activePost.id, emoji);
-                contextOverlay.classList.remove('show');
-                activePost = null;
-            }
-        });
-    });
-
-    document.getElementById('cmCopyText')?.addEventListener('click', () => {
-        if (!activePost) return;
-        navigator.clipboard.writeText(stripMarkdown(activePost.text));
-        contextOverlay.classList.remove('show');
-    });
-
-    document.getElementById('cmCopyLink')?.addEventListener('click', () => {
-        if (!activePost) return;
-        const cleanBase = window.location.origin + window.location.pathname;
-        const url = `${cleanBase}#/post/${activePost.id}`;
-        navigator.clipboard.writeText(url);
-        contextOverlay.classList.remove('show');
-    });
-
-    document.getElementById('cmForward')?.addEventListener('click', () => {
-        if (!activePost) return;
-        const cleanBase = window.location.origin + window.location.pathname;
-        const url = `${cleanBase}#/post/${activePost.id}`;
-        const cleanText = stripMarkdown(activePost.text);
-        if (navigator.share) {
-            navigator.share({ title: 'SPIDY BOOK HUB', text: cleanText, url: url }).catch(() => {});
-        } else {
-            navigator.clipboard.writeText(url);
-        }
-        contextOverlay.classList.remove('show');
-    });
-
-    document.getElementById('cmReport')?.addEventListener('click', () => {
-        contextOverlay.classList.remove('show');
-    });
-}
-
-document.addEventListener('click', (e) => {
-    const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
-    if (copyBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        let copyTargetText = "";
-        const rawData = copyBtn.getAttribute('data-clipboard');
-        if (rawData) copyTargetText = decodeURIComponent(rawData);
-
-        if (!copyTargetText) {
-            const card = copyBtn.closest('.tg-copy-card, .telegram-prompt-card');
-            if (card) {
-                const bodyEl = card.querySelector('.telegram-prompt-body, .tg-copy-body');
-                if (bodyEl) copyTargetText = bodyEl.textContent.trim();
-            }
-        }
-
-        if (copyTargetText) {
-            navigator.clipboard.writeText(copyTargetText).then(() => {
-                copyBtn.classList.add('copied-active');
-                const orig = copyBtn.innerHTML;
-                copyBtn.innerHTML = `<i class="fas fa-check"></i> COPIED!`;
-                setTimeout(() => {
-                    copyBtn.classList.remove('copied-active');
-                    copyBtn.innerHTML = orig;
-                }, 2000);
-            });
-        }
-    }
-}, true);
-
-// ==========================================
-// 6. MASTER FILTER APPLIER & UI RENDER
+// 5. MASTER FILTER APPLIER & UI RENDER
 // ==========================================
 function applyMasterFilter(isAppending = false, newBatchData = []) {
     const searchInputRaw = (document.getElementById('app-search-input')?.value || "").trim();
@@ -899,7 +402,7 @@ function renderBooksUI(dataToRender, append = false) {
         let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
+        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug)}" data-id="${escapeHTML(book.id)}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
 
     if (append) {
@@ -918,18 +421,16 @@ function toggleBookmarkLocal(iconElement, slug) {
         savedBooks.splice(index, 1); 
         if(iconElement) iconElement.className = "far fa-bookmark"; 
     }
-    localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
     syncAndSanitizeBookmarks();
     if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
 }
 
 function renderSavedBooksUI() {
-    syncAndSanitizeBookmarks();
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
     const savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
     
-    if (savedBooksData.length === 0) { 
+    if (savedBooks.length === 0 || savedBooksData.length === 0) { 
         if (container) container.innerHTML = ""; 
         if (noMsg) noMsg.style.display = "flex"; 
         return; 
@@ -940,13 +441,13 @@ function renderSavedBooksUI() {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `<div class="book-card" data-slug="${book.slug}" data-id="${book.id}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
+        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug)}" data-id="${escapeHTML(book.id)}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
     if (container) container.innerHTML = htmlChunk;
 }
 
 // ==========================================
-// 7. REALTIME PAGINATION & PARALLEL DATA FETCH
+// 6. PAGINATION & DATA FETCH
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -996,7 +497,7 @@ async function loadNextBooksBatch() {
     if (infiniteLoader) infiniteLoader.style.display = 'flex';
 
     try {
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 600));
 
         const booksRef = collection(db, "books");
         const q = query(booksRef, orderBy("createdAt", "desc"), startAfter(lastVisibleBookDoc), limit(BATCH_SIZE));
@@ -1037,7 +538,7 @@ async function loadNextBooksBatch() {
 }
 
 // ==========================================
-// 8. PROMO CAROUSEL & MODULE PACKS
+// 7. PROMO CAROUSEL & MODULE PACKS
 // ==========================================
 let currentPromoIndex = 0;
 let promoAutoSlideInterval = null;
@@ -1211,7 +712,7 @@ window.openBannerModules = function(bannerId) {
     container.innerHTML = html;
     const modal = document.getElementById('moduleBannerModal');
     if (modal) {
-        history.pushState({ popup: 'moduleBanner' }, '');
+        safePushHistory({ popup: 'moduleBanner' });
         modal.classList.add('active');
     }
 };
@@ -1272,13 +773,13 @@ window.openSubjectModulesList = function(subjectKey) {
         container.innerHTML = html;
     }
 
-    history.pushState({ popup: 'moduleList', subjectKey: subjectKey }, '');
+    safePushHistory({ popup: 'moduleList', subjectKey: subjectKey });
     document.getElementById('bannerSubjectsView').classList.add('hidden-view');
     document.getElementById('bannerModulesView').classList.remove('hidden-view');
 };
 
 // ==========================================
-// READ MODULE PDF DIRECTLY
+// READ MODULE PDF DIRECTLY (FIXED TOKEN POP)
 // ==========================================
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
@@ -1302,7 +803,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     }
 
     if (!hasValidToken && !IS_SUPER_ADMIN) {
-        history.pushState({ popup: 'tokenModal', returnTo: 'module' }, '');
+        safePushHistory({ popup: 'tokenModal', returnTo: 'module' });
         const tModal = document.getElementById('tokenModalOverlay');
         if (tModal) tModal.style.display = 'flex';
         return;
@@ -1313,12 +814,11 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 
     if (titleEl) titleEl.innerText = title || "Reading Module...";
     if (pdfViewer) {
-        history.pushState({ popup: 'pdfViewer', from: 'module' }, '');
+        safePushHistory({ popup: 'pdfViewer', from: 'module' });
         pdfViewer.style.display = 'flex';
     }
 
     showCenteredPdfLoader("Just a Moment… Your Module Is Almost Ready..!! 🚀📚");
-
     const distinctModuleSlug = generateCleanSlug(title || pdfKeyOrUrl || "module-pack");
 
     if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
@@ -1352,7 +852,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 
             if (data.requireToken) {
                 localStorage.removeItem('spidy_secure_session');
-                history.pushState({ popup: 'tokenModal', returnTo: 'module' }, '');
+                safePushHistory({ popup: 'tokenModal', returnTo: 'module' });
                 const tModal = document.getElementById('tokenModalOverlay');
                 if (tModal) tModal.style.display = 'flex';
             }
@@ -1365,7 +865,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 9. BOOK DETAIL & READ ONLINE
+// 8. BOOK DETAIL & READ ONLINE
 // ==========================================
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
@@ -1431,7 +931,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
         }
 
         if(!hasValidToken && !IS_SUPER_ADMIN) {
-             history.pushState({ popup: 'tokenModal', returnTo: 'book' }, '');
+             safePushHistory({ popup: 'tokenModal', returnTo: 'book' });
              const tModal = document.getElementById('tokenModalOverlay');
              if (tModal) tModal.style.display = 'flex';
              return; 
@@ -1460,14 +960,14 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
                 const pdfViewer = document.getElementById('pdfViewerOverlay');
                 const title = document.getElementById('pdfViewerTitle');
                 if (title) title.innerText = sanitizeHTML(book.title);
-                history.pushState({ popup: 'pdfViewer', from: 'book' }, '');
+                safePushHistory({ popup: 'pdfViewer', from: 'book' });
                 if (pdfViewer) pdfViewer.style.display = 'flex';
                 renderPdfInModal(data.pdfLink, false, "book", book.slug || book.id);
             } else {
                 showToast(data.error || "Access denied", "error");
                 if (data.requireToken) {
                     localStorage.removeItem('spidy_secure_session');
-                    history.pushState({ popup: 'tokenModal', returnTo: 'book' }, '');
+                    safePushHistory({ popup: 'tokenModal', returnTo: 'book' });
                     const tModal = document.getElementById('tokenModalOverlay');
                     if (tModal) tModal.style.display = 'flex';
                 }
@@ -1489,7 +989,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
     activeBookTitle = book.title; 
     
     if (!skipPushState) { 
-        history.pushState({ popup: 'book' }, '', '?book=' + (book.slug || book.id)); 
+        safePushHistory({ popup: 'book' }, '?book=' + (book.slug || book.id)); 
     }
 }
 
@@ -1504,49 +1004,12 @@ function closeDownloadPageLocal() {
 }
 
 // ==========================================
-// 10. ACCURATE TARGET SCROLL & POST HIGHLIGHT GLOW
-// ==========================================
-function checkAndOpenTargetPost() {
-    if (!pendingTargetPostId) return;
-
-    // Must be logged in to view channel posts
-    if (!isUserLoggedIn || !auth.currentUser) {
-        triggerLoginModal();
-        return;
-    }
-
-    const notiPanel = document.getElementById('noti-panel');
-    if (!notiPanel) return;
-
-    // Open channel panel if not already open
-    if (!notiPanel.classList.contains('active')) {
-        history.pushState({ popup: 'noti' }, '');
-        notiPanel.classList.add('active');
-    }
-
-    // Hide unread badge on panel launch
-    const blinkDot = document.querySelector('.blink-dot');
-    if (blinkDot) blinkDot.style.display = 'none';
-
-    // Render feed including target post if not yet loaded
-    if (livePosts.length > 0) {
-        renderChannelFeed(livePosts, false, pendingTargetPostId);
-    }
-
-    // Delay slightly for smooth mobile slide transition, then scroll + trigger glow
-    setTimeout(() => {
-        window.scrollToChannelPost(pendingTargetPostId);
-        // Clear pending target after successful trigger
-        pendingTargetPostId = "";
-    }, 450);
-}
-
-// ==========================================
-// 11. EVENT LISTENERS
+// 9. EVENT LISTENERS & POPSTATE ENGINE
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
     loadInitialBooksBatch();
     fetchGlobalFilterMetadata();
+    initChannelEngine();
 
     initAuthSystem(() => {
         if (isDeepLinkLoad && pendingBookSlug) {
@@ -1569,9 +1032,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('open-search')?.addEventListener('click', () => { 
         clearActiveElementFocus();
-        history.pushState({ popup: 'search' }, ''); 
+        safePushHistory({ popup: 'search' }); 
         document.getElementById('search-box')?.classList.add('active'); 
         setTimeout(() => { document.getElementById('app-search-input')?.focus(); }, 300); 
+    });
+
+    document.getElementById('close-search')?.addEventListener('click', () => {
+        clearActiveElementFocus();
+        if (history.state && history.state.popup === 'search') {
+            history.back();
+        } else {
+            document.getElementById('search-box')?.classList.remove('active');
+        }
     });
 
     document.getElementById('open-noti')?.addEventListener('click', () => { 
@@ -1581,17 +1053,13 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        history.pushState({ popup: 'noti' }, ''); 
+        safePushHistory({ popup: 'noti' }); 
         document.getElementById('noti-panel')?.classList.add('active'); 
         
         const blinkDot = document.querySelector('.blink-dot');
         if (blinkDot) blinkDot.style.display = 'none'; 
 
-        if (livePosts.length > 0) {
-            renderChannelFeed(livePosts, true);
-        } else {
-            renderChannelLoader();
-        }
+        renderChannelFeed(null, true);
     });
 
     document.getElementById('close-noti-btn')?.addEventListener('click', () => {
@@ -1615,7 +1083,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const uploadModal = document.getElementById('uploadModalOverlay');
         if (uploadModal) {
-            history.pushState({ popup: 'uploadModal' }, '');
+            safePushHistory({ popup: 'uploadModal' });
             uploadModal.classList.add('active');
         }
     });
@@ -1629,26 +1097,32 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Report Broken Link Button & Modal Logic
+    // Report Broken Link Modal
     document.getElementById('reportLinkBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         clearActiveElementFocus();
         const reportModal = document.getElementById('reportModalOverlay');
         if (reportModal) {
+            safePushHistory({ popup: 'reportModal' });
             reportModal.classList.add('active');
         }
     });
 
     document.getElementById('closeReportBtn')?.addEventListener('click', () => {
         clearActiveElementFocus();
-        document.getElementById('reportModalOverlay')?.classList.remove('active');
+        if (history.state && history.state.popup === 'reportModal') {
+            history.back();
+        } else {
+            document.getElementById('reportModalOverlay')?.classList.remove('active');
+        }
     });
 
     document.getElementById('reportModalOverlay')?.addEventListener('click', (e) => {
         if (e.target === document.getElementById('reportModalOverlay')) {
             clearActiveElementFocus();
-            document.getElementById('reportModalOverlay').classList.remove('active');
+            if (history.state && history.state.popup === 'reportModal') history.back();
+            else document.getElementById('reportModalOverlay')?.classList.remove('active');
         }
     });
 
@@ -1683,7 +1157,8 @@ document.addEventListener("DOMContentLoaded", () => {
             
             setTimeout(() => {
                 clearActiveElementFocus();
-                document.getElementById('reportModalOverlay')?.classList.remove('active');
+                if (history.state && history.state.popup === 'reportModal') history.back();
+                else document.getElementById('reportModalOverlay')?.classList.remove('active');
                 setTimeout(() => {
                     submitReportBtn.innerHTML = 'Submit Report';
                     submitReportBtn.style.background = '#ef4444';
@@ -1694,7 +1169,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Global Infinite Scroll Observer
+    // Upgraded Intersection Observer for Lifted Centered Infinite Loader
     const sentinel = document.getElementById('scroll-sentinel');
     if (sentinel) {
         const infiniteScrollObserver = new IntersectionObserver((entries) => {
@@ -1704,11 +1179,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     loadNextBooksBatch();
                 }
             });
-        }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 300px 0px', threshold: 0.1 });
+        }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 80px 0px', threshold: 0.1 });
         infiniteScrollObserver.observe(sentinel);
     }
 
-    // Book Selection & Bookmark Clicks
+    // Book Cards Click Listeners
     document.getElementById('bookContainer')?.addEventListener('click', (e) => {
         const card = e.target.closest('.book-card');
         if(card) {
@@ -1729,7 +1204,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Download Modal Actions
+    // Download Modal Listeners
     document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
     document.getElementById('shareBookBtn')?.addEventListener('click', () => {
         const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
@@ -1741,12 +1216,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Sidebar & Navigation
+    // Sidebar & Menus
     const sidebar = document.getElementById('sidebar'); 
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     document.getElementById('open-menu')?.addEventListener('click', () => { 
         clearActiveElementFocus();
-        history.pushState({ popup: 'sidebar' }, ''); 
+        safePushHistory({ popup: 'sidebar' }); 
         sidebar?.classList.add('active'); 
         sidebarOverlay?.classList.add('active'); 
     });
@@ -1755,15 +1230,19 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('menu-home-side')?.addEventListener('click', (e) => {
         e.preventDefault();
         clearActiveElementFocus();
-        sidebar?.classList.remove('active');
-        sidebarOverlay?.classList.remove('active');
+        if (history.state && history.state.popup === 'sidebar') {
+            history.back();
+        } else {
+            sidebar?.classList.remove('active');
+            sidebarOverlay?.classList.remove('active');
+        }
         document.getElementById('mainContentArea')?.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
     document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => { 
         e.preventDefault(); 
         clearActiveElementFocus();
-        history.pushState({ popup: 'bookmarks' }, ''); 
+        safePushHistory({ popup: 'bookmarks' }); 
         document.getElementById('bookmarks-panel')?.classList.add('active'); 
         sidebar?.classList.remove('active'); 
         sidebarOverlay?.classList.remove('active'); 
@@ -1771,7 +1250,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // Native Mobile Step-by-Step Back Navigation
+    // Master Native Popstate Engine (Single Step Clean Navigation)
     window.addEventListener('popstate', (e) => {
         clearActiveElementFocus();
 
@@ -1781,10 +1260,16 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        const channelContext = document.getElementById('contextOverlay');
+        if (channelContext && channelContext.classList.contains('show')) {
+            channelContext.classList.remove('show');
+            return;
+        }
+
         const loginOverlay = document.getElementById('loginOverlay');
         if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
             loginOverlay.style.opacity = '0';
-            setTimeout(() => { loginOverlay.style.display = 'none'; }, 400);
+            setTimeout(() => { loginOverlay.style.display = 'none'; }, 350);
             return;
         }
 
@@ -1823,11 +1308,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const uploadModal = document.getElementById('uploadModalOverlay');
         if (uploadModal && uploadModal.classList.contains('active')) {
-            const sectionPrompt = document.getElementById('sectionPrompt');
-            if (sectionPrompt && sectionPrompt.classList.contains('active')) {
-                document.getElementById('admTabAdd')?.click();
-                return;
-            }
             uploadModal.classList.remove('active');
             return;
         }
@@ -1888,7 +1368,7 @@ document.addEventListener("DOMContentLoaded", () => {
         applyMasterFilter(false);
     });
 
-    // Module Header Custom Back Button
+    // Custom Module Back Button
     document.getElementById('moduleBackBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1929,7 +1409,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================================
-// 12. AUTH STATE & LIVE SYNC PIPELINE
+// 10. AUTH STATE & LIVE SYNC PIPELINE
 // ==========================================
 onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -1959,7 +1439,6 @@ onAuthStateChanged(auth, async (user) => {
             IS_SUPER_ADMIN = false; 
         }
 
-        // If a deeplink was waiting for authentication, handle now
         if (hasTransitioned) {
             if (pendingTargetPostId) {
                 checkAndOpenTargetPost();
@@ -1979,10 +1458,6 @@ onAuthStateChanged(auth, async (user) => {
         if (sidebarAvatar) sidebarAvatar.src = DEFAULT_AVATAR;
     }
 
-    if (livePosts.length > 0) {
-        livePosts.forEach(post => updateReactionInDOM(post.id));
-    }
-
     isAppReady.auth = true; 
     tryTransition();
 
@@ -1998,102 +1473,5 @@ onAuthStateChanged(auth, async (user) => {
             dynamicBannersList.push(b);
         });
         renderDynamicBanners(dynamicBannersList);
-    });
-
-    // Realtime Prompts Loader
-    onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
-        const container = document.getElementById('promptsContainer');
-        if (!container) return;
-        container.innerHTML = '';
-        if (snapshot.empty) { 
-            container.innerHTML = `<div style="text-align:center; padding:20px; color:#8b949e; font-weight:700;">No prompts available yet.</div>`; 
-            return; 
-        }
-        let aggregatedHTML = '';
-        snapshot.forEach(docSnap => {
-            const data = docSnap.data(); 
-            const safeText = sanitizeHTML(data.text);
-            const safeInstruction = data.instruction ? sanitizeHTML(data.instruction).replace(/\n/g, "<br>") : "";
-            const safeTitle = sanitizeHTML(data.title || "Book Name & Author");
-            let instructionHTML = '';
-            if (safeInstruction) { 
-                instructionHTML = `<div class="prompt-instruction-text">${safeInstruction}</div>`; 
-            }
-            aggregatedHTML += `
-            <div class="telegram-prompt-wrapper">
-                ${instructionHTML}
-                <div class="telegram-prompt-card">
-                    <div class="telegram-prompt-header"><span>${safeTitle}</span></div>
-                    <div class="telegram-prompt-body">${safeText}</div>
-                    <div class="telegram-prompt-footer">
-                        <button type="button" class="telegram-copy-btn" data-clipboard="${encodeURIComponent(data.text)}">
-                            <i class="far fa-copy"></i> COPY CODE
-                        </button>
-                    </div>
-                </div>
-            </div>`;
-        });
-        container.innerHTML = aggregatedHTML;
-    });
-
-    // Realtime Channel Posts Listener
-    renderChannelLoader();
-    const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
-    onSnapshot(channelQuery, (snapshot) => {
-        const dataArr = [];
-        snapshot.forEach(docSnap => {
-            dataArr.push({ id: docSnap.id, ...docSnap.data() });
-        });
-
-        const prevCount = livePosts.length;
-        livePosts = dataArr;
-
-        if (chatBody && livePosts.length === 0) {
-            chatBody.innerHTML = `
-                <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
-                    <i class="fas fa-bullhorn" style="font-size: 28px; margin-bottom: 10px; color: #64748b;"></i>
-                    <p style="font-size: 14px; margin: 0;">No updates yet. Check back soon!</p>
-                </div>`;
-            return;
-        }
-
-        const notiPanel = document.getElementById('noti-panel');
-        const isNotiPanelOpen = notiPanel && notiPanel.classList.contains('active');
-        const blinkDot = document.querySelector('.blink-dot');
-
-        if (isInitialChannelLoad) {
-            renderChannelFeed(livePosts, !pendingTargetPostId, pendingTargetPostId);
-            isInitialChannelLoad = false;
-            if (hasTransitioned && pendingTargetPostId) {
-                checkAndOpenTargetPost();
-            }
-        } else if (livePosts.length !== prevCount) {
-            if (!isNotiPanelOpen && blinkDot && livePosts.length > prevCount) {
-                blinkDot.style.display = 'block';
-            }
-
-            const distanceFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
-            if (distanceFromBottom > 140 && livePosts.length > prevCount) {
-                unreadPostsCount += (livePosts.length - prevCount);
-                if (unreadBadge) {
-                    unreadBadge.innerText = unreadPostsCount > 99 ? '99+' : unreadPostsCount;
-                    unreadBadge.classList.add('active');
-                }
-                if (scrollDownWrapper) scrollDownWrapper.classList.add('show');
-                renderChannelFeed(livePosts, false);
-            } else {
-                renderChannelFeed(livePosts, !pendingTargetPostId, pendingTargetPostId);
-            }
-        } else {
-            livePosts.forEach(p => updateReactionInDOM(p.id));
-        }
-    }, (error) => {
-        if (chatBody) {
-            chatBody.innerHTML = `
-                <div class="empty-loading" style="padding: 40px 20px; text-align: center; color: #94a3b8;">
-                    <i class="fas fa-circle-exclamation" style="font-size: 28px; margin-bottom: 10px; color: #ef4444;"></i>
-                    <p style="font-size: 14px; margin: 0;">Updates unavailable.</p>
-                </div>`;
-        }
     });
 });
