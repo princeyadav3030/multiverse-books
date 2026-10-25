@@ -490,8 +490,7 @@
 
             <!-- Main Content Area -->
             <main id="mainContentArea">
-                <!-- Bottom padding increased to protect infinite loader from mobile nav bar -->
-                <div id="tab-home" class="app-tab active" style="padding-bottom: 40px;">
+                <div id="tab-home" class="app-tab active" style="padding-bottom: 45px;">
                     <!-- Promo Banner Carousel -->
                     <div class="promo-carousel-container" id="promoCarouselContainer">
                         <button class="promo-arrow-btn arrow-prev" id="promoPrevBtn" aria-label="Previous Slide">
@@ -531,12 +530,10 @@
                         </div>
                     </div>
                     
-                    <!-- UPGRADED & LIFTED INFINITE PAGINATION LOADER -->
-                    <div id="infinite-loader" style="display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 30px 0 45px 0; margin-top: 10px; margin-bottom: 20px; box-sizing: border-box;">
-                        <div style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(16, 185, 129, 0.08); margin-bottom: 10px; border: 1px solid rgba(16, 185, 129, 0.2);">
-                            <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #10b981;"></i>
-                        </div>
-                        <span style="color: #10b981; font-size: 11px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase;">LOADING MORE BOOKS...</span>
+                    <!-- CLEAN BORDERLESS SPINNER WITH GREEN TEXT -->
+                    <div id="infinite-loader" style="display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 28px 0 38px 0; margin-top: 8px; margin-bottom: 15px; box-sizing: border-box;">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 26px; color: #10b981;"></i>
+                        <span style="color: #10b981; font-size: 11px; font-weight: 800; letter-spacing: 1.2px; margin-top: 12px; text-transform: uppercase;">LOADING MORE BOOKS...</span>
                     </div>
 
                     <div id="scroll-sentinel" style="height: 10px; width: 100%;"></div>
