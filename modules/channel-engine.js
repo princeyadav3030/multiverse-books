@@ -15,7 +15,7 @@ import { triggerLoginModal } from "./auth-system.js";
 // ==========================================
 // CHANNEL INTERNAL STATE
 // ==========================================
-let livePosts = [];
+export let livePosts = [];
 let renderedPostsCount = 0;
 const CHANNEL_BATCH_SIZE = 15;
 let isLoadingOlderPosts = false;
@@ -252,7 +252,6 @@ function createSinglePostElement(post) {
     bubble.id = `post_${post.id}`;
     bubble.dataset.postId = post.id;
 
-    // Secure Quote creation without inline onclick
     let quoteElement = null;
     if (post.quote) {
         const targetId = post.quote.targetPostId || '';
@@ -292,7 +291,6 @@ function createSinglePostElement(post) {
         bubble.prepend(quoteElement);
     }
 
-    // Attach reaction listeners safely
     bubble.querySelectorAll('.reaction-pill').forEach(pill => {
         pill.addEventListener('click', (e) => {
             e.preventDefault();
@@ -301,7 +299,6 @@ function createSinglePostElement(post) {
         });
     });
 
-    // Bubble tap for Context Overlay
     bubble.addEventListener('click', (e) => {
         if (
             e.target.tagName === 'A' || 
@@ -329,8 +326,11 @@ function createSinglePostElement(post) {
     return bubble;
 }
 
-export function renderChannelFeed(posts, isInitialOrPanelOpen = false, targetPostId = "") {
+export function renderChannelFeed(postsToRender = null, isInitialOrPanelOpen = false, targetPostId = "") {
     if (!chatBody) return;
+
+    // Use passed array or fallback to current livePosts
+    const posts = Array.isArray(postsToRender) ? postsToRender : livePosts;
 
     if (!posts || posts.length === 0) {
         chatBody.innerHTML = `
