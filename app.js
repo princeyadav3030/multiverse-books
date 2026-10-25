@@ -31,7 +31,7 @@ import {
 // Linked Channel Engine Module
 import { 
     initChannelEngine, renderChannelFeed, renderChannelLoader, 
-    checkAndOpenTargetPost, pendingTargetPostId 
+    checkAndOpenTargetPost, pendingTargetPostId, livePosts 
 } from "./modules/channel-engine.js";
 
 // ==========================================
@@ -203,9 +203,8 @@ function tryTransition() {
 }
 
 // ==========================================
-// 3. BOOKMARK CACHE SANITIZER (FIXED BUG)
+// 3. BOOKMARK CACHE SANITIZER (FIXED)
 // ==========================================
-// Fixed: Purani saved books delete nahi hongi jo batch me abhi load nahi hui hain
 function syncAndSanitizeBookmarks() {
     if (!Array.isArray(savedBooks)) {
         savedBooks = [];
@@ -447,7 +446,7 @@ function renderSavedBooksUI() {
 }
 
 // ==========================================
-// 6. PAGINATION & DATA FETCH
+// 6. PAGINATION & DATA FETCH (2-SEC DELAY)
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -497,7 +496,8 @@ async function loadNextBooksBatch() {
     if (infiniteLoader) infiniteLoader.style.display = 'flex';
 
     try {
-        await new Promise(resolve => setTimeout(resolve, 600));
+        // Proper 2 Seconds delay for smooth loader display
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         const booksRef = collection(db, "books");
         const q = query(booksRef, orderBy("createdAt", "desc"), startAfter(lastVisibleBookDoc), limit(BATCH_SIZE));
@@ -779,7 +779,7 @@ window.openSubjectModulesList = function(subjectKey) {
 };
 
 // ==========================================
-// READ MODULE PDF DIRECTLY (FIXED TOKEN POP)
+// READ MODULE PDF DIRECTLY
 // ==========================================
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
@@ -1059,7 +1059,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const blinkDot = document.querySelector('.blink-dot');
         if (blinkDot) blinkDot.style.display = 'none'; 
 
-        renderChannelFeed(null, true);
+        // Correctly pass current livePosts to feed
+        if (livePosts && livePosts.length > 0) {
+            renderChannelFeed(livePosts, true);
+        } else {
+            renderChannelLoader();
+        }
     });
 
     document.getElementById('close-noti-btn')?.addEventListener('click', () => {
@@ -1169,7 +1174,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Upgraded Intersection Observer for Lifted Centered Infinite Loader
+    // Upgraded Intersection Observer for Centered Infinite Loader
     const sentinel = document.getElementById('scroll-sentinel');
     if (sentinel) {
         const infiniteScrollObserver = new IntersectionObserver((entries) => {
