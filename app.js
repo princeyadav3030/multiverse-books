@@ -203,7 +203,7 @@ function tryTransition() {
 }
 
 // ==========================================
-// 3. BOOKMARK CACHE SANITIZER (FIXED)
+// 3. BOOKMARK CACHE SANITIZER
 // ==========================================
 function syncAndSanitizeBookmarks() {
     if (!Array.isArray(savedBooks)) {
@@ -446,7 +446,7 @@ function renderSavedBooksUI() {
 }
 
 // ==========================================
-// 6. PAGINATION & DATA FETCH (AUTO-LIFT & 2-SEC DELAY)
+// 6. PAGINATION & DATA FETCH
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -495,14 +495,12 @@ async function loadNextBooksBatch() {
     const infiniteLoader = document.getElementById('infinite-loader');
     if (infiniteLoader) {
         infiniteLoader.style.display = 'flex';
-        // Auto-lift into clear view agar loader screen ke niche chhip raha ho
         setTimeout(() => {
             infiniteLoader.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }, 50);
     }
 
     try {
-        // Proper 2 Seconds delay for smooth loader display
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         const booksRef = collection(db, "books");
@@ -1027,6 +1025,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // filters-engine hi search box input clear, filter apply, aur history popstate handle karega
     initFiltersEngine(() => booksData, () => applyMasterFilter(false));
     initPdfViewerUI();
     initUploadPipeline(() => IS_SUPER_ADMIN, (newBook) => {
@@ -1043,14 +1042,8 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => { document.getElementById('app-search-input')?.focus(); }, 300); 
     });
 
-    document.getElementById('close-search')?.addEventListener('click', () => {
-        clearActiveElementFocus();
-        if (history.state && history.state.popup === 'search') {
-            history.back();
-        } else {
-            document.getElementById('search-box')?.classList.remove('active');
-        }
-    });
+    // NOTE: Duplicate close-search listener completely removed from app.js!
+    // It is exclusively and safely managed in filters-engine.js.
 
     document.getElementById('open-noti')?.addEventListener('click', () => { 
         clearActiveElementFocus();
@@ -1065,7 +1058,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const blinkDot = document.querySelector('.blink-dot');
         if (blinkDot) blinkDot.style.display = 'none'; 
 
-        // Correctly pass current livePosts to feed
         if (livePosts && livePosts.length > 0) {
             renderChannelFeed(livePosts, true);
         } else {
@@ -1180,7 +1172,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Upgraded Intersection Observer for Centered Infinite Loader
+    // Centered Infinite Loader Sentinel
     const sentinel = document.getElementById('scroll-sentinel');
     if (sentinel) {
         const infiniteScrollObserver = new IntersectionObserver((entries) => {
