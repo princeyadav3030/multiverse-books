@@ -51,11 +51,21 @@ export const EXAM_CATEGORY_MAP = {
 };
 
 // ==========================================
-// DYNAMIC METADATA LOADERS (OPTIMIZED)
+// DYNAMIC METADATA LOADERS (SESSION CACHED)
 // ==========================================
 export async function fetchGlobalFilterMetadata() {
     try {
-        // Sirf initial batch se cache populate karega bina heavy read quota waste kiye
+        // Session storage check to prevent repetitive Firestore reads on the same session
+        const cachedMeta = sessionStorage.getItem('spidy_filter_meta_cached');
+        if (cachedMeta) {
+            const parsed = JSON.parse(cachedMeta);
+            if (parsed.authors && parsed.years) {
+                parsed.authors.forEach(a => allAuthorsCache.add(a));
+                parsed.years.forEach(y => allYearsCache.add(y));
+                return;
+            }
+        }
+
         const booksRef = collection(db, "books");
         const snap = await getDocs(query(booksRef, limit(60)));
         snap.forEach(d => {
@@ -65,6 +75,12 @@ export async function fetchGlobalFilterMetadata() {
             const y = (val.year || "").toString().trim();
             if (y && !isNaN(parseInt(y, 10))) allYearsCache.add(y);
         });
+
+        // Store into session storage to save reads
+        sessionStorage.setItem('spidy_filter_meta_cached', JSON.stringify({
+            authors: Array.from(allAuthorsCache),
+            years: Array.from(allYearsCache)
+        }));
     } catch (e) {
         // Fallback gracefully on network/permission issues
     }
@@ -223,9 +239,6 @@ function matchesExactWordOrPhrase(targetText, keyword) {
     const cleanKw = regexEscape(keyword.trim().toUpperCase());
     if (!cleanKw) return false;
 
-    // Strict word-boundary regex (\b)
-    // Ye check karta hai ki keyword as an independent word/phrase ho,
-    // kisi dusre word ka substring na ho (e.g. 'GK' matches 'STATIC GK' but NOT 'GKGOC')
     const pattern = new RegExp(`(^|[^A-Z0-9])${cleanKw}([^A-Z0-9]|$)`, 'i');
     return pattern.test(targetText);
 }
@@ -238,14 +251,10 @@ export function matchBookFilters(book, searchInputRaw, cleanSearchNoSpaces, sear
         const titleFallback = `${book.title || ''}`.toUpperCase();
         const targetKeywords = EXAM_CATEGORY_MAP[filterState.class] || [filterState.class.toUpperCase()];
 
-        // Pehle book.exams me strict match dekhega
         let foundInExams = targetKeywords.some(kw => matchesExactWordOrPhrase(examFields, kw));
-
-        // Agar exams field me nahi mila, tabhi title me strictly word check karega
         if (!foundInExams) {
             foundInExams = targetKeywords.some(kw => matchesExactWordOrPhrase(titleFallback, kw));
         }
-
         matchesCategory = foundInExams;
     }
 
