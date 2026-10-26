@@ -103,6 +103,18 @@ function safePushHistory(stateObj, url = '') {
     window.history.pushState(stateObj, '', url || window.location.href);
 }
 
+// Helper: Check if any filter or search query is currently active
+function isFilterOrSearchActive() {
+    const searchVal = (document.getElementById('app-search-input')?.value || "").trim();
+    return (
+        searchVal.length > 0 ||
+        filterState.language !== 'All' ||
+        filterState.class !== 'All' ||
+        filterState.author !== 'All' ||
+        filterState.year !== 'All'
+    );
+}
+
 // ==========================================
 // 2. LOADER & TRANSITION ENGINE
 // ==========================================
@@ -356,11 +368,17 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
 
         if (mainFilteredData.length > 0) {
             if (noResultsMsg) noResultsMsg.style.display = 'none';
-        } else {
+        } else if (!hasMoreBooksToFetch) {
             if (noResultsMsg) noResultsMsg.style.display = 'flex';
         }
 
         if (infiniteLoader) infiniteLoader.style.display = 'none';
+
+        // Smart Quota-Safe Auto-Fetch: Agar filter lagne par abhi bhi 6 se kam books aayi hain 
+        // aur database me aur books bachi hain, toh agla batch mangwa lo taaki screen bhari rahe
+        if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch) {
+            loadNextBooksBatch(true);
+        }
         return;
     }
 
@@ -374,8 +392,18 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
         renderBooksUI(mainFilteredData, false); 
     } else { 
         if (bookContainer) bookContainer.innerHTML = ""; 
-        if (noResultsMsg) noResultsMsg.style.display = 'flex'; 
+        if (!hasMoreBooksToFetch) {
+            if (noResultsMsg) noResultsMsg.style.display = 'flex'; 
+        } else {
+            if (noResultsMsg) noResultsMsg.style.display = 'none';
+        }
         if (infiniteLoader) infiniteLoader.style.display = 'none';
+    }
+
+    // Agar user ne filter/search select kiya aur loaded batch me 6 se kam books mili,
+    // toh automatically next batch pull karega bina extra quota waste kiye
+    if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch) {
+        loadNextBooksBatch(true);
     }
 }
 
@@ -488,20 +516,24 @@ async function loadInitialBooksBatch() {
     }
 }
 
-async function loadNextBooksBatch() {
+async function loadNextBooksBatch(isFastFilterFetch = false) {
     if (!hasMoreBooksToFetch || isFetchingBooksBatch || !lastVisibleBookDoc) return;
     isFetchingBooksBatch = true;
 
     const infiniteLoader = document.getElementById('infinite-loader');
     if (infiniteLoader) {
         infiniteLoader.style.display = 'flex';
-        setTimeout(() => {
-            infiniteLoader.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }, 50);
+        if (!isFastFilterFetch) {
+            setTimeout(() => {
+                infiniteLoader.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }, 50);
+        }
     }
 
     try {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Normal scroll par 1.2s smooth loader dikhega, aur filter auto-fetch par fast (300ms) load hoga
+        const delayMs = isFastFilterFetch ? 300 : 1200;
+        await new Promise(resolve => setTimeout(resolve, delayMs));
 
         const booksRef = collection(db, "books");
         const q = query(booksRef, orderBy("createdAt", "desc"), startAfter(lastVisibleBookDoc), limit(BATCH_SIZE));
@@ -511,6 +543,10 @@ async function loadNextBooksBatch() {
             hasMoreBooksToFetch = false;
             if (infiniteLoader) infiniteLoader.style.display = 'none';
             isFetchingBooksBatch = false;
+            if (mainFilteredData.length === 0) {
+                const noResultsMsg = document.getElementById('no-results-msg');
+                if (noResultsMsg) noResultsMsg.style.display = 'flex';
+            }
             return;
         }
 
@@ -529,12 +565,14 @@ async function loadNextBooksBatch() {
 
         lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
         hasMoreBooksToFetch = snapshot.docs.length === BATCH_SIZE;
+        isFetchingBooksBatch = false;
+
         applyMasterFilter(true, newItems);
 
     } catch (err) {
+        isFetchingBooksBatch = false;
         if (infiniteLoader) infiniteLoader.style.display = 'none';
     } finally {
-        isFetchingBooksBatch = false;
         if (!hasMoreBooksToFetch && infiniteLoader) {
             infiniteLoader.style.display = 'none';
         }
@@ -1025,7 +1063,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // filters-engine hi search box input clear, filter apply, aur history popstate handle karega
     initFiltersEngine(() => booksData, () => applyMasterFilter(false));
     initPdfViewerUI();
     initUploadPipeline(() => IS_SUPER_ADMIN, (newBook) => {
@@ -1041,9 +1078,6 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('search-box')?.classList.add('active'); 
         setTimeout(() => { document.getElementById('app-search-input')?.focus(); }, 300); 
     });
-
-    // NOTE: Duplicate close-search listener completely removed from app.js!
-    // It is exclusively and safely managed in filters-engine.js.
 
     document.getElementById('open-noti')?.addEventListener('click', () => { 
         clearActiveElementFocus();
@@ -1172,17 +1206,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Centered Infinite Loader Sentinel
+    // FIXED: Infinite Scroll Observer now works seamlessly even when filters (like Year 2026) are active!
     const sentinel = document.getElementById('scroll-sentinel');
     if (sentinel) {
         const infiniteScrollObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
-                const hasActiveFilters = filterState.language !== 'All' || filterState.class !== 'All' || filterState.author !== 'All' || filterState.year !== 'All';
-                if (entry.isIntersecting && hasMoreBooksToFetch && !isFetchingBooksBatch && !hasActiveFilters) {
-                    loadNextBooksBatch();
+                if (entry.isIntersecting && hasMoreBooksToFetch && !isFetchingBooksBatch) {
+                    loadNextBooksBatch(false);
                 }
             });
-        }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 80px 0px', threshold: 0.1 });
+        }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 120px 0px', threshold: 0.1 });
         infiniteScrollObserver.observe(sentinel);
     }
 
@@ -1253,7 +1286,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // Master Native Popstate Engine (Single Step Clean Navigation)
+    // Master Native Popstate Engine
     window.addEventListener('popstate', (e) => {
         clearActiveElementFocus();
 
