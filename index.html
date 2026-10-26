@@ -438,9 +438,16 @@
                     <div class="icon-box" id="open-search" title="Search"><i class="fas fa-search"></i></div>
                     <div class="icon-box bell-wrapper" id="open-noti" title="Notifications"><i class="fas fa-bell"></i><span class="blink-dot"></span></div>
                 </div>
+
+                <!-- FIXED SEARCH BOX: Back button is now cleanly nested inside search-input-wrapper -->
                 <div class="search-box-expanded" id="search-box">
-                    <div class="search-input-wrapper"><i class="fas fa-search"></i><input type="text" class="search-input" id="app-search-input" placeholder="Search titles, authors, or exams..."></div>
-                    <div class="icon-box" id="close-search"><i class="fas fa-arrow-right"></i></div>
+                    <div class="search-input-wrapper">
+                        <i class="fas fa-search"></i>
+                        <input type="text" class="search-input" id="app-search-input" placeholder="Search titles, authors, or exams...">
+                        <div class="icon-box search-close-btn" id="close-search">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
                 </div>
             </header>
 
