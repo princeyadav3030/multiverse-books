@@ -439,6 +439,7 @@
                     <div class="icon-box bell-wrapper" id="open-noti" title="Notifications"><i class="fas fa-bell"></i><span class="blink-dot"></span></div>
                 </div>
 
+                <!-- FIXED SEARCH BOX: Back button is now cleanly nested inside search-input-wrapper -->
                 <div class="search-box-expanded" id="search-box">
                     <div class="search-input-wrapper">
                         <i class="fas fa-search"></i>
@@ -536,6 +537,7 @@
                         </div>
                     </div>
                     
+                    <!-- CLEAN BORDERLESS SPINNER WITH GREEN TEXT -->
                     <div id="infinite-loader" style="display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 28px 0 38px 0; margin-top: 8px; margin-bottom: 15px; box-sizing: border-box;">
                         <i class="fas fa-spinner fa-spin" style="font-size: 26px; color: #10b981;"></i>
                         <span style="color: #10b981; font-size: 11px; font-weight: 800; letter-spacing: 1.2px; margin-top: 12px; text-transform: uppercase;">LOADING MORE BOOKS...</span>
@@ -634,6 +636,7 @@
                                 </div>
                             </div>
                             
+                            <!-- Cover Image Upload Box -->
                             <div class="adm-form-group" style="margin-top: 4px;" id="cardCoverContainer">
                                 <div class="upload-card-box upload-purple">
                                     <div class="uc-header">
@@ -660,6 +663,7 @@
                                 </div>
                             </div>
 
+                            <!-- PDF File Upload Box -->
                             <div class="adm-form-group" style="margin-top: 2px;" id="cardPdfContainer">
                                 <div class="upload-card-box upload-red">
                                     <div class="uc-header">
@@ -1130,22 +1134,18 @@
                 </div>
             </div>
 
-            <!-- PDF Viewer (UPDATED WIT DESIGN 2B FLOATING CAPSULE HEADER) -->
+            <!-- PDF Viewer -->
             <div id="pdfViewerOverlay" class="pdf-viewer-overlay" style="display:none;">
-                <div class="pdf-header-island-wrapper">
-                    <header class="pdf-header-island" id="pdfViewerHeader">
-                        <button id="closePdfViewerBtn" class="island-back-circle-white" title="Back" type="button">
-                            <i class="fas fa-chevron-left"></i>
+                <div class="pdf-viewer-header">
+                    <div class="pdf-viewer-header-left">
+                        <i class="fas fa-book-open pdf-header-book-icon"></i>
+                        <h3 id="pdfViewerTitle" class="pdf-viewer-title">Reading Book...</h3>
+                    </div>
+                    <div class="pdf-viewer-header-right">
+                        <button id="closePdfViewerBtn" class="pdf-viewer-close-circle" title="Close Viewer" type="button">
+                            <i class="fas fa-chevron-right"></i>
                         </button>
-                        
-                        <h3 id="pdfViewerTitle" class="island-book-title">Reading Book...</h3>
-
-                        <div class="header-right-logo">
-                            <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
-                                <use href="#spidy-3d-spider-symbol"></use>
-                            </svg>
-                        </div>
-                    </header>
+                    </div>
                 </div>
 
                 <div id="pdfContainer" class="pdf-viewer-container">
