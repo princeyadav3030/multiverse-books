@@ -11,6 +11,7 @@ import { showToast, generateDeviceFingerprint } from "./helpers.js";
 // CONFIGURATION
 // ==========================================
 const TOKEN_WORKER_URL = "https://auth.spidybookhub.workers.dev";
+const SPIDY_API_WORKER_URL = "https://spidy-api.spidybookhub.workers.dev";
 
 // ==========================================
 // LOGIN MODAL CONTROLS (NATIVE BACK BUTTON SYNC)
@@ -18,7 +19,6 @@ const TOKEN_WORKER_URL = "https://auth.spidybookhub.workers.dev";
 export function triggerLoginModal() {
     const loginOverlay = document.getElementById('loginOverlay');
     if (loginOverlay) {
-        // Push state only if not already on login history state
         if (!window.history.state || window.history.state.popup !== 'login') {
             window.history.pushState({ popup: 'login' }, '');
         }
@@ -42,7 +42,6 @@ export function closeLoginOverlayLocal() {
         }
     }, 400);
 
-    // If currently on login state, step back once cleanly
     if (window.history.state && window.history.state.popup === 'login') {
         window.history.back();
     }
@@ -87,7 +86,6 @@ export function handleFastTokenClose(e) {
     if (tokenModal) {
         tokenModal.style.display = 'none';
     }
-    // Prevent double back: pop only if tokenModal is the current head state
     if (window.history.state && window.history.state.popup === 'tokenModal') {
         window.history.back();
     }
@@ -263,7 +261,6 @@ export function initAuthSystem(onLoginSuccessCallback) {
         }
     });
 
-    // Use only click listener to stop touchstart + click race condition
     if (closeTokenBtn) {
         closeTokenBtn.addEventListener('click', handleFastTokenClose);
     }
@@ -304,7 +301,7 @@ export function initAuthSystem(onLoginSuccessCallback) {
         }
     });
 
-    // 8. Token Verification
+    // 8. Token Verification (Connected to Cloudflare Worker)
     verifyBtn?.addEventListener('click', async () => {
         if (!auth.currentUser) {
             showToast("Please login first to verify key", "error");
@@ -332,7 +329,7 @@ export function initAuthSystem(onLoginSuccessCallback) {
         const currentFingerprint = generateDeviceFingerprint(currentUid);
 
         try {
-            const response = await fetch('/api/verify', {
+            const response = await fetch(`${SPIDY_API_WORKER_URL}/api/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
