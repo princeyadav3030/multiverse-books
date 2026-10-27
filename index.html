@@ -736,7 +736,7 @@
                                 <line x1="19" y1="10" x2="19" y2="18"/>
                                 <line x1="3" y1="9" x2="21" y2="9"/>
                                 <line x1="2" y1="21" x2="22" y2="21"/>
-                                <line x1="3.5" y1="18.5" x2="20.5" y2="18.5"/>
+                                <line x1="3.5" y1="18.5" x2="20.5" y1="18.5"/>
                             </svg>
                             <span class="institute-name" id="moduleInstituteText">Physics Wallah</span>
                         </div>
@@ -1134,18 +1134,20 @@
                 </div>
             </div>
 
-            <!-- PDF Viewer -->
+            <!-- PDF Viewer (UPDATED WITH DESIGN 2B FLOATING CAPSULE HEADER) -->
             <div id="pdfViewerOverlay" class="pdf-viewer-overlay" style="display:none;">
-                <div class="pdf-viewer-header">
-                    <div class="pdf-viewer-header-left">
-                        <i class="fas fa-book-open pdf-header-book-icon"></i>
-                        <h3 id="pdfViewerTitle" class="pdf-viewer-title">Reading Book...</h3>
-                    </div>
-                    <div class="pdf-viewer-header-right">
-                        <button id="closePdfViewerBtn" class="pdf-viewer-close-circle" title="Close Viewer" type="button">
-                            <i class="fas fa-chevron-right"></i>
+                <div class="pdf-header-island-wrapper">
+                    <header class="pdf-header-island">
+                        <button id="closePdfViewerBtn" class="island-back-circle-white" title="Back" type="button">
+                            <i class="fas fa-chevron-left"></i>
                         </button>
-                    </div>
+                        <h3 id="pdfViewerTitle" class="island-book-title">Reading Book...</h3>
+                        <div class="header-right-logo">
+                            <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" class="spidy-svg-icon">
+                                <use href="#spidy-3d-spider-symbol"></use>
+                            </svg>
+                        </div>
+                    </header>
                 </div>
 
                 <div id="pdfContainer" class="pdf-viewer-container">
