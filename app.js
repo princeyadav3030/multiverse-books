@@ -35,6 +35,11 @@ import {
 } from "./modules/channel-engine.js";
 
 // ==========================================
+// API CONFIGURATION
+// ==========================================
+const SPIDY_API_WORKER_URL = "https://spidy-api.spidybookhub.workers.dev";
+
+// ==========================================
 // 1. GLOBAL APP STATE & CONSTANTS
 // ==========================================
 let booksData = [];
@@ -374,8 +379,6 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
 
         if (infiniteLoader) infiniteLoader.style.display = 'none';
 
-        // Smart Quota-Safe Auto-Fetch: Agar filter lagne par abhi bhi 6 se kam books aayi hain 
-        // aur database me aur books bachi hain, toh agla batch mangwa lo taaki screen bhari rahe
         if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch) {
             loadNextBooksBatch(true);
         }
@@ -400,8 +403,6 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
         if (infiniteLoader) infiniteLoader.style.display = 'none';
     }
 
-    // Agar user ne filter/search select kiya aur loaded batch me 6 se kam books mili,
-    // toh automatically next batch pull karega bina extra quota waste kiye
     if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch) {
         loadNextBooksBatch(true);
     }
@@ -531,7 +532,6 @@ async function loadNextBooksBatch(isFastFilterFetch = false) {
     }
 
     try {
-        // Normal scroll par 1.2s smooth loader dikhega, aur filter auto-fetch par fast (300ms) load hoga
         const delayMs = isFastFilterFetch ? 300 : 1200;
         await new Promise(resolve => setTimeout(resolve, delayMs));
 
@@ -821,7 +821,7 @@ window.openSubjectModulesList = function(subjectKey) {
 };
 
 // ==========================================
-// READ MODULE PDF DIRECTLY
+// READ MODULE PDF DIRECTLY (UPDATED TO CLOUDFLARE WORKER)
 // ==========================================
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
@@ -871,7 +871,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 
     try {
         const userToken = await auth.currentUser.getIdToken(true);
-        const response = await fetch('/api/get-book', {
+        const response = await fetch(`${SPIDY_API_WORKER_URL}/api/get-book`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -907,7 +907,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE
+// 8. BOOK DETAIL & READ ONLINE (UPDATED TO CLOUDFLARE WORKER)
 // ==========================================
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
@@ -984,7 +984,7 @@ function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
         try {
             const userToken = await auth.currentUser.getIdToken(true);
-            const response = await fetch('/api/get-book', {
+            const response = await fetch(`${SPIDY_API_WORKER_URL}/api/get-book`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -1206,7 +1206,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // FIXED: Infinite Scroll Observer now works seamlessly even when filters (like Year 2026) are active!
     const sentinel = document.getElementById('scroll-sentinel');
     if (sentinel) {
         const infiniteScrollObserver = new IntersectionObserver((entries) => {
