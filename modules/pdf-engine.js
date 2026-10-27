@@ -21,7 +21,7 @@ const MAX_RENDERED_PAGES = 5;
 const RENDER_BUFFER_DISTANCE = 2; 
 let renderQueue = [];
 let isQueueProcessing = false;
-let lastContainerScrollTime = 0; // Fast scroll ke waqt accidental zoom rokne ke liye
+let lastContainerScrollTime = 0;
 
 // ==========================================
 // 2. RESOURCE CLEANUP & MEMORY DESTROYER
@@ -160,7 +160,6 @@ async function processRenderQueue() {
 export function queuePageRender(pageNum, forceRedraw = false) {
     if (!forceRedraw && (renderedPagesMap.has(pageNum) || activeRenderTasks.has(pageNum))) return;
     
-    // Agar forceRedraw hai (jaise zoom ke waqt), toh sabse aage priority me rakho
     renderQueue = renderQueue.filter(q => q.pageNum !== pageNum);
     if (forceRedraw) {
         renderQueue.unshift({ pageNum, forceRedraw: true });
@@ -177,7 +176,6 @@ export async function executePageRender(pdf, pageNum, isSeamlessSwap = false) {
     const wrapper = document.getElementById(`page_wrapper_${pageNum}`);
     if (!wrapper) return;
 
-    // Agar pehle se koi adhura render chal raha hai toh use cancel karo
     if (activeRenderTasks.has(pageNum)) {
         try {
             const prevTask = activeRenderTasks.get(pageNum);
@@ -194,9 +192,6 @@ export async function executePageRender(pdf, pageNum, isSeamlessSwap = false) {
         const currentCssWidth = parseFloat(wrapper.style.width) || basePageWidth;
         const currentScale = currentCssWidth / unscaledViewport.width;
         
-        // ULTRA-HD ORIGINAL QUALITY DPI:
-        // Normal view me minimum 2.5x super-sampling taaki original PDF jaisi crisp HD quality dikhe.
-        // Zoomed view me safe pixel ceiling taaki mobile GPU crash na ho.
         const rawDpr = window.devicePixelRatio || 2;
         const targetDpr = currentZoomScale > 1.1 
             ? Math.min(Math.max(rawDpr, 2.0), 2.4) 
@@ -213,7 +208,6 @@ export async function executePageRender(pdf, pageNum, isSeamlessSwap = false) {
         newCanvas.style.height = `100%`;
         newCanvas.style.display = 'block';
 
-        // Crisp high-quality smoothing
         context.imageSmoothingEnabled = true;
         context.imageSmoothingQuality = 'high';
 
@@ -229,9 +223,6 @@ export async function executePageRender(pdf, pageNum, isSeamlessSwap = false) {
         activeRenderTasks.delete(pageNum);
         renderedPagesMap.set(pageNum, currentZoomScale);
 
-        // SEAMLESS DOUBLE-BUFFER SWAP:
-        // Jab naya HD canvas 100% ban kar ready ho jaye, tabhi purane canvas ko hatao!
-        // Isse zoom in/out par kabhi black/loading placeholder nahi aayega!
         const oldCanvases = wrapper.querySelectorAll('canvas');
         const placeholders = wrapper.querySelectorAll('.pdf-placeholder-box');
         
@@ -288,7 +279,6 @@ export function initVirtualizationObserver(pdf) {
                 if (!renderedScale) {
                     queuePageRender(pageNum, false);
                 } else if (Math.abs(renderedScale - currentZoomScale) > 0.05) {
-                    // Agar zoom scale badal chuka hai toh bina unload kiye background me sharp karo
                     queuePageRender(pageNum, true);
                 }
                 
@@ -327,7 +317,6 @@ export function applyTargetLockedZoom(scaleFactor, targetPageNum, tapClientX = n
     const containerRect = container.getBoundingClientRect();
     const targetRect = targetElement.getBoundingClientRect();
 
-    // Calculate exact relative tap ratio (0.0 to 1.0) on the tapped page
     const relX = tapClientX !== null 
         ? Math.max(0, Math.min(1, (tapClientX - targetRect.left) / targetRect.width)) 
         : 0.5;
@@ -355,15 +344,12 @@ export function applyTargetLockedZoom(scaleFactor, targetPageNum, tapClientX = n
         container.style.touchAction = "pan-y";
     }
 
-    // Resize all wrappers INSTANTLY without deleting existing canvases!
-    // Existing canvas stretches smoothly in 0ms while sharp HD canvas renders in background.
     const wrappers = scroller.children;
     for (let i = 0; i < wrappers.length; i++) {
         wrappers[i].style.width = `${newWidth}px`;
         wrappers[i].style.height = `${newHeight}px`;
     }
 
-    // Anchor scroll position immediately to the exact tapped point
     const newElementTop = targetElement.offsetTop;
     if (currentZoomScale > 1.05) {
         const targetScrollTop = newElementTop + (relY * newHeight) - viewportClickOffsetY;
@@ -380,7 +366,6 @@ export function applyTargetLockedZoom(scaleFactor, targetPageNum, tapClientX = n
         container.scrollLeft = 0;
     }
 
-    // Queue seamless background HD re-render for active page and neighbors (NO UNLOAD / NO BLACK FLASH)
     if (currentPdfDocument) {
         queuePageRender(pageToAnchor, true);
         if (pageToAnchor - 1 >= 1 && renderedPagesMap.has(pageToAnchor - 1)) {
@@ -424,7 +409,6 @@ export function initTargetLockedDoubleTapZoom() {
         if (e.touches.length === 1) {
             const diffX = Math.abs(e.touches[0].clientX - touchStartX);
             const diffY = Math.abs(e.touches[0].clientY - touchStartY);
-            // Strict 6px threshold: thoda sa bhi finger drag/scroll hua toh tap cancel
             if (diffX > 6 || diffY > 6) {
                 isMovingGesture = true;
                 lastTapTime = 0;
@@ -438,14 +422,11 @@ export function initTargetLockedDoubleTapZoom() {
     container.addEventListener('touchend', (e) => {
         const now = Date.now();
 
-        // 1. Agar finger hili thi ya long press tha, toh zoom bilkul trigger mat karo
         if (isMovingGesture || (now - touchStartTime) > 220) {
             lastTapTime = 0;
             return; 
         }
 
-        // 2. ANTI-FAST-SCROLL GUARD:
-        // Agar container abhi-abhi scroll ho raha tha (momentum scroll), toh zoom block rakho!
         if (now - lastContainerScrollTime < 280) {
             lastTapTime = 0;
             return;
@@ -457,7 +438,6 @@ export function initTargetLockedDoubleTapZoom() {
             const tapY = touch.clientY;
             const timeDiff = now - lastTapTime;
 
-            // Dono taps ke beech ka distance check (max 28px radius ke andar hi double tap maana jayega)
             const tapDistance = Math.hypot(tapX - lastTapX, tapY - lastTapY);
 
             if (timeDiff > 40 && timeDiff < 300 && tapDistance < 28) {
@@ -493,7 +473,6 @@ export function initPdfScrollTracker(activeBookSlug = "") {
 
     let scrollRafId = null;
     container?.addEventListener('scroll', () => {
-        // Record exact scroll timestamp so fast scrolling never triggers accidental zoom
         lastContainerScrollTime = Date.now();
 
         if (scrollRafId) return;
@@ -565,9 +544,9 @@ export function executeGoToPage() {
 }
 
 // ==========================================
-// 7. RENDER PDF IN MODAL MAIN FUNCTION
+// 7. RENDER PDF IN MODAL MAIN FUNCTION (AUTO-RETRY & FAST STREAM)
 // ==========================================
-export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docType = "book", activeBookSlug = "") {
+export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docType = "book", activeBookSlug = "", retryCount = 0) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
     
     if (!keepExistingLoader) {
@@ -597,13 +576,17 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
     }
 
     try {
+        // FAST 1GB INSTANT CHUNKED STREAMING SETUP:
+        // disableStream: true -> Web Streams deadlock completely eliminated
+        // disableAutoFetch: true -> Entire 1GB is never downloaded at once
+        // rangeChunkSize: 524288 (512KB) -> Perfectly optimized for heavy scanned pages
         const loadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
             cMapPacked: true,
             disableAutoFetch: true,
-            disableStream: false,
-            rangeChunkSize: 262144
+            disableStream: true,
+            rangeChunkSize: 524288
         });
 
         const pdf = await loadingTask.promise;
@@ -672,6 +655,16 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
         }
 
     } catch (err) {
+        // AUTOMATIC SILENT RETRY ON TEMPORARY NETWORK DROP (Up to 2 Retries)
+        if (retryCount < 2) {
+            setTimeout(() => {
+                const separator = pdfUrl.includes('?') ? '&' : '?';
+                const retryUrl = `${pdfUrl}${separator}retry=${Date.now()}`;
+                renderPdfInModal(retryUrl, true, docType, activeBookSlug, retryCount + 1);
+            }, 1000);
+            return;
+        }
+
         const loaderToDel = document.getElementById('pdfCenteredLoader');
         if (loaderToDel) loaderToDel.remove();
 
