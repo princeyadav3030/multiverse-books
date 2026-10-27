@@ -13,6 +13,11 @@ import {
 import { triggerLoginModal } from "./auth-system.js";
 
 // ==========================================
+// CONFIGURATION
+// ==========================================
+const SPIDY_API_WORKER_URL = "https://spidy-api.spidybookhub.workers.dev";
+
+// ==========================================
 // CHANNEL INTERNAL STATE
 // ==========================================
 export let livePosts = [];
@@ -161,7 +166,6 @@ export function updateReactionInDOM(postId, changedEmoji = null, direction = 'up
         }
     }
 
-    // Fallback: Rebuild pills safely
     reactionsContainer.innerHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
     reactionsContainer.querySelectorAll('.reaction-pill').forEach(pill => {
         pill.addEventListener('click', (e) => {
@@ -196,7 +200,7 @@ export async function applyReaction(postId, newEmoji) {
 
     try {
         const token = await auth.currentUser.getIdToken(false);
-        const res = await fetch('/api/channel-action', {
+        const res = await fetch(`${SPIDY_API_WORKER_URL}/api/channel-action`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'reaction', postId, emoji: newEmoji, userToken: token })
@@ -221,7 +225,7 @@ async function registerUniqueView(postId) {
     try {
         localStorage.setItem(viewKey, '1');
         const token = await auth.currentUser.getIdToken(false);
-        await fetch('/api/channel-action', {
+        await fetch(`${SPIDY_API_WORKER_URL}/api/channel-action`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'view', postId, userToken: token })
@@ -329,7 +333,6 @@ function createSinglePostElement(post) {
 export function renderChannelFeed(postsToRender = null, isInitialOrPanelOpen = false, targetPostId = "") {
     if (!chatBody) return;
 
-    // Use passed array or fallback to current livePosts
     const posts = Array.isArray(postsToRender) ? postsToRender : livePosts;
 
     if (!posts || posts.length === 0) {
@@ -480,7 +483,6 @@ export function checkAndOpenTargetPost() {
 // 6. INITIALIZATION & REALTIME LISTENERS
 // ==========================================
 export function initChannelEngine() {
-    // Scroll listeners
     if (scrollDownBtn) scrollDownBtn.addEventListener('click', scrollToBottomSmooth);
 
     if (chatBody) {
@@ -503,7 +505,6 @@ export function initChannelEngine() {
         }, { passive: true });
     }
 
-    // Context Overlay Events
     if (contextOverlay) {
         contextOverlay.addEventListener('click', (e) => {
             if (e.target === contextOverlay) {
@@ -567,7 +568,6 @@ export function initChannelEngine() {
         });
     }
 
-    // Realtime Prompts Listener
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if (!container) return;
@@ -603,7 +603,6 @@ export function initChannelEngine() {
         container.innerHTML = aggregatedHTML;
     });
 
-    // Realtime Channel Posts Listener
     renderChannelLoader();
     const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
     onSnapshot(channelQuery, (snapshot) => {
