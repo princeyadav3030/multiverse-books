@@ -369,10 +369,10 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .rm-submit-btn.enabled { opacity: 1; pointer-events: auto; }
 .rm-submit-btn:active { transform: scale(0.98); opacity: 0.9; }
 
-/* 18. PDF VIEWER (TRUE FLOATING ISLAND HEADER WITH ZERO BLACK VOID & FULL PASSTHROUGH) */
+/* 18. PDF VIEWER (TRUE FLOATING ISLAND HEADER WITH ZERO BLACK VOID & FULL PASSTHROUGH - NO BLACK SHADOW) */
 .pdf-viewer-overlay { position: fixed; inset: 0; width: 100%; height: 100%; min-height: 100dvh; background: #000000; z-index: 99999999; display: flex; flex-direction: column; overflow: hidden; -webkit-tap-highlight-color: transparent; }
 .pdf-header-island-wrapper { position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; background: transparent !important; padding: 12px 14px 6px !important; box-sizing: border-box !important; z-index: 200 !important; pointer-events: none !important; }
-.pdf-header-island { display: flex !important; align-items: center !important; justify-content: space-between !important; padding: 7px 8px !important; background: rgba(18, 20, 28, 0.88) !important; backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important; border: 1.2px solid rgba(255, 255, 255, 0.18) !important; border-radius: 999px !important; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important; gap: 11px !important; width: 100% !important; box-sizing: border-box !important; pointer-events: auto !important; }
+.pdf-header-island { display: flex !important; align-items: center !important; justify-content: space-between !important; padding: 7px 8px !important; background: rgba(18, 20, 28, 0.88) !important; backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important; border: 1.2px solid rgba(255, 255, 255, 0.18) !important; border-radius: 999px !important; box-shadow: none !important; gap: 11px !important; width: 100% !important; box-sizing: border-box !important; pointer-events: auto !important; }
 .island-back-circle-white { width: 36px !important; height: 36px !important; min-width: 36px !important; min-height: 36px !important; border-radius: 50% !important; background: #ffffff !important; border: none !important; color: #000000 !important; display: flex !important; align-items: center !important; justify-content: center !important; font-size: 14px !important; cursor: pointer !important; flex-shrink: 0 !important; box-shadow: 0 0 12px rgba(255, 255, 255, 0.25) !important; transition: transform 0.2s ease !important; outline: none !important; -webkit-tap-highlight-color: transparent !important; padding: 0 !important; }
 .island-back-circle-white:active { transform: scale(0.9) !important; }
 .island-book-title { font-family: 'Poppins', sans-serif !important; font-size: 13.5px !important; font-weight: 800 !important; color: #ffffff !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; flex: 1 !important; min-width: 0 !important; letter-spacing: 0.3px !important; margin: 0 !important; line-height: 1.3 !important; }
@@ -742,7 +742,8 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .logout-title { color: #ffffff !important; font-size: 19px !important; font-weight: 900 !important; font-family: 'Poppins', 'Inter', sans-serif !important; margin-bottom: 8px; letter-spacing: 0.3px; }
 .logout-desc { color: #cbd5e1 !important; font-size: 13px !important; font-weight: 700 !important; margin-bottom: 25px; line-height: 1.5; font-family: 'Playfair Display', 'Merriweather', Georgia, serif !important; font-style: normal !important; }
 .logout-actions { display: flex; gap: 12px; }
-.btn-cancel-logout { flex: 1; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; }
+.btn-cancel-logout { flex: 1; background: #ffffff !important; color: #000000 !important; border: 1px solid #ffffff !important; padding: 12px; border-radius: 12px; font-weight: 800 !important; cursor: pointer; transition: all 0.2s ease; outline: none; }
+.btn-cancel-logout:active { transform: scale(0.96); background: #e2e8f0 !important; }
 .btn-confirm-logout { flex: 1; background: #ef4444; color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; }
 
 /* 30. COPYRIGHT LINE */
