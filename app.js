@@ -60,7 +60,6 @@ let CURRENT_ADMIN_NAME = "Guest User";
 let CURRENT_ADMIN_EMAIL = "";
 let CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
 
-// Normalized Bookmarks storage: supports legacy string arrays & modern cached objects
 let savedBooks = [];
 try {
     const rawSaved = JSON.parse(localStorage.getItem('spidy_saved_books'));
@@ -76,11 +75,11 @@ let activeSubjectKey = null;
 let isAppReady = { auth: false, data: false }; 
 let hasTransitioned = false;
 let isTransitioning = false;
-let loadingProgress = 1;
+let loadingProgress = 5;
 let loaderInterval = null;
 let hasRealtimeListenersBound = false;
 
-// Concurrency locks to prevent double-click API races
+// Concurrency locks
 let isRequestingPdf = false;
 let isSubmittingReport = false;
 let searchDebounceTimer = null;
@@ -91,11 +90,7 @@ let isDeepLinkLoad = urlParamsCheck.has('book');
 let pendingBookSlug = urlParamsCheck.get('book');
 
 // Community Popup Controls
-let communityJoinState = {
-    wa: false,
-    tg: false,
-    ig: false
-};
+let communityJoinState = { wa: false, tg: false, ig: false };
 try {
     const cachedComm = JSON.parse(localStorage.getItem('spidy_community_state'));
     if (cachedComm && typeof cachedComm === 'object') {
@@ -121,7 +116,7 @@ function clearActiveElementFocus() {
     }
 }
 
-// Helper: Safe History Push (Prevents duplicate states on rapid taps)
+// Helper: Safe History Push
 function safePushHistory(stateObj, url = '') {
     if (window.history.state && window.history.state.popup === stateObj.popup) {
         return;
@@ -141,7 +136,7 @@ function isFilterOrSearchActive() {
     );
 }
 
-// Helper: Hardware Acceleration & GPU Repaint Optimizer for Modal Scrolling
+// Helper: Optimize GPU Repaint & Pause Slider during Modals
 function toggleBackgroundFreeze(isFrozen) {
     const mainArea = document.getElementById('mainContentArea');
     if (isFrozen) {
@@ -159,7 +154,7 @@ function toggleBackgroundFreeze(isFrozen) {
 }
 
 // ==========================================
-// 2. LOADER & TRANSITION ENGINE
+// 2. ULTRA-FAST LOADER & TRANSITION ENGINE
 // ==========================================
 function updateLoaderUI(percent) {
     const loaderFill = document.getElementById('loaderFill');
@@ -169,8 +164,8 @@ function updateLoaderUI(percent) {
     if (loaderPercentage) loaderPercentage.innerText = Math.floor(percent) + "%";
     if (loaderStatusText) {
         if (percent < 30) loaderStatusText.innerText = "Initializing System...";
-        else if (percent < 65) loaderStatusText.innerText = "Loading Books Securely...";
-        else if (percent < 96) loaderStatusText.innerText = "Preparing Content...";
+        else if (percent < 70) loaderStatusText.innerText = "Loading Books Securely...";
+        else if (percent < 95) loaderStatusText.innerText = "Preparing Content...";
         else loaderStatusText.innerText = "Ready to Launch!";
     }
 }
@@ -178,87 +173,87 @@ function updateLoaderUI(percent) {
 function runSmoothLoaderTick() {
     if (hasTransitioned || isTransitioning) return;
 
-    if (loadingProgress < 65) {
-        loadingProgress += 1;
-    } else if (loadingProgress < 85) {
-        loadingProgress += 0.8;
+    if (loadingProgress < 40) {
+        loadingProgress += 3;
+    } else if (loadingProgress < 80) {
+        loadingProgress += 2;
     } else if (loadingProgress < 95) {
-        loadingProgress += isAppReady.data ? 1 : 0.25;
+        loadingProgress += (isAppReady.data || isAppReady.auth) ? 2 : 0.5;
     }
 
-    if (loadingProgress > 95 && !isAppReady.data) {
+    if (loadingProgress > 95 && (!isAppReady.data && !isAppReady.auth)) {
         loadingProgress = 95;
     }
 
     updateLoaderUI(Math.min(95, loadingProgress));
 
-    if (isAppReady.data && isAppReady.auth) {
+    // Agar data aa chuka hai toh wait mat karo, turant transition karo
+    if (isAppReady.data || (isAppReady.auth && loadingProgress >= 80)) {
         tryTransition();
     } else {
-        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 180) : 40;
-        loaderInterval = setTimeout(runSmoothLoaderTick, nextDelay);
+        loaderInterval = setTimeout(runSmoothLoaderTick, 35);
     }
 }
 
-updateLoaderUI(1);
-loaderInterval = setTimeout(runSmoothLoaderTick, 40);
+// Loader Tick turant start karo
+updateLoaderUI(5);
+loaderInterval = setTimeout(runSmoothLoaderTick, 25);
 
+// Fail-safe: Maximum 3.5 second me loader har haal me hatega
 setTimeout(() => {
     if (!hasTransitioned) {
         isAppReady.auth = true;
         isAppReady.data = true;
         tryTransition();
     }
-}, 20000);
+}, 3500);
 
 function tryTransition() {
-    if (isAppReady.auth && isAppReady.data && !hasTransitioned && !isTransitioning) {
-        isTransitioning = true;
-        clearTimeout(loaderInterval);
+    if (hasTransitioned || isTransitioning) return;
+    isTransitioning = true;
+    if (loaderInterval) clearTimeout(loaderInterval);
 
-        let finishStep = setInterval(() => {
-            loadingProgress += 2;
-            if (loadingProgress >= 100) {
-                loadingProgress = 100;
-                updateLoaderUI(100);
-                clearInterval(finishStep);
-                hasTransitioned = true;
-                isTransitioning = false;
+    let finishStep = setInterval(() => {
+        loadingProgress += 4;
+        if (loadingProgress >= 100) {
+            loadingProgress = 100;
+            updateLoaderUI(100);
+            clearInterval(finishStep);
+            hasTransitioned = true;
+            isTransitioning = false;
 
-                setTimeout(() => {
-                    const mainApp = document.getElementById('mainAppWrapper');
-                    if (mainApp) mainApp.style.display = 'block';
+            const mainApp = document.getElementById('mainAppWrapper');
+            if (mainApp) mainApp.style.display = 'block';
 
-                    const loader = document.getElementById("loaderScreen");
-                    if (loader) {
-                        loader.style.opacity = "0"; 
-                        setTimeout(() => { 
-                            loader.style.display = "none"; 
-                            if (pendingTargetPostId) {
-                                checkAndOpenTargetPost();
-                            }
-                        }, 300);
+            const loader = document.getElementById("loaderScreen");
+            if (loader) {
+                loader.style.opacity = "0"; 
+                loader.style.transition = "opacity 0.25s ease-out";
+                setTimeout(() => { 
+                    loader.style.display = "none"; 
+                    if (pendingTargetPostId) {
+                        checkAndOpenTargetPost();
                     }
-
-                    if (isDeepLinkLoad && pendingBookSlug) {
-                        if (isUserLoggedIn) { 
-                            openDownloadPageLocal(pendingBookSlug, true); 
-                        } else {
-                            triggerLoginModal();
-                        }
-                    } else if (!pendingTargetPostId) {
-                        initCommunityDualPopup(); 
-                    }
-                }, 220);
-            } else {
-                updateLoaderUI(loadingProgress);
+                }, 250);
             }
-        }, 12);
-    }
+
+            if (isDeepLinkLoad && pendingBookSlug) {
+                if (isUserLoggedIn) { 
+                    openDownloadPageLocal(pendingBookSlug, true); 
+                } else {
+                    triggerLoginModal();
+                }
+            } else if (!pendingTargetPostId) {
+                initCommunityDualPopup(); 
+            }
+        } else {
+            updateLoaderUI(loadingProgress);
+        }
+    }, 15);
 }
 
 // ==========================================
-// 3. BOOKMARK CACHE SANITIZER & STORE
+// 3. BOOKMARK CACHE SANITIZER
 // ==========================================
 function syncAndSanitizeBookmarks() {
     if (!Array.isArray(savedBooks)) {
@@ -303,7 +298,6 @@ function initCommunityDualPopup() {
     const igStatus = document.getElementById('igStatusBtn');
     const maybeLaterBtn = document.getElementById('communityMaybeLaterBtn');
 
-    // Restore UI if already completed in current window
     if (communityJoinState.wa && waStatus) {
         waStatus.classList.add('completed');
         waStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
@@ -493,7 +487,6 @@ function renderBooksUI(dataToRender, append = false) {
         let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
         const secureCoverUrl = getSecureAssetUrl(book.image);
         
-        // Performance: Top cards decode synchronously to avoid scroll jank; lower cards load lazy + async
         const loadStrategy = (!append && idx < 4) ? 'eager' : 'lazy';
 
         htmlChunk += `
@@ -529,7 +522,6 @@ function toggleBookmarkLocal(iconElement, bookIdentifier, optionalFullBook = nul
     });
 
     if (existingIndex === -1) {
-        // Construct self-sufficient lightweight card object so bookmarks view never fails
         const bookObj = optionalFullBook || booksData.find(b => b.slug === targetKey || b.id === targetKey) || {
             slug: targetKey,
             id: targetKey,
@@ -567,7 +559,6 @@ function renderSavedBooksUI() {
 
     let htmlChunk = "";
     savedBooks.forEach(item => {
-        // Resolve full book details from loaded booksData or fallback to cached object
         const book = (typeof item === 'object') ? item : (booksData.find(b => b.slug === item || b.id === item) || {
             slug: item,
             id: item,
@@ -804,7 +795,6 @@ function initPromoCarousel() {
         };
     }
 
-    // Passive touch listeners to eliminate scroll stutter on mobile
     if (!track.dataset.touchBound) {
         track.dataset.touchBound = "true";
         let startX = 0;
@@ -1002,7 +992,6 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     }
 
     try {
-        // Fast cached token without forcing unnecessary server refresh
         const userToken = await auth.currentUser.getIdToken(false);
         const response = await fetch(`${SPIDY_API_WORKER_URL}/api/get-book`, {
             method: 'POST',
@@ -1042,7 +1031,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE (DEEPLINK FALLBACK)
+// 8. BOOK DETAIL & READ ONLINE
 // ==========================================
 async function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if (!isUserLoggedIn) {
@@ -1052,11 +1041,9 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
     let book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
 
-    // Robust Deep-link Fallback: If not in initial 12 batch, fetch directly from Firestore
     if (!book) {
         showCenteredPdfLoader("Fetching book details...");
         try {
-            // First attempt by ID
             let docRef = doc(db, "books", slugOrId);
             let docSnap = await getDoc(docRef);
             
@@ -1064,7 +1051,6 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
                 book = docSnap.data();
                 book.id = docSnap.id;
             } else {
-                // Secondary attempt by slug query
                 const q = query(collection(db, "books"), where("slug", "==", slugOrId), limit(1));
                 const qSnap = await getDocs(q);
                 if (!qSnap.empty) {
@@ -1094,7 +1080,6 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
         toggleBackgroundFreeze(true);
         downloadModal.style.display = "flex";
 
-        // Avoid synchronous forced reflow by clearing scroll in animation frame
         requestAnimationFrame(() => {
             downloadModal.scrollTop = 0;
             const innerContent = downloadModal.querySelector('.dl-content-wrapper') || downloadModal.firstElementChild;
@@ -1109,7 +1094,6 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
         previewImg.onerror = () => { window.handleBookCoverError(previewImg, fullCoverUrl); };
     }
 
-    // Direct textContent assignment avoids double entity conversions (e.g. &amp;)
     document.getElementById("dlBookTitle").textContent = book.title || ""; 
     document.getElementById("dlBookAuthor").textContent = book.author || "";
 
@@ -1232,7 +1216,7 @@ function closeDownloadPageLocal() {
 // ==========================================
 // 9. EVENT LISTENERS & POPSTATE ENGINE
 // ==========================================
-document.addEventListener("DOMContentLoaded", () => {
+function initAppListeners() {
     loadInitialBooksBatch();
     fetchGlobalFilterMetadata();
     initChannelEngine();
@@ -1256,7 +1240,7 @@ document.addEventListener("DOMContentLoaded", () => {
         applyMasterFilter(false);
     });
 
-    // Search bar with 300ms input debounce
+    // 300ms Debounced Search
     const searchInput = document.getElementById('app-search-input');
     if (searchInput) {
         searchInput.addEventListener('input', () => {
@@ -1333,7 +1317,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Report Broken Link Modal
     document.getElementById('reportLinkBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1431,7 +1414,6 @@ document.addEventListener("DOMContentLoaded", () => {
         infiniteScrollObserver.observe(sentinel);
     }
 
-    // Delegated Book Cards Click Listeners
     document.getElementById('bookContainer')?.addEventListener('click', (e) => {
         const card = e.target.closest('.book-card');
         if (card) {
@@ -1458,7 +1440,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Download Modal Listeners
     document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
     document.getElementById('shareBookBtn')?.addEventListener('click', () => {
         const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
@@ -1470,7 +1451,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Sidebar & Menus
     const sidebar = document.getElementById('sidebar'); 
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     document.getElementById('open-menu')?.addEventListener('click', () => { 
@@ -1509,7 +1489,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // Master Native Popstate Engine
+    // Native Popstate Engine
     window.addEventListener('popstate', (e) => {
         clearActiveElementFocus();
 
@@ -1631,7 +1611,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Custom Module Back Button
     document.getElementById('moduleBackBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1656,7 +1635,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Close PDF Viewer Button
     document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1670,7 +1648,14 @@ document.addEventListener("DOMContentLoaded", () => {
             cleanupPdfResources();
         }
     });
-});
+}
+
+// Check Document Ready State
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initAppListeners);
+} else {
+    initAppListeners();
+}
 
 // ==========================================
 // 10. AUTH STATE & LIVE SYNC PIPELINE
@@ -1681,7 +1666,8 @@ onAuthStateChanged(auth, async (user) => {
         localStorage.setItem('isUserLoggedIn', 'true');
 
         let dName = user.displayName || (user.email ? user.email.split('@')[0] : "User");
-        document.getElementById('sidebarProfileName').textContent = dName;
+        const profileEl = document.getElementById('sidebarProfileName');
+        if (profileEl) profileEl.textContent = dName;
         
         CURRENT_ADMIN_PHOTO = getHighQualityAvatar(user.photoURL);
         const sidebarAvatar = document.getElementById('sidebarProfileImg');
@@ -1698,7 +1684,8 @@ onAuthStateChanged(auth, async (user) => {
             const adminDocRef = doc(db, "admins", cleanEmail);
             const adminDocSnap = await getDoc(adminDocRef);
             IS_SUPER_ADMIN = adminDocSnap.exists();
-            document.getElementById('sidebarRoleText').innerText = IS_SUPER_ADMIN ? "Super Admin" : "Verified User";
+            const roleEl = document.getElementById('sidebarRoleText');
+            if (roleEl) roleEl.innerText = IS_SUPER_ADMIN ? "Super Admin" : "Verified User";
         } catch (error) { 
             IS_SUPER_ADMIN = false; 
         }
@@ -1714,8 +1701,10 @@ onAuthStateChanged(auth, async (user) => {
         isUserLoggedIn = false; 
         IS_SUPER_ADMIN = false; 
         localStorage.removeItem('isUserLoggedIn');
-        document.getElementById('sidebarProfileName').innerText = "SPIDY BOOK HUB";
-        document.getElementById('sidebarRoleText').innerText = "Please Login";
+        const profileEl = document.getElementById('sidebarProfileName');
+        if (profileEl) profileEl.innerText = "SPIDY BOOK HUB";
+        const roleEl = document.getElementById('sidebarRoleText');
+        if (roleEl) roleEl.innerText = "Please Login";
         
         CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
         const sidebarAvatar = document.getElementById('sidebarProfileImg');
