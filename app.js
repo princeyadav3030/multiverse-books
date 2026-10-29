@@ -77,7 +77,7 @@ let activeSubjectKey = null;
 let isAppReady = { auth: false, data: false }; 
 let hasTransitioned = false;
 let isTransitioning = false;
-let loadingProgress = 5;
+let loadingProgress = 10;
 let loaderInterval = null;
 let hasRealtimeListenersBound = false;
 
@@ -101,14 +101,14 @@ const VERIFIED_CHECK_SVG = `
     <path d="M8 12.5L10.5 15L16 9.5" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
-// Helper: Remove lingering grey hover/focus boxes on mobile
+// Helper: Clear active element focus on mobile
 function clearActiveElementFocus() {
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
     }
 }
 
-// Helper: Safe History Push (Prevents duplicate states on rapid taps)
+// Helper: Safe History Push
 function safePushHistory(stateObj, url = '') {
     if (window.history.state && window.history.state.popup === stateObj.popup) {
         return;
@@ -116,7 +116,7 @@ function safePushHistory(stateObj, url = '') {
     window.history.pushState(stateObj, '', url || window.location.href);
 }
 
-// Helper: Check if any filter or search query is currently active
+// Helper: Check if filter or search active
 function isFilterOrSearchActive() {
     const searchVal = (document.getElementById('app-search-input')?.value || "").trim();
     return (
@@ -129,7 +129,7 @@ function isFilterOrSearchActive() {
 }
 
 // ==========================================
-// 2. LOADER & TRANSITION ENGINE (BULLETPROOF FIX)
+// 2. BULLETPROOF IMMEDIATE LOADER ENGINE
 // ==========================================
 function updateLoaderUI(percent) {
     const loaderFill = document.getElementById('loaderFill');
@@ -150,36 +150,33 @@ function updateLoaderUI(percent) {
 function runSmoothLoaderTick() {
     if (hasTransitioned || isTransitioning) return;
 
-    if (loadingProgress < 60) {
-        loadingProgress += 2.5;
-    } else if (loadingProgress < 85) {
-        loadingProgress += 1.5;
-    } else if (loadingProgress < 95) {
-        loadingProgress += (isAppReady.data && isAppReady.auth) ? 2 : 0.4;
-    }
-
-    if (loadingProgress > 95 && (!isAppReady.data || !isAppReady.auth)) {
-        loadingProgress = 95;
+    if (loadingProgress < 65) {
+        loadingProgress += 3.5;
+    } else if (loadingProgress < 90) {
+        loadingProgress += 2.0;
+    } else if (loadingProgress < 96) {
+        loadingProgress += 0.8;
     }
 
     updateLoaderUI(loadingProgress);
 
-    if (isAppReady.data && isAppReady.auth) {
+    if (loadingProgress >= 95 && (isAppReady.data || isAppReady.auth)) {
         tryTransition();
     } else {
-        const nextDelay = loadingProgress > 80 ? 40 : 30;
-        loaderInterval = setTimeout(runSmoothLoaderTick, nextDelay);
+        loaderInterval = setTimeout(runSmoothLoaderTick, 30);
     }
 }
 
-// Safe Fallback: Agar connection ultra slow bhi ho, app 4.5 second ke andar enter ho jayegi
+// Immediate Self-Start: Kisi event par depend nahi karega
+updateLoaderUI(10);
+loaderInterval = setTimeout(runSmoothLoaderTick, 20);
+
+// Hard Fail-Safe (Loader kisi bhi halat me 2.5 second se zyada screen par nahi rukega)
 setTimeout(() => {
-    if (!hasTransitioned) {
-        isAppReady.auth = true;
-        isAppReady.data = true;
-        tryTransition();
-    }
-}, 4500);
+    isAppReady.auth = true;
+    isAppReady.data = true;
+    tryTransition();
+}, 2500);
 
 function tryTransition() {
     if (hasTransitioned || isTransitioning) return;
@@ -187,7 +184,7 @@ function tryTransition() {
     clearTimeout(loaderInterval);
 
     let finishStep = setInterval(() => {
-        loadingProgress += 4;
+        loadingProgress += 6;
         if (loadingProgress >= 100) {
             loadingProgress = 100;
             updateLoaderUI(100);
@@ -195,27 +192,27 @@ function tryTransition() {
             hasTransitioned = true;
             isTransitioning = false;
 
-            setTimeout(() => {
-                const mainApp = document.getElementById('mainAppWrapper');
-                if (mainApp) mainApp.style.display = 'block';
+            // Instantly unhide UI
+            const mainApp = document.getElementById('mainAppWrapper');
+            if (mainApp) mainApp.style.display = 'block';
 
-                const loader = document.getElementById("loaderScreen");
-                if (loader) {
-                    loader.style.opacity = "0"; 
-                    setTimeout(() => { 
-                        loader.style.display = "none"; 
-                        if (pendingTargetPostId) {
-                            checkAndOpenTargetPost();
-                        }
-                    }, 300);
-                }
+            const loader = document.getElementById("loaderScreen");
+            if (loader) {
+                loader.style.opacity = "0"; 
+                loader.style.pointerEvents = "none";
+                setTimeout(() => { 
+                    loader.style.display = "none"; 
+                    if (pendingTargetPostId) {
+                        checkAndOpenTargetPost();
+                    }
+                }, 200);
+            }
 
-                if (isDeepLinkLoad && pendingBookSlug) {
-                    handleTargetDeepLink(pendingBookSlug);
-                } else if (!pendingTargetPostId) {
-                    initCommunityDualPopup(); 
-                }
-            }, 150);
+            if (isDeepLinkLoad && pendingBookSlug) {
+                handleTargetDeepLink(pendingBookSlug);
+            } else if (!pendingTargetPostId) {
+                initCommunityDualPopup(); 
+            }
         } else {
             updateLoaderUI(loadingProgress);
         }
@@ -357,7 +354,7 @@ function initCommunityDualPopup() {
 }
 
 // ==========================================
-// 5. MASTER FILTER APPLIER & UI RENDER
+// 5. MASTER FILTER APPLIER & UI RENDER (NO LOOP)
 // ==========================================
 function applyMasterFilter(isAppending = false, newBatchData = []) {
     const searchInputRaw = (document.getElementById('app-search-input')?.value || "").trim();
@@ -450,7 +447,7 @@ function toggleBookmarkLocal(iconElement, slug) {
     if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
 }
 
-// Instant Saved Books Loader: Loads bookmarks even if not in first batch
+// Complete Saved Books Loader
 async function renderSavedBooksUI() {
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
@@ -881,7 +878,7 @@ window.openSubjectModulesList = function(subjectKey) {
 };
 
 // ==========================================
-// READ MODULE PDF DIRECTLY (CLOUDFLARE WORKER)
+// READ MODULE PDF DIRECTLY
 // ==========================================
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
@@ -1108,11 +1105,7 @@ function closeDownloadPageLocal() {
 // ==========================================
 // 9. EVENT LISTENERS & POPSTATE ENGINE
 // ==========================================
-document.addEventListener("DOMContentLoaded", () => {
-    // Start loader tick immediately upon DOM ready
-    updateLoaderUI(10);
-    loaderInterval = setTimeout(runSmoothLoaderTick, 25);
-
+function initAppComponents() {
     loadInitialBooksBatch();
     fetchGlobalFilterMetadata();
     initChannelEngine();
@@ -1505,7 +1498,14 @@ document.addEventListener("DOMContentLoaded", () => {
             cleanupPdfResources();
         }
     });
-});
+}
+
+// Ready Execution Check
+if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", initAppComponents);
+} else {
+    initAppComponents();
+}
 
 // ==========================================
 // 10. AUTH STATE & LIVE SYNC PIPELINE
