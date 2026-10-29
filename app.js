@@ -2,7 +2,7 @@
 
 import { 
     auth, db, collection, addDoc, doc, getDoc, getDocs, 
-    query, orderBy, limit, startAfter, serverTimestamp, onAuthStateChanged, onSnapshot 
+    query, where, orderBy, limit, startAfter, serverTimestamp, onAuthStateChanged, onSnapshot 
 } from "./modules/firebase-config.js";
 
 import { 
@@ -60,15 +60,12 @@ let CURRENT_ADMIN_NAME = "Guest User";
 let CURRENT_ADMIN_EMAIL = "";
 let CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
 
-// Safe parse & auto-clean any corrupted bookmark entries
+// Crash-Safe LocalStorage Reader
 let savedBooks = [];
 try {
-    const rawSaved = JSON.parse(localStorage.getItem('spidy_saved_books'));
-    if (Array.isArray(rawSaved)) {
-        savedBooks = rawSaved
-            .map(item => (typeof item === 'object' && item !== null) ? (item.slug || item.id) : item)
-            .filter( item => typeof item === 'string' && item.trim().length > 0);
-    }
+    const rawSaved = localStorage.getItem('spidy_saved_books');
+    savedBooks = rawSaved ? JSON.parse(rawSaved) : [];
+    if (!Array.isArray(savedBooks)) savedBooks = [];
 } catch (e) {
     savedBooks = [];
 }
@@ -83,11 +80,6 @@ let isTransitioning = false;
 let loadingProgress = 1;
 let loaderInterval = null;
 let hasRealtimeListenersBound = false;
-
-// Concurrency locks
-let isRequestingPdf = false;
-let isSubmittingReport = false;
-let searchDebounceTimer = null;
 
 // URL Check for Direct Deeplinks
 const urlParamsCheck = new URLSearchParams(window.location.search);
@@ -157,11 +149,11 @@ function runSmoothLoaderTick() {
     if (hasTransitioned || isTransitioning) return;
 
     if (loadingProgress < 65) {
-        loadingProgress += 1.2;
+        loadingProgress += 1;
     } else if (loadingProgress < 85) {
-        loadingProgress += 0.9;
+        loadingProgress += 0.8;
     } else if (loadingProgress < 95) {
-        loadingProgress += isAppReady.data ? 1.2 : 0.3;
+        loadingProgress += isAppReady.data ? 1 : 0.25;
     }
 
     if (loadingProgress > 95 && !isAppReady.data) {
@@ -173,22 +165,21 @@ function runSmoothLoaderTick() {
     if (isAppReady.data && isAppReady.auth) {
         tryTransition();
     } else {
-        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 140) : 35;
+        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 180) : 40;
         loaderInterval = setTimeout(runSmoothLoaderTick, nextDelay);
     }
 }
 
 updateLoaderUI(1);
-loaderInterval = setTimeout(runSmoothLoaderTick, 35);
+loaderInterval = setTimeout(runSmoothLoaderTick, 40);
 
-// Hard Fallback: Never let loader stay stuck beyond 6 seconds
 setTimeout(() => {
     if (!hasTransitioned) {
         isAppReady.auth = true;
         isAppReady.data = true;
         tryTransition();
     }
-}, 6000);
+}, 20000);
 
 function tryTransition() {
     if (isAppReady.auth && isAppReady.data && !hasTransitioned && !isTransitioning) {
@@ -196,7 +187,7 @@ function tryTransition() {
         clearTimeout(loaderInterval);
 
         let finishStep = setInterval(() => {
-            loadingProgress += 2.5;
+            loadingProgress += 2;
             if (loadingProgress >= 100) {
                 loadingProgress = 100;
                 updateLoaderUI(100);
@@ -220,15 +211,11 @@ function tryTransition() {
                     }
 
                     if (isDeepLinkLoad && pendingBookSlug) {
-                        if (isUserLoggedIn) { 
-                            openDownloadPageLocal(pendingBookSlug, true); 
-                        } else {
-                            triggerLoginModal();
-                        }
+                        handleTargetDeepLink(pendingBookSlug);
                     } else if (!pendingTargetPostId) {
                         initCommunityDualPopup(); 
                     }
-                }, 200);
+                }, 220);
             } else {
                 updateLoaderUI(loadingProgress);
             }
@@ -243,10 +230,9 @@ function syncAndSanitizeBookmarks() {
     if (!Array.isArray(savedBooks)) {
         savedBooks = [];
     }
-    savedBooks = savedBooks
-        .map(item => (typeof item === 'object' && item !== null) ? (item.slug || item.id) : item)
-        .filter(item => typeof item === 'string' && item.trim().length > 0);
-    localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
+    try {
+        localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
+    } catch (e) {}
 }
 
 // ==========================================
@@ -372,7 +358,7 @@ function initCommunityDualPopup() {
 }
 
 // ==========================================
-// 5. MASTER FILTER APPLIER & UI RENDER
+// 5. MASTER FILTER APPLIER & UI RENDER (NO FETCH LOOPS)
 // ==========================================
 function applyMasterFilter(isAppending = false, newBatchData = []) {
     const searchInputRaw = (document.getElementById('app-search-input')?.value || "").trim();
@@ -398,10 +384,6 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
         }
 
         if (infiniteLoader) infiniteLoader.style.display = 'none';
-
-        if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch) {
-            loadNextBooksBatch(true);
-        }
         return;
     }
 
@@ -421,10 +403,6 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
             if (noResultsMsg) noResultsMsg.style.display = 'none';
         }
         if (infiniteLoader) infiniteLoader.style.display = 'none';
-    }
-
-    if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch) {
-        loadNextBooksBatch(true);
     }
 }
 
@@ -450,7 +428,7 @@ function renderBooksUI(dataToRender, append = false) {
         let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug)}" data-id="${escapeHTML(book.id)}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" decoding="async" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
+        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug)}" data-id="${escapeHTML(book.id)}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
 
     if (append) {
@@ -460,41 +438,79 @@ function renderBooksUI(dataToRender, append = false) {
     }
 }
 
-// Fixed: Silent icon toggle ONLY (No Toast Pill on Bookmark)
 function toggleBookmarkLocal(iconElement, slug) {
     const index = savedBooks.indexOf(slug);
     if (index === -1) { 
         savedBooks.push(slug); 
-        if (iconElement) iconElement.className = "fas fa-bookmark"; 
+        if(iconElement) iconElement.className = "fas fa-bookmark"; 
     } else { 
         savedBooks.splice(index, 1); 
-        if (iconElement) iconElement.className = "far fa-bookmark"; 
+        if(iconElement) iconElement.className = "far fa-bookmark"; 
     }
     syncAndSanitizeBookmarks();
-    if (document.getElementById('bookmarks-panel')?.classList.contains('active')) {
-        renderSavedBooksUI(); 
-    }
+    if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
 }
 
-function renderSavedBooksUI() {
+// Full Saved Books Loader: Directly resolves books missing from initial batch
+async function renderSavedBooksUI() {
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
-    const savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
-    
-    if (savedBooks.length === 0 || savedBooksData.length === 0) { 
-        if (container) container.innerHTML = ""; 
+    if (!container) return;
+
+    if (savedBooks.length === 0) { 
+        container.innerHTML = ""; 
         if (noMsg) noMsg.style.display = "flex"; 
         return; 
     }
+
+    let savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
+    
+    // Check if some bookmarks exist outside the current booksData array
+    const knownKeys = new Set(savedBooksData.map(b => b.slug).concat(savedBooksData.map(b => b.id)));
+    const missingKeys = savedBooks.filter(k => !knownKeys.has(k));
+
+    if (missingKeys.length > 0) {
+        try {
+            for (const key of missingKeys) {
+                let docSnap = null;
+                try {
+                    docSnap = await getDoc(doc(db, "books", key));
+                } catch(e) {}
+
+                if (docSnap && docSnap.exists()) {
+                    let d = docSnap.data();
+                    d.id = docSnap.id;
+                    if (!d.slug || d.slug.includes('%')) d.slug = generateCleanSlug(d.title, d.id);
+                    savedBooksData.push(d);
+                    if (!booksData.some(b => b.id === d.id)) booksData.push(d);
+                } else {
+                    const qSnap = await getDocs(query(collection(db, "books"), where("slug", "==", key), limit(1)));
+                    if (!qSnap.empty) {
+                        let d = qSnap.docs[0].data();
+                        d.id = qSnap.docs[0].id;
+                        savedBooksData.push(d);
+                        if (!booksData.some(b => b.id === d.id)) booksData.push(d);
+                    }
+                }
+            }
+        } catch (err) {}
+    }
+
+    if (savedBooksData.length === 0) {
+        container.innerHTML = "";
+        if (noMsg) noMsg.style.display = "flex";
+        return;
+    }
+
     if (noMsg) noMsg.style.display = "none"; 
     let htmlChunk = "";
     savedBooksData.forEach(book => {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug)}" data-id="${escapeHTML(book.id)}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" decoding="async" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
+        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug)}" data-id="${escapeHTML(book.id)}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
-    if (container) container.innerHTML = htmlChunk;
+    container.innerHTML = htmlChunk;
 }
 
 // ==========================================
@@ -540,24 +556,16 @@ async function loadInitialBooksBatch() {
     }
 }
 
-async function loadNextBooksBatch(isFastFilterFetch = false) {
+async function loadNextBooksBatch() {
     if (!hasMoreBooksToFetch || isFetchingBooksBatch || !lastVisibleBookDoc) return;
     isFetchingBooksBatch = true;
 
     const infiniteLoader = document.getElementById('infinite-loader');
     if (infiniteLoader) {
         infiniteLoader.style.display = 'flex';
-        if (!isFastFilterFetch) {
-            setTimeout(() => {
-                infiniteLoader.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }, 50);
-        }
     }
 
     try {
-        const delayMs = isFastFilterFetch ? 300 : 1200;
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-
         const booksRef = collection(db, "books");
         const q = query(booksRef, orderBy("createdAt", "desc"), startAfter(lastVisibleBookDoc), limit(BATCH_SIZE));
         const snapshot = await getDocs(q);
@@ -566,10 +574,6 @@ async function loadNextBooksBatch(isFastFilterFetch = false) {
             hasMoreBooksToFetch = false;
             if (infiniteLoader) infiniteLoader.style.display = 'none';
             isFetchingBooksBatch = false;
-            if (mainFilteredData.length === 0) {
-                const noResultsMsg = document.getElementById('no-results-msg');
-                if (noResultsMsg) noResultsMsg.style.display = 'flex';
-            }
             return;
         }
 
@@ -600,6 +604,45 @@ async function loadNextBooksBatch(isFastFilterFetch = false) {
             infiniteLoader.style.display = 'none';
         }
     }
+}
+
+// Deep Link Targeted Fetch
+async function handleTargetDeepLink(slug) {
+    if (!slug) return;
+    if (!isUserLoggedIn) {
+        triggerLoginModal();
+        return;
+    }
+
+    const existing = booksData.find(b => b.slug === slug || b.id === slug);
+    if (existing) {
+        openDownloadPageLocal(existing.slug || existing.id, true);
+        return;
+    }
+
+    try {
+        let singleBook = null;
+        const docSnap = await getDoc(doc(db, "books", slug));
+        if (docSnap.exists()) {
+            singleBook = docSnap.data();
+            singleBook.id = docSnap.id;
+        } else {
+            const q = query(collection(db, "books"), where("slug", "==", slug), limit(1));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+                singleBook = snap.docs[0].data();
+                singleBook.id = snap.docs[0].id;
+            }
+        }
+
+        if (singleBook) {
+            if (!singleBook.slug || singleBook.slug.includes('%')) {
+                singleBook.slug = generateCleanSlug(singleBook.title, singleBook.id);
+            }
+            booksData.unshift(singleBook);
+            openDownloadPageLocal(singleBook.slug || singleBook.id, true);
+        }
+    } catch (e) {}
 }
 
 // ==========================================
@@ -849,9 +892,6 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
         return;
     }
 
-    if (isRequestingPdf) return;
-    isRequestingPdf = true;
-
     const savedData = localStorage.getItem('spidy_secure_session');
     let hasValidToken = false;
     let clientToken = "";
@@ -868,7 +908,6 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     }
 
     if (!hasValidToken && !IS_SUPER_ADMIN) {
-        isRequestingPdf = false;
         safePushHistory({ popup: 'tokenModal', returnTo: 'module' });
         const tModal = document.getElementById('tokenModalOverlay');
         if (tModal) tModal.style.display = 'flex';
@@ -890,12 +929,11 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!pdfKeyOrUrl || pdfKeyOrUrl.trim() === "") {
         showToast("Invalid module document link", "error");
         if (pdfViewer) pdfViewer.style.display = 'none';
-        isRequestingPdf = false;
         return;
     }
 
     try {
-        const userToken = await auth.currentUser.getIdToken(false);
+        const userToken = await auth.currentUser.getIdToken(true);
         const response = await fetch(`${SPIDY_API_WORKER_URL}/api/get-book`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -928,44 +966,26 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
         if (pdfViewer) pdfViewer.style.display = 'none';
         cleanupPdfResources();
         showToast("Failed to load module. Please try again.", "error");
-    } finally {
-        isRequestingPdf = false;
     }
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE (CLOUDFLARE WORKER)
+// 8. BOOK DETAIL & READ ONLINE
 // ==========================================
-async function openDownloadPageLocal(slugOrId, skipPushState = false) {
-    if (!isUserLoggedIn) {
+function openDownloadPageLocal(slugOrId, skipPushState = false) {
+    if(!isUserLoggedIn) {
         triggerLoginModal();
         return;
     }
-
-    let book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
-    if (!book) {
-        try {
-            const docRef = doc(db, "books", slugOrId);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                book = docSnap.data();
-                book.id = docSnap.id;
-                if (!book.slug) book.slug = generateCleanSlug(book.title, book.id);
-                booksData.push(book);
-            }
-        } catch (e) {}
-    }
-
-    if (!book) return;
+    const book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
+    if(!book) return;
     
     const downloadModal = document.getElementById("downloadModal");
     if (downloadModal) {
         downloadModal.style.display = "flex";
-        requestAnimationFrame(() => {
-            downloadModal.scrollTop = 0;
-            const innerContent = downloadModal.querySelector('.dl-content-wrapper') || downloadModal.firstElementChild;
-            if (innerContent) innerContent.scrollTop = 0;
-        });
+        downloadModal.scrollTop = 0;
+        const innerContent = downloadModal.querySelector('.dl-content-wrapper') || downloadModal.firstElementChild;
+        if (innerContent) innerContent.scrollTop = 0;
     }
     
     const previewImg = document.getElementById("dlPreviewImage");
@@ -975,8 +995,8 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
         previewImg.onerror = () => { window.handleBookCoverError(previewImg, fullCoverUrl); };
     }
 
-    document.getElementById("dlBookTitle").textContent = book.title || ""; 
-    document.getElementById("dlBookAuthor").textContent = book.author || "";
+    document.getElementById("dlBookTitle").innerText = sanitizeHTML(book.title); 
+    document.getElementById("dlBookAuthor").innerText = sanitizeHTML(book.author);
 
     const fileSizeSub = document.getElementById('dlFileSize');
     if (fileSizeSub) {
@@ -992,12 +1012,10 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
     }
 
     document.getElementById("dlReadOnlineBtn").onclick = async function() {
-        if (!isUserLoggedIn || !auth.currentUser) { 
+        if(!isUserLoggedIn || !auth.currentUser) { 
             triggerLoginModal();
             return; 
         }
-        if (isRequestingPdf) return;
-        isRequestingPdf = true;
         
         const btn = document.getElementById("dlReadOnlineBtn"); 
         const originalText = btn.innerHTML; 
@@ -1017,8 +1035,7 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
             } catch(e) {}
         }
 
-        if (!hasValidToken && !IS_SUPER_ADMIN) {
-             isRequestingPdf = false;
+        if(!hasValidToken && !IS_SUPER_ADMIN) {
              safePushHistory({ popup: 'tokenModal', returnTo: 'book' });
              const tModal = document.getElementById('tokenModalOverlay');
              if (tModal) tModal.style.display = 'flex';
@@ -1029,7 +1046,7 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
         btn.disabled = true;
 
         try {
-            const userToken = await auth.currentUser.getIdToken(false);
+            const userToken = await auth.currentUser.getIdToken(true);
             const response = await fetch(`${SPIDY_API_WORKER_URL}/api/get-book`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1047,7 +1064,7 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
             if (response.ok && data.success) {
                 const pdfViewer = document.getElementById('pdfViewerOverlay');
                 const title = document.getElementById('pdfViewerTitle');
-                if (title) title.innerText = book.title || "";
+                if (title) title.innerText = sanitizeHTML(book.title);
                 safePushHistory({ popup: 'pdfViewer', from: 'book' });
                 if (pdfViewer) pdfViewer.style.display = 'flex';
                 renderPdfInModal(data.pdfLink, false, "book", book.slug || book.id);
@@ -1060,12 +1077,12 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
                     if (tModal) tModal.style.display = 'flex';
                 }
             }
+            btn.innerHTML = originalText; 
+            btn.disabled = false;
         } catch (error) { 
             showToast("Failed to load book", "error"); 
-        } finally {
             btn.innerHTML = originalText; 
             btn.disabled = false; 
-            isRequestingPdf = false;
         }
     };
 
@@ -1094,7 +1111,7 @@ function closeDownloadPageLocal() {
 // ==========================================
 // 9. EVENT LISTENERS & POPSTATE ENGINE
 // ==========================================
-function bootApplication() {
+document.addEventListener("DOMContentLoaded", () => {
     loadInitialBooksBatch();
     fetchGlobalFilterMetadata();
     initChannelEngine();
@@ -1102,7 +1119,7 @@ function bootApplication() {
     initAuthSystem(() => {
         if (isDeepLinkLoad && pendingBookSlug) {
             document.getElementById('mainAppWrapper').style.display = 'block';
-            setTimeout(() => openDownloadPageLocal(pendingBookSlug, true), 300);
+            setTimeout(() => handleTargetDeepLink(pendingBookSlug), 300);
         } else if (pendingTargetPostId) {
             document.getElementById('mainAppWrapper').style.display = 'block';
             setTimeout(checkAndOpenTargetPost, 350);
@@ -1118,25 +1135,441 @@ function bootApplication() {
         applyMasterFilter(false);
     });
 
-    const searchInput = document.getElementById('app-search-input');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            clearTimeout(searchDebounceTimer);
-            searchDebounceTimer = setTimeout(() => {
-                applyMasterFilter(false);
-            }, 300);
-        });
-    }
-
     document.getElementById('open-search')?.addEventListener('click', () => { 
         clearActiveElementFocus();
         safePushHistory({ popup: 'search' }); 
-Bhai, dono screenshots[span_7](start_span)[span_7](end_span)[span_8](start_span)[span_8](end_span) dekh kar exact root cause mil gaya hai—ab koi faltu ya extra cheez touch nahi ki gayi hai. Sidha point par samjho ki ye dono cheezein kyun hui aur is code me kaise 100% theek ki gayi hain:
+        document.getElementById('search-box')?.classList.add('active'); 
+        setTimeout(() => { document.getElementById('app-search-input')?.focus(); }, 300); 
+    });
 
----
+    document.getElementById('open-noti')?.addEventListener('click', () => { 
+        clearActiveElementFocus();
+        if (!isUserLoggedIn || !auth.currentUser) {
+            triggerLoginModal();
+            return;
+        }
 
-### 🔍 1. Loader `0%` Par Kyun Atka Raha Tha? (Image 1[span_9](start_span)[span_9](end_span))
-* **Asli Galti:** 
-  Tumhare `app.js` ke Line 59 me ye line likhi thi:
-  ```javascript
-  let savedBooks = JSON.parse(localStorage.getItem('spidy_saved_books')) || [];
+        safePushHistory({ popup: 'noti' }); 
+        document.getElementById('noti-panel')?.classList.add('active'); 
+        
+        const blinkDot = document.querySelector('.blink-dot');
+        if (blinkDot) blinkDot.style.display = 'none'; 
+
+        if (livePosts && livePosts.length > 0) {
+            renderChannelFeed(livePosts, true);
+        } else {
+            renderChannelLoader();
+        }
+    });
+
+    document.getElementById('close-noti-btn')?.addEventListener('click', () => {
+        clearActiveElementFocus();
+        if (history.state && history.state.popup === 'noti') {
+            history.back();
+        } else {
+            document.getElementById('noti-panel')?.classList.remove('active');
+        }
+        if (window.location.hash.includes('post/')) {
+            history.replaceState(null, '', window.location.pathname);
+        }
+    });
+
+    document.getElementById('open-upload-btn')?.addEventListener('click', () => {
+        clearActiveElementFocus();
+        if (!isUserLoggedIn || !auth.currentUser) {
+            triggerLoginModal();
+            return;
+        }
+
+        const uploadModal = document.getElementById('uploadModalOverlay');
+        if (uploadModal) {
+            safePushHistory({ popup: 'uploadModal' });
+            uploadModal.classList.add('active');
+        }
+    });
+
+    document.getElementById('closeUploadHubBtn')?.addEventListener('click', () => {
+        clearActiveElementFocus();
+        if (history.state && history.state.popup === 'uploadModal') {
+            history.back();
+        } else {
+            document.getElementById('uploadModalOverlay')?.classList.remove('active');
+        }
+    });
+
+    // Report Broken Link Modal
+    document.getElementById('reportLinkBtn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearActiveElementFocus();
+        const reportModal = document.getElementById('reportModalOverlay');
+        if (reportModal) {
+            safePushHistory({ popup: 'reportModal' });
+            reportModal.classList.add('active');
+        }
+    });
+
+    document.getElementById('closeReportBtn')?.addEventListener('click', () => {
+        clearActiveElementFocus();
+        if (history.state && history.state.popup === 'reportModal') {
+            history.back();
+        } else {
+            document.getElementById('reportModalOverlay')?.classList.remove('active');
+        }
+    });
+
+    document.getElementById('reportModalOverlay')?.addEventListener('click', (e) => {
+        if (e.target === document.getElementById('reportModalOverlay')) {
+            clearActiveElementFocus();
+            if (history.state && history.state.popup === 'reportModal') history.back();
+            else document.getElementById('reportModalOverlay')?.classList.remove('active');
+        }
+    });
+
+    const reportOptions = document.querySelectorAll('.rm-option');
+    const submitReportBtn = document.getElementById('submitReportBtn');
+
+    reportOptions.forEach(opt => {
+        opt.addEventListener('click', () => {
+            reportOptions.forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+            if (submitReportBtn) submitReportBtn.classList.add('enabled');
+        });
+    });
+
+    submitReportBtn?.addEventListener('click', async () => {
+        const selectedOption = document.querySelector('.rm-option.selected');
+        if (selectedOption) {
+            const issueType = selectedOption.querySelector('span')?.innerText || "General Issue";
+            try {
+                await addDoc(collection(db, "reports"), {
+                    bookTitle: activeBookTitle || "Unknown",
+                    bookSlug: activeBookSlug || "Unknown",
+                    issueType: issueType,
+                    status: 'Pending',
+                    reportedBy: (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : 'Unknown User',
+                    createdAt: serverTimestamp()
+                });
+            } catch (error) {}
+
+            submitReportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Successfully Reported';
+            submitReportBtn.style.background = '#10b981';
+            
+            setTimeout(() => {
+                clearActiveElementFocus();
+                if (history.state && history.state.popup === 'reportModal') history.back();
+                else document.getElementById('reportModalOverlay')?.classList.remove('active');
+                setTimeout(() => {
+                    submitReportBtn.innerHTML = 'Submit Report';
+                    submitReportBtn.style.background = '#ef4444';
+                    submitReportBtn.classList.remove('enabled');
+                    reportOptions.forEach(o => o.classList.remove('selected'));
+                }, 400);
+            }, 1200);
+        }
+    });
+
+    const sentinel = document.getElementById('scroll-sentinel');
+    if (sentinel) {
+        const infiniteScrollObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && hasMoreBooksToFetch && !isFetchingBooksBatch) {
+                    loadNextBooksBatch();
+                }
+            });
+        }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 120px 0px', threshold: 0.1 });
+        infiniteScrollObserver.observe(sentinel);
+    }
+
+    // Book Cards Click Listeners
+    document.getElementById('bookContainer')?.addEventListener('click', (e) => {
+        const card = e.target.closest('.book-card');
+        if(card) {
+            const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
+            const bookmarkBtn = e.target.closest('.bookmark-btn');
+            if(bookmarkBtn) toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug); 
+            else openDownloadPageLocal(slug);
+        }
+    });
+
+    document.getElementById('savedBooksContainer')?.addEventListener('click', (e) => {
+        const card = e.target.closest('.book-card');
+        if(card) {
+            const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
+            const bookmarkBtn = e.target.closest('.bookmark-btn');
+            if(bookmarkBtn) toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug); 
+            else openDownloadPageLocal(slug); 
+        }
+    });
+
+    // Download Modal Listeners
+    document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
+    document.getElementById('shareBookBtn')?.addEventListener('click', () => {
+        const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
+        if (navigator.share) {
+            navigator.share({ title: activeBookTitle, text: "Read this book online", url: shareUrl });
+        } else { 
+            navigator.clipboard.writeText(shareUrl); 
+            showToast("Link Copied!", "success"); 
+        }
+    });
+
+    // Sidebar & Menus
+    const sidebar = document.getElementById('sidebar'); 
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    document.getElementById('open-menu')?.addEventListener('click', () => { 
+        clearActiveElementFocus();
+        safePushHistory({ popup: 'sidebar' }); 
+        sidebar?.classList.add('active'); 
+        sidebarOverlay?.classList.add('active'); 
+    });
+    sidebarOverlay?.addEventListener('click', () => history.back());
+
+    document.getElementById('menu-home-side')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        clearActiveElementFocus();
+        if (history.state && history.state.popup === 'sidebar') {
+            history.back();
+        } else {
+            sidebar?.classList.remove('active');
+            sidebarOverlay?.classList.remove('active');
+        }
+        document.getElementById('mainContentArea')?.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => { 
+        e.preventDefault(); 
+        clearActiveElementFocus();
+        safePushHistory({ popup: 'bookmarks' }); 
+        document.getElementById('bookmarks-panel')?.classList.add('active'); 
+        sidebar?.classList.remove('active'); 
+        sidebarOverlay?.classList.remove('active'); 
+        renderSavedBooksUI(); 
+    });
+    document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
+
+    // Popstate Engine
+    window.addEventListener('popstate', (e) => {
+        clearActiveElementFocus();
+
+        const goToPageModal = document.getElementById('goToPageModal');
+        if (goToPageModal && goToPageModal.style.display === 'flex') {
+            goToPageModal.style.display = 'none';
+            return;
+        }
+
+        const channelContext = document.getElementById('contextOverlay');
+        if (channelContext && channelContext.classList.contains('show')) {
+            channelContext.classList.remove('show');
+            return;
+        }
+
+        const loginOverlay = document.getElementById('loginOverlay');
+        if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
+            loginOverlay.style.opacity = '0';
+            setTimeout(() => { loginOverlay.style.display = 'none'; }, 350);
+            return;
+        }
+
+        const tokenModal = document.getElementById('tokenModalOverlay');
+        if (tokenModal && tokenModal.style.display === 'flex') {
+            tokenModal.style.display = 'none';
+            return;
+        }
+
+        const pdfViewer = document.getElementById('pdfViewerOverlay');
+        if (pdfViewer && pdfViewer.style.display === 'flex') {
+            pdfViewer.style.display = 'none';
+            const scroller = document.getElementById('pdfScrollContainer');
+            if (scroller) scroller.innerHTML = '';
+            cleanupPdfResources();
+            return; 
+        }
+
+        const reportModal = document.getElementById('reportModalOverlay');
+        if (reportModal && reportModal.classList.contains('active')) {
+            reportModal.classList.remove('active');
+            return;
+        }
+
+        const subFilterModal = document.getElementById('subFilterModalOverlay');
+        if (subFilterModal && subFilterModal.classList.contains('active')) {
+            closeSubFilterModal();
+            return;
+        }
+
+        const mainFilterModal = document.getElementById('mainFilterOverlay');
+        if (mainFilterModal && mainFilterModal.classList.contains('active')) {
+            closeMainFilterModal();
+            return;
+        }
+
+        const uploadModal = document.getElementById('uploadModalOverlay');
+        if (uploadModal && uploadModal.classList.contains('active')) {
+            uploadModal.classList.remove('active');
+            return;
+        }
+
+        const bannerModal = document.getElementById('moduleBannerModal');
+        if (bannerModal && bannerModal.classList.contains('active')) {
+            const modulesView = document.getElementById('bannerModulesView');
+            const subjectsView = document.getElementById('bannerSubjectsView');
+            if (modulesView && !modulesView.classList.contains('hidden-view')) {
+                modulesView.classList.add('hidden-view');
+                subjectsView?.classList.remove('hidden-view');
+                const titleEl = document.getElementById('moduleHeaderTitle');
+                if (titleEl) titleEl.innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
+                activeSubjectKey = null;
+                return;
+            }
+            bannerModal.classList.remove('active');
+            activeBannerData = null;
+            activeSubjectKey = null;
+            return;
+        }
+
+        const downloadModal = document.getElementById("downloadModal");
+        if (downloadModal && downloadModal.style.display === "flex") {
+            downloadModal.style.display = "none";
+            window.history.replaceState({}, '', window.location.pathname);
+            return;
+        }
+
+        const notiPanel = document.getElementById('noti-panel');
+        if (notiPanel && notiPanel.classList.contains('active')) {
+            notiPanel.classList.remove('active');
+            if (window.location.hash.includes('post/')) {
+                history.replaceState(null, '', window.location.pathname);
+            }
+            return;
+        }
+
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && sidebar.classList.contains('active')) {
+            sidebar.classList.remove('active');
+            document.getElementById('sidebar-overlay')?.classList.remove('active');
+            return;
+        }
+
+        const bookmarksPanel = document.getElementById('bookmarks-panel');
+        if (bookmarksPanel && bookmarksPanel.classList.contains('active')) {
+            bookmarksPanel.classList.remove('active');
+            return;
+        }
+
+        const searchBox = document.getElementById('search-box');
+        if (searchBox && searchBox.classList.contains('active')) {
+            searchBox.classList.remove('active');
+            return;
+        }
+
+        applyMasterFilter(false);
+    });
+
+    // Custom Module Back Button
+    document.getElementById('moduleBackBtn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearActiveElementFocus();
+        const modulesView = document.getElementById('bannerModulesView');
+        if (modulesView && !modulesView.classList.contains('hidden-view')) {
+            if (history.state && history.state.popup === 'moduleList') {
+                history.back();
+            } else {
+                modulesView.classList.add('hidden-view');
+                document.getElementById('bannerSubjectsView')?.classList.remove('hidden-view');
+                document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
+            }
+        } else {
+            if (history.state && history.state.popup === 'moduleBanner') {
+                history.back();
+            } else {
+                document.getElementById('moduleBannerModal')?.classList.remove('active');
+                activeBannerData = null;
+            }
+        }
+    });
+
+    // Close PDF Viewer Button
+    document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearActiveElementFocus();
+        if (history.state && history.state.popup === 'pdfViewer') {
+            history.back();
+        } else {
+            const pdfViewer = document.getElementById('pdfViewerOverlay');
+            if (pdfViewer) pdfViewer.style.display = 'none';
+            document.getElementById('pdfScrollContainer').innerHTML = ''; 
+            cleanupPdfResources();
+        }
+    });
+});
+
+// ==========================================
+// 10. AUTH STATE & LIVE SYNC PIPELINE
+// ==========================================
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        isUserLoggedIn = true;
+        localStorage.setItem('isUserLoggedIn', 'true');
+
+        let dName = user.displayName || (user.email ? user.email.split('@')[0] : "User");
+        document.getElementById('sidebarProfileName').innerText = sanitizeHTML(dName);
+        
+        CURRENT_ADMIN_PHOTO = getHighQualityAvatar(user.photoURL);
+        const sidebarAvatar = document.getElementById('sidebarProfileImg');
+        if (sidebarAvatar) {
+            sidebarAvatar.src = CURRENT_ADMIN_PHOTO;
+            sidebarAvatar.onerror = () => { sidebarAvatar.src = DEFAULT_AVATAR; };
+        }
+        
+        CURRENT_ADMIN_NAME = dName;
+        CURRENT_ADMIN_EMAIL = user.email || "";
+
+        try {
+            const cleanEmail = user.email ? user.email.toLowerCase().trim() : "";
+            const adminDocRef = doc(db, "admins", cleanEmail);
+            const adminDocSnap = await getDoc(adminDocRef);
+            IS_SUPER_ADMIN = adminDocSnap.exists();
+            document.getElementById('sidebarRoleText').innerText = IS_SUPER_ADMIN ? "Super Admin" : "Verified User";
+        } catch (error) { 
+            IS_SUPER_ADMIN = false; 
+        }
+
+        if (hasTransitioned) {
+            if (pendingTargetPostId) {
+                checkAndOpenTargetPost();
+            } else if (isDeepLinkLoad && pendingBookSlug) {
+                handleTargetDeepLink(pendingBookSlug);
+            }
+        }
+    } else {
+        isUserLoggedIn = false; 
+        IS_SUPER_ADMIN = false; 
+        localStorage.removeItem('isUserLoggedIn');
+        document.getElementById('sidebarProfileName').innerText = "SPIDY BOOK HUB";
+        document.getElementById('sidebarRoleText').innerText = "Please Login";
+        
+        CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
+        const sidebarAvatar = document.getElementById('sidebarProfileImg');
+        if (sidebarAvatar) sidebarAvatar.src = DEFAULT_AVATAR;
+    }
+
+    isAppReady.auth = true; 
+    tryTransition();
+
+    if (hasRealtimeListenersBound) return;
+    hasRealtimeListenersBound = true;
+
+    // Module Banners Realtime Sync
+    onSnapshot(query(collection(db, "module_banners"), orderBy("createdAt", "desc")), (snapshot) => {
+        dynamicBannersList = [];
+        snapshot.forEach(docSnap => {
+            let b = docSnap.data();
+            b.id = docSnap.id;
+            dynamicBannersList.push(b);
+        });
+        renderDynamicBanners(dynamicBannersList);
+    });
+});
