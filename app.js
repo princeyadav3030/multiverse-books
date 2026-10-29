@@ -60,13 +60,7 @@ let CURRENT_ADMIN_NAME = "Guest User";
 let CURRENT_ADMIN_EMAIL = "";
 let CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
 
-let savedBooks = [];
-try {
-    const rawSaved = JSON.parse(localStorage.getItem('spidy_saved_books'));
-    savedBooks = Array.isArray(rawSaved) ? rawSaved : [];
-} catch (e) {
-    savedBooks = [];
-}
+let savedBooks = JSON.parse(localStorage.getItem('spidy_saved_books')) || [];
 
 let dynamicBannersList = [];
 let activeBannerData = null;
@@ -79,7 +73,7 @@ let loadingProgress = 1;
 let loaderInterval = null;
 let hasRealtimeListenersBound = false;
 
-// Concurrency Locks & Debouncers
+// Concurrency locks
 let isRequestingPdf = false;
 let isSubmittingReport = false;
 let searchDebounceTimer = null;
@@ -90,14 +84,9 @@ let isDeepLinkLoad = urlParamsCheck.has('book');
 let pendingBookSlug = urlParamsCheck.get('book');
 
 // Community Popup Controls
-let communityJoinState = { wa: false, tg: false, ig: false };
-try {
-    const cachedComm = JSON.parse(localStorage.getItem('spidy_community_state'));
-    if (cachedComm && typeof cachedComm === 'object') {
-        communityJoinState = { ...communityJoinState, ...cachedComm };
-    }
-} catch (e) {}
-
+let hasClickedWA = false;
+let hasClickedTG = false;
+let hasClickedIG = false;
 let isJoiningWA = false;
 let isJoiningTG = false;
 let isJoiningIG = false;
@@ -116,7 +105,7 @@ function clearActiveElementFocus() {
     }
 }
 
-// Helper: Safe History Push
+// Helper: Safe History Push (Prevents duplicate states on rapid taps)
 function safePushHistory(stateObj, url = '') {
     if (window.history.state && window.history.state.popup === stateObj.popup) {
         return;
@@ -124,7 +113,7 @@ function safePushHistory(stateObj, url = '') {
     window.history.pushState(stateObj, '', url || window.location.href);
 }
 
-// Helper: Check if any filter or search query is active
+// Helper: Check if any filter or search query is currently active
 function isFilterOrSearchActive() {
     const searchVal = (document.getElementById('app-search-input')?.value || "").trim();
     return (
@@ -134,23 +123,6 @@ function isFilterOrSearchActive() {
         filterState.author !== 'All' ||
         filterState.year !== 'All'
     );
-}
-
-// Helper: Optimize Background GPU Repainting
-function toggleBackgroundFreeze(isFrozen) {
-    const mainArea = document.getElementById('mainContentArea');
-    if (isFrozen) {
-        if (promoAutoSlideInterval) {
-            clearInterval(promoAutoSlideInterval);
-            promoAutoSlideInterval = null;
-        }
-        if (mainArea) mainArea.style.overflow = 'hidden';
-        document.body.classList.add('modal-open-gpu-lock');
-    } else {
-        if (mainArea) mainArea.style.overflow = '';
-        document.body.classList.remove('modal-open-gpu-lock');
-        initPromoCarousel();
-    }
 }
 
 // ==========================================
@@ -174,11 +146,11 @@ function runSmoothLoaderTick() {
     if (hasTransitioned || isTransitioning) return;
 
     if (loadingProgress < 65) {
-        loadingProgress += 1.5;
-    } else if (loadingProgress < 85) {
         loadingProgress += 1;
+    } else if (loadingProgress < 85) {
+        loadingProgress += 0.8;
     } else if (loadingProgress < 95) {
-        loadingProgress += isAppReady.data ? 1.5 : 0.4;
+        loadingProgress += isAppReady.data ? 1 : 0.25;
     }
 
     if (loadingProgress > 95 && !isAppReady.data) {
@@ -190,7 +162,7 @@ function runSmoothLoaderTick() {
     if (isAppReady.data && isAppReady.auth) {
         tryTransition();
     } else {
-        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 150) : 40;
+        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 180) : 40;
         loaderInterval = setTimeout(runSmoothLoaderTick, nextDelay);
     }
 }
@@ -198,14 +170,13 @@ function runSmoothLoaderTick() {
 updateLoaderUI(1);
 loaderInterval = setTimeout(runSmoothLoaderTick, 40);
 
-// Fail-safe unlock after 5 seconds to prevent frozen loaders
 setTimeout(() => {
     if (!hasTransitioned) {
         isAppReady.auth = true;
         isAppReady.data = true;
         tryTransition();
     }
-}, 5000);
+}, 12000);
 
 function tryTransition() {
     if (isAppReady.auth && isAppReady.data && !hasTransitioned && !isTransitioning) {
@@ -213,7 +184,7 @@ function tryTransition() {
         clearTimeout(loaderInterval);
 
         let finishStep = setInterval(() => {
-            loadingProgress += 3;
+            loadingProgress += 2;
             if (loadingProgress >= 100) {
                 loadingProgress = 100;
                 updateLoaderUI(100);
@@ -228,13 +199,12 @@ function tryTransition() {
                     const loader = document.getElementById("loaderScreen");
                     if (loader) {
                         loader.style.opacity = "0"; 
-                        loader.style.transition = "opacity 0.25s ease-out";
                         setTimeout(() => { 
                             loader.style.display = "none"; 
                             if (pendingTargetPostId) {
                                 checkAndOpenTargetPost();
                             }
-                        }, 250);
+                        }, 300);
                     }
 
                     if (isDeepLinkLoad && pendingBookSlug) {
@@ -246,7 +216,7 @@ function tryTransition() {
                     } else if (!pendingTargetPostId) {
                         initCommunityDualPopup(); 
                     }
-                }, 150);
+                }, 220);
             } else {
                 updateLoaderUI(loadingProgress);
             }
@@ -262,15 +232,6 @@ function syncAndSanitizeBookmarks() {
         savedBooks = [];
     }
     localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
-}
-
-function isBookMarked(bookOrIdentifier) {
-    if (!bookOrIdentifier) return false;
-    const targetKey = typeof bookOrIdentifier === 'string' ? bookOrIdentifier : (bookOrIdentifier.slug || bookOrIdentifier.id);
-    return savedBooks.some(item => {
-        if (typeof item === 'string') return item === targetKey;
-        return item && (item.slug === targetKey || item.id === targetKey);
-    });
 }
 
 // ==========================================
@@ -300,22 +261,8 @@ function initCommunityDualPopup() {
     const igStatus = document.getElementById('igStatusBtn');
     const maybeLaterBtn = document.getElementById('communityMaybeLaterBtn');
 
-    if (communityJoinState.wa && waStatus) {
-        waStatus.classList.add('completed');
-        waStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
-    }
-    if (communityJoinState.tg && tgStatus) {
-        tgStatus.classList.add('completed');
-        tgStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
-    }
-    if (communityJoinState.ig && igStatus) {
-        igStatus.classList.add('completed');
-        igStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
-    }
-
     function checkAndComplete() {
-        localStorage.setItem('spidy_community_state', JSON.stringify(communityJoinState));
-        if (communityJoinState.wa && communityJoinState.tg && communityJoinState.ig) {
+        if (hasClickedWA && hasClickedTG && hasClickedIG) {
             localStorage.setItem('spidy_community_popup_locked_until', (Date.now() + THREE_DAYS_MS).toString());
             showToast("Community joined successfully!", "success");
             setTimeout(() => { popup.classList.remove('active'); }, 800);
@@ -325,7 +272,7 @@ function initCommunityDualPopup() {
     if (waCard) {
         waCard.onclick = (e) => {
             e.preventDefault();
-            if (communityJoinState.wa || isJoiningWA) return;
+            if (hasClickedWA || isJoiningWA) return;
             isJoiningWA = true;
 
             if (waStatus) {
@@ -336,7 +283,7 @@ function initCommunityDualPopup() {
             window.open('https://whatsapp.com/channel/0029Vb6NBZx1yT2GByTTVf2A', '_blank');
 
             setTimeout(() => {
-                communityJoinState.wa = true;
+                hasClickedWA = true;
                 isJoiningWA = false;
                 if (waStatus) {
                     waStatus.classList.add('completed');
@@ -350,7 +297,7 @@ function initCommunityDualPopup() {
     if (tgCard) {
         tgCard.onclick = (e) => {
             e.preventDefault();
-            if (communityJoinState.tg || isJoiningTG) return;
+            if (hasClickedTG || isJoiningTG) return;
             isJoiningTG = true;
 
             if (tgStatus) {
@@ -361,7 +308,7 @@ function initCommunityDualPopup() {
             window.open('https://t.me/+wJgG-_oBsHkxYTRl', '_blank');
 
             setTimeout(() => {
-                communityJoinState.tg = true;
+                hasClickedTG = true;
                 isJoiningTG = false;
                 if (tgStatus) {
                     tgStatus.classList.add('completed');
@@ -375,7 +322,7 @@ function initCommunityDualPopup() {
     if (igCard) {
         igCard.onclick = (e) => {
             e.preventDefault();
-            if (communityJoinState.ig || isJoiningIG) return;
+            if (hasClickedIG || isJoiningIG) return;
             isJoiningIG = true;
 
             if (igStatus) {
@@ -386,7 +333,7 @@ function initCommunityDualPopup() {
             window.open('https://www.instagram.com/princeyadav_3030', '_blank');
 
             setTimeout(() => {
-                communityJoinState.ig = true;
+                hasClickedIG = true;
                 isJoiningIG = false;
                 if (igStatus) {
                     igStatus.classList.add('completed');
@@ -400,7 +347,7 @@ function initCommunityDualPopup() {
     if (maybeLaterBtn) {
         maybeLaterBtn.onclick = (e) => {
             e.preventDefault();
-            if (!communityJoinState.wa || !communityJoinState.tg || !communityJoinState.ig) {
+            if (!hasClickedWA || !hasClickedTG || !hasClickedIG) {
                 showToast("Please follow all channels to continue", "error");
                 return;
             }
@@ -482,31 +429,13 @@ function renderBooksUI(dataToRender, append = false) {
     const container = document.getElementById("bookContainer");
     if (!container) return;
     let htmlChunk = "";
-
-    dataToRender.forEach((book, idx) => {
+    dataToRender.forEach(book => {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
-        let isSaved = isBookMarked(book);
+        let isSaved = savedBooks.includes(book.slug) || savedBooks.includes(book.id);
         let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
         const secureCoverUrl = getSecureAssetUrl(book.image);
-        
-        const loadStrategy = (!append && idx < 4) ? 'eager' : 'lazy';
 
-        htmlChunk += `
-        <div class="book-card" data-slug="${escapeHTML(book.slug || '')}" data-id="${escapeHTML(book.id || '')}">
-            <div class="card-img-wrapper">
-                <div class="badge-free">FREE</div>
-                <div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div>
-                <img src="${secureCoverUrl}" loading="${loadStrategy}" decoding="async" class="book-image" onerror="window.handleBookCoverError(this, '${escapeHTML(secureCoverUrl)}')" oncontextmenu="return false;" draggable="false">
-            </div>
-            <div class="book-details">
-                <div class="book-title">${sanitizeHTML(book.title || '')}</div>
-                <div class="book-author">${sanitizeHTML(book.author || '')}</div>
-                <div class="tags-container">
-                    <span class="book-tag tag-year">${sanitizeHTML(book.year ? book.year.toString() : '')}</span>
-                    <span class="book-tag ${langClass}">${sanitizeHTML(book.lang || '')}</span>
-                </div>
-            </div>
-        </div>`;
+        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug || '')}" data-id="${escapeHTML(book.id || '')}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" decoding="async" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year ? book.year.toString() : '')}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
 
     if (append) {
@@ -516,86 +445,45 @@ function renderBooksUI(dataToRender, append = false) {
     }
 }
 
-function toggleBookmarkLocal(iconElement, bookIdentifier, optionalFullBook = null) {
-    const targetKey = typeof bookIdentifier === 'string' ? bookIdentifier : (bookIdentifier.slug || bookIdentifier.id);
-    const existingIndex = savedBooks.findIndex(item => {
-        if (typeof item === 'string') return item === targetKey;
-        return item && (item.slug === targetKey || item.id === targetKey);
-    });
-
-    if (existingIndex === -1) {
-        const bookObj = optionalFullBook || booksData.find(b => b.slug === targetKey || b.id === targetKey) || {
-            slug: targetKey,
-            id: targetKey,
-            title: "Saved Book",
-            author: "Spidy Hub",
-            image: "",
-            year: "",
-            lang: "English"
-        };
-        savedBooks.push(bookObj);
-        if (iconElement) iconElement.className = "fas fa-bookmark";
-        showToast("Added to Bookmarks", "success");
-    } else {
-        savedBooks.splice(existingIndex, 1);
-        if (iconElement) iconElement.className = "far fa-bookmark";
-        showToast("Removed from Bookmarks", "info");
+function toggleBookmarkLocal(iconElement, slug) {
+    const index = savedBooks.indexOf(slug);
+    if (index === -1) { 
+        savedBooks.push(slug); 
+        if(iconElement) iconElement.className = "fas fa-bookmark"; 
+        showToast("Bookmarked successfully!", "success");
+    } else { 
+        savedBooks.splice(index, 1); 
+        if(iconElement) iconElement.className = "far fa-bookmark"; 
+        showToast("Removed from bookmarks", "info");
     }
-
     syncAndSanitizeBookmarks();
-    if (document.getElementById('bookmarks-panel')?.classList.contains('active')) {
-        renderSavedBooksUI();
-    }
+    if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
 }
 
 function renderSavedBooksUI() {
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
+    // Strictly filter only real books that have actual title and author loaded
+    const savedBooksData = booksData.filter(book => (savedBooks.includes(book.slug) || savedBooks.includes(book.id)) && book.title);
     
-    if (!savedBooks || savedBooks.length === 0) { 
+    if (savedBooks.length === 0 || savedBooksData.length === 0) { 
         if (container) container.innerHTML = ""; 
         if (noMsg) noMsg.style.display = "flex"; 
         return; 
     }
     if (noMsg) noMsg.style.display = "none"; 
-
     let htmlChunk = "";
-    savedBooks.forEach(item => {
-        const book = (typeof item === 'object') ? item : (booksData.find(b => b.slug === item || b.id === item) || {
-            slug: item,
-            id: item,
-            title: item,
-            author: "Saved Document",
-            image: "",
-            year: "",
-            lang: "English"
-        });
-
+    savedBooksData.forEach(book => {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `
-        <div class="book-card" data-slug="${escapeHTML(book.slug || '')}" data-id="${escapeHTML(book.id || '')}">
-            <div class="card-img-wrapper">
-                <div class="badge-free">FREE</div>
-                <div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div>
-                <img src="${secureCoverUrl}" loading="lazy" decoding="async" class="book-image" onerror="window.handleBookCoverError(this, '${escapeHTML(secureCoverUrl)}')" oncontextmenu="return false;" draggable="false">
-            </div>
-            <div class="book-details">
-                <div class="book-title">${sanitizeHTML(book.title || '')}</div>
-                <div class="book-author">${sanitizeHTML(book.author || '')}</div>
-                <div class="tags-container">
-                    <span class="book-tag tag-year">${sanitizeHTML(book.year ? book.year.toString() : '')}</span>
-                    <span class="book-tag ${langClass}">${sanitizeHTML(book.lang || '')}</span>
-                </div>
-            </div>
-        </div>`;
+        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug || '')}" data-id="${escapeHTML(book.id || '')}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" decoding="async" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year ? book.year.toString() : '')}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
     if (container) container.innerHTML = htmlChunk;
 }
 
 // ==========================================
-// 6. PAGINATION & DATA FETCH
+// 6. PAGINATION & DATA FETCH (1200ms SMOOTH WAIT)
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -652,9 +540,9 @@ async function loadNextBooksBatch(isFastFilterFetch = false) {
     }
 
     try {
-        if (!isFastFilterFetch) {
-            await new Promise(resolve => setTimeout(resolve, 300));
-        }
+        // Restored exact 1200ms delay so scroll does not skip abruptly
+        const delayMs = isFastFilterFetch ? 300 : 1200;
+        await new Promise(resolve => setTimeout(resolve, delayMs));
 
         const booksRef = collection(db, "books");
         const q = query(booksRef, orderBy("createdAt", "desc"), startAfter(lastVisibleBookDoc), limit(BATCH_SIZE));
@@ -731,7 +619,7 @@ function renderDynamicBanners(banners) {
     banners.forEach((banner, idx) => {
         const imageUrl = getSecureAssetUrl(banner.bannerImage);
         slidesHTML += `
-            <div class="promo-slide" data-banner-id="${escapeHTML(banner.id)}" onclick="window.openBannerModules('${escapeHTML(banner.id)}')">
+            <div class="promo-slide" data-banner-id="${banner.id}" onclick="window.openBannerModules('${banner.id}')">
                 <img src="${imageUrl}" alt="${escapeHTML(banner.title || 'Module Banner')}" class="promo-banner-img" draggable="false" onerror="this.src='https://i.postimg.cc/Pq0JLj3C/file-0000000027dc82119d3731d4bfe9bccf.png'">
             </div>`;
         dotsHTML += `<span class="promo-dot ${idx === 0 ? 'active' : ''}" data-slide="${idx}"></span>`;
@@ -739,7 +627,6 @@ function renderDynamicBanners(banners) {
 
     track.innerHTML = slidesHTML;
     dotsWrap.innerHTML = dotsHTML;
-    currentPromoIndex = 0;
     initPromoCarousel();
 }
 
@@ -752,7 +639,7 @@ function initPromoCarousel() {
     if (promoAutoSlideInterval) clearInterval(promoAutoSlideInterval);
 
     function goToSlide(index) {
-        currentPromoIndex = (index + totalSlides) % totalSlides;
+        currentPromoIndex = index;
         track.style.transform = `translateX(-${currentPromoIndex * 100}%)`;
         dots.forEach((dot, idx) => {
             dot.classList.toggle('active', idx === currentPromoIndex);
@@ -763,7 +650,8 @@ function initPromoCarousel() {
         clearInterval(promoAutoSlideInterval);
         if (totalSlides > 1) {
             promoAutoSlideInterval = setInterval(() => {
-                goToSlide(currentPromoIndex + 1);
+                currentPromoIndex = (currentPromoIndex + 1) % totalSlides;
+                goToSlide(currentPromoIndex);
             }, 4000);
         }
     }
@@ -783,7 +671,8 @@ function initPromoCarousel() {
         pBtn.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            goToSlide(currentPromoIndex - 1);
+            currentPromoIndex = (currentPromoIndex - 1 + totalSlides) % totalSlides;
+            goToSlide(currentPromoIndex);
             startAutoSlide();
         };
     }
@@ -792,30 +681,29 @@ function initPromoCarousel() {
         nBtn.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            goToSlide(currentPromoIndex + 1);
+            currentPromoIndex = (currentPromoIndex + 1) % totalSlides;
+            goToSlide(currentPromoIndex);
             startAutoSlide();
         };
     }
 
-    if (!track.dataset.touchBound) {
-        track.dataset.touchBound = "true";
-        let startX = 0;
-        track.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-            clearInterval(promoAutoSlideInterval);
-        }, { passive: true });
+    let startX = 0;
+    track.ontouchstart = (e) => {
+        startX = e.touches[0].clientX;
+        clearInterval(promoAutoSlideInterval);
+    };
 
-        track.addEventListener('touchend', (e) => {
-            const diffX = startX - e.changedTouches[0].clientX;
-            if (Math.abs(diffX) > 40) {
-                if (diffX > 0) goToSlide(currentPromoIndex + 1);
-                else goToSlide(currentPromoIndex - 1);
-            }
-            startAutoSlide();
-        }, { passive: true });
-    }
+    track.ontouchend = (e) => {
+        const diffX = startX - e.changedTouches[0].clientX;
+        if (Math.abs(diffX) > 40) {
+            if (diffX > 0) currentPromoIndex = (currentPromoIndex + 1) % totalSlides;
+            else currentPromoIndex = (currentPromoIndex - 1 + totalSlides) % totalSlides;
+            goToSlide(currentPromoIndex);
+        }
+        startAutoSlide();
+    };
 
-    goToSlide(currentPromoIndex);
+    goToSlide(0);
     startAutoSlide();
 }
 
@@ -872,7 +760,6 @@ window.openBannerModules = function(bannerId) {
     container.innerHTML = html;
     const modal = document.getElementById('moduleBannerModal');
     if (modal) {
-        toggleBackgroundFreeze(true);
         safePushHistory({ popup: 'moduleBanner' });
         modal.classList.add('active');
     }
@@ -1036,14 +923,13 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 // 8. BOOK DETAIL & READ ONLINE
 // ==========================================
 async function openDownloadPageLocal(slugOrId, skipPushState = false) {
-    if (!isUserLoggedIn) {
+    if(!isUserLoggedIn) {
         triggerLoginModal();
         return;
     }
-
     let book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
-
-    // Pure docRef lookup (No 'where' import required!)
+    
+    // Clean, direct doc lookup without freezing screen
     if (!book) {
         try {
             const docRef = doc(db, "books", slugOrId);
@@ -1057,18 +943,14 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
         } catch (e) {}
     }
 
-    if (!book) return;
+    if(!book) return;
     
     const downloadModal = document.getElementById("downloadModal");
     if (downloadModal) {
-        toggleBackgroundFreeze(true);
         downloadModal.style.display = "flex";
-
-        requestAnimationFrame(() => {
-            downloadModal.scrollTop = 0;
-            const innerContent = downloadModal.querySelector('.dl-content-wrapper') || downloadModal.firstElementChild;
-            if (innerContent) innerContent.scrollTop = 0;
-        });
+        downloadModal.scrollTop = 0;
+        const innerContent = downloadModal.querySelector('.dl-content-wrapper') || downloadModal.firstElementChild;
+        if (innerContent) innerContent.scrollTop = 0;
     }
     
     const previewImg = document.getElementById("dlPreviewImage");
@@ -1078,8 +960,11 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
         previewImg.onerror = () => { window.handleBookCoverError(previewImg, fullCoverUrl); };
     }
 
-    document.getElementById("dlBookTitle").textContent = book.title || ""; 
-    document.getElementById("dlBookAuthor").textContent = book.author || "";
+    // Direct text assignments avoid entity conversion bugs
+    const titleEl = document.getElementById("dlBookTitle");
+    const authorEl = document.getElementById("dlBookAuthor");
+    if (titleEl) titleEl.textContent = book.title || ""; 
+    if (authorEl) authorEl.textContent = book.author || "";
 
     const fileSizeSub = document.getElementById('dlFileSize');
     if (fileSizeSub) {
@@ -1097,13 +982,13 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
     const readBtn = document.getElementById("dlReadOnlineBtn");
     if (readBtn) {
         readBtn.onclick = async function() {
-            if (!isUserLoggedIn || !auth.currentUser) { 
+            if(!isUserLoggedIn || !auth.currentUser) { 
                 triggerLoginModal();
                 return; 
             }
             if (isRequestingPdf) return;
             isRequestingPdf = true;
-            
+
             const originalText = readBtn.innerHTML; 
 
             const savedData = localStorage.getItem('spidy_secure_session');
@@ -1121,7 +1006,7 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
                 } catch(e) {}
             }
 
-            if (!hasValidToken && !IS_SUPER_ADMIN) {
+            if(!hasValidToken && !IS_SUPER_ADMIN) {
                 isRequestingPdf = false;
                 safePushHistory({ popup: 'tokenModal', returnTo: 'book' });
                 const tModal = document.getElementById('tokenModalOverlay');
@@ -1188,7 +1073,6 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
 function closeDownloadPageLocal() {
     clearActiveElementFocus();
-    toggleBackgroundFreeze(false);
     if (history.state && history.state.popup === 'book') { 
         history.back(); 
     } else { 
@@ -1248,7 +1132,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        toggleBackgroundFreeze(true);
         safePushHistory({ popup: 'noti' }); 
         document.getElementById('noti-panel')?.classList.add('active'); 
         
@@ -1264,7 +1147,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('close-noti-btn')?.addEventListener('click', () => {
         clearActiveElementFocus();
-        toggleBackgroundFreeze(false);
         if (history.state && history.state.popup === 'noti') {
             history.back();
         } else {
@@ -1284,7 +1166,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const uploadModal = document.getElementById('uploadModalOverlay');
         if (uploadModal) {
-            toggleBackgroundFreeze(true);
             safePushHistory({ popup: 'uploadModal' });
             uploadModal.classList.add('active');
         }
@@ -1292,7 +1173,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('closeUploadHubBtn')?.addEventListener('click', () => {
         clearActiveElementFocus();
-        toggleBackgroundFreeze(false);
         if (history.state && history.state.popup === 'uploadModal') {
             history.back();
         } else {
@@ -1393,314 +1273,4 @@ document.addEventListener("DOMContentLoaded", () => {
                     loadNextBooksBatch(false);
                 }
             });
-        }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 150px 0px', threshold: 0.1 });
-        infiniteScrollObserver.observe(sentinel);
-    }
-
-    document.getElementById('bookContainer')?.addEventListener('click', (e) => {
-        const card = e.target.closest('.book-card');
-        if (card) {
-            const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
-            const bookmarkBtn = e.target.closest('.bookmark-btn');
-            if (bookmarkBtn) {
-                toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug);
-            } else {
-                openDownloadPageLocal(slug);
-            }
-        }
-    });
-
-    document.getElementById('savedBooksContainer')?.addEventListener('click', (e) => {
-        const card = e.target.closest('.book-card');
-        if (card) {
-            const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
-            const bookmarkBtn = e.target.closest('.bookmark-btn');
-            if (bookmarkBtn) {
-                toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug);
-            } else {
-                openDownloadPageLocal(slug);
-            }
-        }
-    });
-
-    document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
-    document.getElementById('shareBookBtn')?.addEventListener('click', () => {
-        const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
-        if (navigator.share) {
-            navigator.share({ title: activeBookTitle, text: "Read this book online", url: shareUrl });
-        } else { 
-            navigator.clipboard.writeText(shareUrl); 
-            showToast("Link Copied!", "success"); 
-        }
-    });
-
-    const sidebar = document.getElementById('sidebar'); 
-    const sidebarOverlay = document.getElementById('sidebar-overlay');
-    document.getElementById('open-menu')?.addEventListener('click', () => { 
-        clearActiveElementFocus();
-        toggleBackgroundFreeze(true);
-        safePushHistory({ popup: 'sidebar' }); 
-        sidebar?.classList.add('active'); 
-        sidebarOverlay?.classList.add('active'); 
-    });
-
-    sidebarOverlay?.addEventListener('click', () => history.back());
-
-    document.getElementById('menu-home-side')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        clearActiveElementFocus();
-        toggleBackgroundFreeze(false);
-        if (history.state && history.state.popup === 'sidebar') {
-            history.back();
-        } else {
-            sidebar?.classList.remove('active');
-            sidebarOverlay?.classList.remove('active');
-        }
-        document.getElementById('mainContentArea')?.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-
-    document.getElementById('menu-bookmarks')?.addEventListener('click', (e) => { 
-        e.preventDefault(); 
-        clearActiveElementFocus();
-        toggleBackgroundFreeze(true);
-        safePushHistory({ popup: 'bookmarks' }); 
-        document.getElementById('bookmarks-panel')?.classList.add('active'); 
-        sidebar?.classList.remove('active'); 
-        sidebarOverlay?.classList.remove('active'); 
-        renderSavedBooksUI(); 
-    });
-    
-    document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
-
-    // Master Native Popstate Engine
-    window.addEventListener('popstate', (e) => {
-        clearActiveElementFocus();
-
-        const goToPageModal = document.getElementById('goToPageModal');
-        if (goToPageModal && goToPageModal.style.display === 'flex') {
-            goToPageModal.style.display = 'none';
-            return;
-        }
-
-        const channelContext = document.getElementById('contextOverlay');
-        if (channelContext && channelContext.classList.contains('show')) {
-            channelContext.classList.remove('show');
-            return;
-        }
-
-        const loginOverlay = document.getElementById('loginOverlay');
-        if (loginOverlay && (loginOverlay.style.display === 'flex' || loginOverlay.style.opacity === '1')) {
-            loginOverlay.style.opacity = '0';
-            setTimeout(() => { loginOverlay.style.display = 'none'; }, 350);
-            return;
-        }
-
-        const tokenModal = document.getElementById('tokenModalOverlay');
-        if (tokenModal && tokenModal.style.display === 'flex') {
-            tokenModal.style.display = 'none';
-            return;
-        }
-
-        const pdfViewer = document.getElementById('pdfViewerOverlay');
-        if (pdfViewer && pdfViewer.style.display === 'flex') {
-            pdfViewer.style.display = 'none';
-            const scroller = document.getElementById('pdfScrollContainer');
-            if (scroller) scroller.innerHTML = '';
-            cleanupPdfResources();
-            return; 
-        }
-
-        const reportModal = document.getElementById('reportModalOverlay');
-        if (reportModal && reportModal.classList.contains('active')) {
-            reportModal.classList.remove('active');
-            return;
-        }
-
-        const subFilterModal = document.getElementById('subFilterModalOverlay');
-        if (subFilterModal && subFilterModal.classList.contains('active')) {
-            closeSubFilterModal();
-            return;
-        }
-
-        const mainFilterModal = document.getElementById('mainFilterOverlay');
-        if (mainFilterModal && mainFilterModal.classList.contains('active')) {
-            closeMainFilterModal();
-            return;
-        }
-
-        const uploadModal = document.getElementById('uploadModalOverlay');
-        if (uploadModal && uploadModal.classList.contains('active')) {
-            uploadModal.classList.remove('active');
-            toggleBackgroundFreeze(false);
-            return;
-        }
-
-        const bannerModal = document.getElementById('moduleBannerModal');
-        if (bannerModal && bannerModal.classList.contains('active')) {
-            const modulesView = document.getElementById('bannerModulesView');
-            const subjectsView = document.getElementById('bannerSubjectsView');
-            if (modulesView && !modulesView.classList.contains('hidden-view')) {
-                modulesView.classList.add('hidden-view');
-                subjectsView?.classList.remove('hidden-view');
-                const titleEl = document.getElementById('moduleHeaderTitle');
-                if (titleEl) titleEl.innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
-                activeSubjectKey = null;
-                return;
-            }
-            bannerModal.classList.remove('active');
-            activeBannerData = null;
-            activeSubjectKey = null;
-            toggleBackgroundFreeze(false);
-            return;
-        }
-
-        const downloadModal = document.getElementById("downloadModal");
-        if (downloadModal && downloadModal.style.display === "flex") {
-            downloadModal.style.display = "none";
-            toggleBackgroundFreeze(false);
-            window.history.replaceState({}, '', window.location.pathname);
-            return;
-        }
-
-        const notiPanel = document.getElementById('noti-panel');
-        if (notiPanel && notiPanel.classList.contains('active')) {
-            notiPanel.classList.remove('active');
-            toggleBackgroundFreeze(false);
-            if (window.location.hash.includes('post/')) {
-                history.replaceState(null, '', window.location.pathname);
-            }
-            return;
-        }
-
-        const sidebar = document.getElementById('sidebar');
-        if (sidebar && sidebar.classList.contains('active')) {
-            sidebar.classList.remove('active');
-            document.getElementById('sidebar-overlay')?.classList.remove('active');
-            toggleBackgroundFreeze(false);
-            return;
-        }
-
-        const bookmarksPanel = document.getElementById('bookmarks-panel');
-        if (bookmarksPanel && bookmarksPanel.classList.contains('active')) {
-            bookmarksPanel.classList.remove('active');
-            toggleBackgroundFreeze(false);
-            return;
-        }
-
-        const searchBox = document.getElementById('search-box');
-        if (searchBox && searchBox.classList.contains('active')) {
-            searchBox.classList.remove('active');
-            return;
-        }
-    });
-
-    document.getElementById('moduleBackBtn')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        clearActiveElementFocus();
-        const modulesView = document.getElementById('bannerModulesView');
-        if (modulesView && !modulesView.classList.contains('hidden-view')) {
-            if (history.state && history.state.popup === 'moduleList') {
-                history.back();
-            } else {
-                modulesView.classList.add('hidden-view');
-                document.getElementById('bannerSubjectsView')?.classList.remove('hidden-view');
-                document.getElementById('moduleHeaderTitle').innerText = (activeBannerData?.title || "MODULE PACK").toUpperCase();
-            }
-        } else {
-            if (history.state && history.state.popup === 'moduleBanner') {
-                history.back();
-            } else {
-                document.getElementById('moduleBannerModal')?.classList.remove('active');
-                activeBannerData = null;
-                toggleBackgroundFreeze(false);
-            }
-        }
-    });
-
-    document.getElementById("closePdfViewerBtn")?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        clearActiveElementFocus();
-        if (history.state && history.state.popup === 'pdfViewer') {
-            history.back();
-        } else {
-            const pdfViewer = document.getElementById('pdfViewerOverlay');
-            if (pdfViewer) pdfViewer.style.display = 'none';
-            document.getElementById('pdfScrollContainer').innerHTML = ''; 
-            cleanupPdfResources();
-        }
-    });
-});
-
-// ==========================================
-// 10. AUTH STATE & LIVE SYNC PIPELINE
-// ==========================================
-onAuthStateChanged(auth, async (user) => {
-    if (user) {
-        isUserLoggedIn = true;
-        localStorage.setItem('isUserLoggedIn', 'true');
-
-        let dName = user.displayName || (user.email ? user.email.split('@')[0] : "User");
-        const profileEl = document.getElementById('sidebarProfileName');
-        if (profileEl) profileEl.textContent = dName;
-        
-        CURRENT_ADMIN_PHOTO = getHighQualityAvatar(user.photoURL);
-        const sidebarAvatar = document.getElementById('sidebarProfileImg');
-        if (sidebarAvatar) {
-            sidebarAvatar.src = CURRENT_ADMIN_PHOTO;
-            sidebarAvatar.onerror = () => { sidebarAvatar.src = DEFAULT_AVATAR; };
-        }
-        
-        CURRENT_ADMIN_NAME = dName;
-        CURRENT_ADMIN_EMAIL = user.email || "";
-
-        try {
-            const cleanEmail = user.email ? user.email.toLowerCase().trim() : "";
-            const adminDocRef = doc(db, "admins", cleanEmail);
-            const adminDocSnap = await getDoc(adminDocRef);
-            IS_SUPER_ADMIN = adminDocSnap.exists();
-            const roleEl = document.getElementById('sidebarRoleText');
-            if (roleEl) roleEl.innerText = IS_SUPER_ADMIN ? "Super Admin" : "Verified User";
-        } catch (error) { 
-            IS_SUPER_ADMIN = false; 
-        }
-
-        if (hasTransitioned) {
-            if (pendingTargetPostId) {
-                checkAndOpenTargetPost();
-            } else if (isDeepLinkLoad && pendingBookSlug) {
-                openDownloadPageLocal(pendingBookSlug, true);
-            }
-        }
-    } else {
-        isUserLoggedIn = false; 
-        IS_SUPER_ADMIN = false; 
-        localStorage.removeItem('isUserLoggedIn');
-        const profileEl = document.getElementById('sidebarProfileName');
-        if (profileEl) profileEl.innerText = "SPIDY BOOK HUB";
-        const roleEl = document.getElementById('sidebarRoleText');
-        if (roleEl) roleEl.innerText = "Please Login";
-        
-        CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
-        const sidebarAvatar = document.getElementById('sidebarProfileImg');
-        if (sidebarAvatar) sidebarAvatar.src = DEFAULT_AVATAR;
-    }
-
-    isAppReady.auth = true; 
-    tryTransition();
-
-    if (hasRealtimeListenersBound) return;
-    hasRealtimeListenersBound = true;
-
-    // Module Banners Realtime Sync
-    onSnapshot(query(collection(db, "module_banners"), orderBy("createdAt", "desc")), (snapshot) => {
-        dynamicBannersList = [];
-        snapshot.forEach(docSnap => {
-            let b = docSnap.data();
-            b.id = docSnap.id;
-            dynamicBannersList.push(b);
-        });
-        renderDynamicBanners(dynamicBannersList);
-    });
-});
+        }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 8
