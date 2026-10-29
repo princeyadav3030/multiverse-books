@@ -421,12 +421,27 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .date-divider { display: flex; justify-content: center; align-items: center; margin: 6px auto; width: fit-content; background: rgba(14, 18, 26, 0.88); color: #94a3b8; font-size: 11px; font-weight: 600; padding: 4px 14px; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(8px); }
 .message-bubble { background-color: var(--bg-card-channel); border-radius: 14px; padding: 12px 14px; width: 98%; max-width: 370px; margin: 0 auto !important; position: relative; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7); display: flex; flex-direction: column; border: 1px solid var(--card-border-channel); cursor: pointer; flex-shrink: 0; height: auto !important; -webkit-tap-highlight-color: transparent !important; transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease; }
 
-/* LUXURY GLOW PULSE (FIXED: PROPER KEYFRAMES WITHOUT !IMPORTANT) */
-.message-bubble.highlight-post, div.message-bubble.highlight-post { animation: luxuryGlowPulse 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards !important; z-index: 50 !important; }
+/* LUXURY INNER GLOW PULSE (FIXED: REMOVED OUTER GLOW & BORDER HIGHLIGHT, PURE INNER GLOW) */
+.message-bubble.highlight-post, div.message-bubble.highlight-post { 
+    animation: luxuryGlowPulse 2.8s cubic-bezier(0.25, 1, 0.5, 1) forwards !important; 
+    z-index: 50 !important; 
+}
 @keyframes luxuryGlowPulse { 
-    0% { background-color: var(--bg-card-channel); border-color: var(--card-border-channel); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7); } 
-    18%, 70% { background-color: #1a2c42; border-color: rgba(56, 189, 248, 0.85); box-shadow: 0 0 28px rgba(56, 189, 248, 0.55), inset 0 0 14px rgba(56, 189, 248, 0.2); } 
-    100% { background-color: var(--bg-card-channel); border-color: var(--card-border-channel); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7); } 
+    0% { 
+        background-color: var(--bg-card-channel); 
+        border-color: var(--card-border-channel); 
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7); 
+    } 
+    18%, 70% { 
+        background-color: #122135; 
+        border-color: var(--card-border-channel); 
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7), inset 0 0 22px rgba(56, 189, 248, 0.32); 
+    } 
+    100% { 
+        background-color: var(--bg-card-channel); 
+        border-color: var(--card-border-channel); 
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7); 
+    } 
 }
 
 .msg-image { width: 100%; border-radius: 10px; margin-bottom: 8px; object-fit: cover; display: block; border: 1px solid rgba(255,255,255,0.06); max-height: 280px; }
@@ -492,7 +507,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .loader-progress-text { width: 290px; display: flex; justify-content: space-between; margin-top: 10px; z-index: 5; font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; color: #a1a1aa; letter-spacing: 0.3px; }
 .loader-powered-text { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); color: #ffffff; font-size: 10.5px; font-weight: 900; letter-spacing: 1.5px; font-family: 'Poppins', sans-serif; text-transform: uppercase; z-index: 10; white-space: nowrap; }
 
-/* 22. COMMUNITY POPUP (FIXED: PERFECT PROPORTIONAL TICK ICON) */
+/* 22. COMMUNITY POPUP */
 .community-popup-overlay { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-height: 100dvh !important; background: rgba(0, 0, 0, 0.82) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; display: none !important; align-items: center !important; justify-content: center !important; padding: 16px !important; box-sizing: border-box !important; z-index: 99999999 !important; opacity: 0; transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 .community-popup-overlay.active { display: flex !important; opacity: 1 !important; }
 .community-popup-wrapper { position: relative; width: 100%; max-width: 380px; margin: auto; display: flex; justify-content: center; align-items: center; }
