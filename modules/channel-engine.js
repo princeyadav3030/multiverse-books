@@ -33,13 +33,18 @@ let postViewObserver = null;
 export let pendingTargetPostId = "";
 
 // Resolve post ID from current URL (hash or query param)
-const urlParamsCheck = new URLSearchParams(window.location.search);
-const currentHash = window.location.hash || "";
-if (currentHash.includes("post/")) {
-    pendingTargetPostId = currentHash.split("post/")[1].replace(/[^a-zA-Z0-9_-]/g, '');
-} else if (urlParamsCheck.has("post")) {
-    pendingTargetPostId = urlParamsCheck.get("post").replace(/[^a-zA-Z0-9_-]/g, '');
+function resolveTargetPostFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hash = window.location.hash || "";
+    if (hash.includes("post/")) {
+        return hash.split("post/")[1].replace(/[^a-zA-Z0-9_-]/g, '');
+    } else if (urlParams.has("post")) {
+        return urlParams.get("post").replace(/[^a-zA-Z0-9_-]/g, '');
+    }
+    return "";
 }
+
+pendingTargetPostId = resolveTargetPostFromUrl();
 
 // DOM Elements
 const chatBody = document.getElementById('chatBody');
@@ -100,10 +105,17 @@ export function scrollToBottomSmooth() {
     chatBody.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
 }
 
-// Global window function for smooth scroll + blue glow pulse
+// Global window function for smooth scroll + luxury glow
 window.scrollToChannelPost = function(postId) {
     if (!postId) return;
-    const target = document.getElementById(`post_${postId}`);
+    
+    // Ensure target element is rendered in DOM even if it belongs to older batch
+    let target = document.getElementById(`post_${postId}`);
+    if (!target && livePosts && livePosts.length > 0) {
+        renderChannelFeed(livePosts, false, postId);
+        target = document.getElementById(`post_${postId}`);
+    }
+
     if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
         target.classList.remove('highlight-post');
@@ -114,13 +126,20 @@ window.scrollToChannelPost = function(postId) {
 };
 
 // ==========================================
-// 2. REACTIONS & DOM MUTATION
+// 2. REACTIONS & STABLE SORTING (TELEGRAM SPEC)
 // ==========================================
 function buildReactionsHTML(reactionsObj, userSelectedEmoji) {
     if (!reactionsObj) return '';
+
+    // Telegram Sorting: Count (High to Low), tie-breaker maintains stable position
     const sortedReactions = Object.entries(reactionsObj)
         .filter(([_, count]) => count > 0)
-        .sort((a, b) => b[1] - a[1]);
+        .sort((a, b) => {
+            if (b[1] !== a[1]) {
+                return b[1] - a[1];
+            }
+            return 0; // Stable order if counts are equal
+        });
 
     let pillsHTML = '';
     sortedReactions.forEach(([emoji, count]) => {
@@ -161,11 +180,11 @@ export function updateReactionInDOM(postId, changedEmoji = null, direction = 'up
 
                 if (userSelectedEmoji === changedEmoji) pill.classList.add('active');
                 else pill.classList.remove('active');
-                return;
             }
         }
     }
 
+    // Refresh layout order after count mutation
     reactionsContainer.innerHTML = buildReactionsHTML(post.reactions, userSelectedEmoji);
     reactionsContainer.querySelectorAll('.reaction-pill').forEach(pill => {
         pill.addEventListener('click', (e) => {
@@ -246,7 +265,7 @@ function initPostViewObserver() {
 }
 
 // ==========================================
-// 4. RENDERING PIPELINE & SECURE DOM
+// 4. RENDERING PIPELINE & DOM CREATION
 // ==========================================
 function createSinglePostElement(post) {
     const dateObj = normalizeDate(post.createdAt);
@@ -268,6 +287,7 @@ function createSinglePostElement(post) {
         `;
         if (targetId) {
             quoteElement.addEventListener('click', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 window.scrollToChannelPost(targetId);
             });
@@ -451,7 +471,8 @@ export function loadOlderChannelPosts() {
 // 5. DEEP-LINK CHECK & AUTO OPEN
 // ==========================================
 export function checkAndOpenTargetPost() {
-    if (!pendingTargetPostId) return;
+    const targetId = pendingTargetPostId || resolveTargetPostFromUrl();
+    if (!targetId) return;
 
     if (!auth.currentUser) {
         triggerLoginModal();
@@ -470,20 +491,92 @@ export function checkAndOpenTargetPost() {
     if (blinkDot) blinkDot.style.display = 'none';
 
     if (livePosts.length > 0) {
-        renderChannelFeed(livePosts, false, pendingTargetPostId);
+        renderChannelFeed(livePosts, false, targetId);
     }
 
     setTimeout(() => {
-        window.scrollToChannelPost(pendingTargetPostId);
+        window.scrollToChannelPost(targetId);
         pendingTargetPostId = "";
     }, 450);
 }
 
+// Helper: Universal Robust Clipboard Copy
+function copyTextToClipboard(rawText, btnElement = null) {
+    if (!rawText) return;
+    
+    function onSuccess() {
+        showToast("Code Copied Successfully!", "success");
+        if (btnElement) {
+            const originalHTML = btnElement.innerHTML;
+            btnElement.classList.add('copied-active');
+            btnElement.innerHTML = `<i class="fas fa-check"></i> COPIED!`;
+            setTimeout(() => {
+                btnElement.classList.remove('copied-active');
+                btnElement.innerHTML = originalHTML;
+            }, 2000);
+        }
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(rawText).then(onSuccess).catch(() => {
+            fallbackExecCopy(rawText, onSuccess);
+        });
+    } else {
+        fallbackExecCopy(rawText, onSuccess);
+    }
+}
+
+function fallbackExecCopy(text, callback) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        if (callback) callback();
+    } catch (err) {
+        showToast("Unable to copy", "error");
+    }
+    document.body.removeChild(textArea);
+}
+
 // ==========================================
-// 6. INITIALIZATION & REALTIME LISTENERS
+// 6. INITIALIZATION & GLOBAL LISTENERS
 // ==========================================
 export function initChannelEngine() {
     if (scrollDownBtn) scrollDownBtn.addEventListener('click', scrollToBottomSmooth);
+
+    // Global Event Delegation for ALL "COPY CODE" buttons (Prompts + Channel Posts)
+    document.addEventListener('click', (e) => {
+        const copyBtn = e.target.closest('.telegram-copy-btn, .tg-copy-action-btn');
+        if (copyBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            let textToCopy = "";
+            if (copyBtn.dataset.clipboard) {
+                try {
+                    textToCopy = decodeURIComponent(copyBtn.dataset.clipboard);
+                } catch(err) {
+                    textToCopy = copyBtn.dataset.clipboard;
+                }
+            } else {
+                const parentCard = copyBtn.closest('.tg-copy-card, .telegram-prompt-card');
+                if (parentCard) {
+                    const bodyEl = parentCard.querySelector('.tg-copy-body, .telegram-prompt-body');
+                    if (bodyEl) textToCopy = bodyEl.innerText.trim();
+                }
+            }
+
+            if (textToCopy) {
+                copyTextToClipboard(textToCopy, copyBtn);
+            }
+        }
+    });
 
     if (chatBody) {
         chatBody.addEventListener('scroll', () => {
@@ -534,7 +627,7 @@ export function initChannelEngine() {
 
         document.getElementById('cmCopyText')?.addEventListener('click', () => {
             if (!activePost) return;
-            navigator.clipboard.writeText(stripMarkdown(activePost.text));
+            copyTextToClipboard(stripMarkdown(activePost.text));
             if (history.state && history.state.popup === 'channelContext') history.back();
             else contextOverlay.classList.remove('show');
         });
@@ -543,7 +636,7 @@ export function initChannelEngine() {
             if (!activePost) return;
             const cleanBase = window.location.origin + window.location.pathname;
             const url = `${cleanBase}#/post/${activePost.id}`;
-            navigator.clipboard.writeText(url);
+            copyTextToClipboard(url);
             if (history.state && history.state.popup === 'channelContext') history.back();
             else contextOverlay.classList.remove('show');
         });
@@ -556,7 +649,7 @@ export function initChannelEngine() {
             if (navigator.share) {
                 navigator.share({ title: 'SPIDY BOOK HUB', text: cleanText, url: url }).catch(() => {});
             } else {
-                navigator.clipboard.writeText(url);
+                copyTextToClipboard(url);
             }
             if (history.state && history.state.popup === 'channelContext') history.back();
             else contextOverlay.classList.remove('show');
@@ -568,6 +661,7 @@ export function initChannelEngine() {
         });
     }
 
+    // Prompts Realtime Sync
     onSnapshot(query(collection(db, "prompts"), orderBy("createdAt", "asc")), (snapshot) => {
         const container = document.getElementById('promptsContainer');
         if (!container) return;
@@ -603,6 +697,7 @@ export function initChannelEngine() {
         container.innerHTML = aggregatedHTML;
     });
 
+    // Channel Posts Realtime Sync
     renderChannelLoader();
     const channelQuery = query(collection(db, "channel_posts"), orderBy("createdAt", "asc"));
     onSnapshot(channelQuery, (snapshot) => {
