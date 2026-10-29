@@ -78,7 +78,7 @@ const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
 
-// Community Popup Controls & Verified SVG
+// Community Popup Controls & Verified SVG (FIXED: PERFECT SYMMETRIC CIRCLE)
 let hasClickedWA = false;
 let hasClickedTG = false;
 let hasClickedIG = false;
@@ -89,7 +89,7 @@ let communityPopupTimer = null;
 
 const VERIFIED_CHECK_SVG = `
 <svg class="premium-verified-tick" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 22 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" fill="#10b981" fill-opacity="0.2" stroke="#10b981" stroke-width="2"/>
+    <circle cx="12" cy="12" r="10" fill="#10b981" fill-opacity="0.2" stroke="#10b981" stroke-width="2"/>
     <path d="M8 12.5L10.5 15L16 9.5" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
@@ -230,7 +230,7 @@ function syncAndSanitizeBookmarks() {
 }
 
 // ==========================================
-// 4. COMMUNITY POPUP ENGINE (2 MIN DELAY + 3 DAYS LOCK)
+// 4. COMMUNITY POPUP ENGINE (UPDATED SOCIAL LINKS)
 // ==========================================
 function initCommunityDualPopup() {
     const popup = document.getElementById('communityPopup');
@@ -300,7 +300,8 @@ function initCommunityDualPopup() {
                 tgStatus.innerHTML = `<span>Joining...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
             }
 
-            window.open('https://t.me/MultiverseBooks', '_blank');
+            // Updated: Official Community Invite Link
+            window.open('https://t.me/+wJgG-_oBsHkxYTRl', '_blank');
 
             setTimeout(() => {
                 hasClickedTG = true;
@@ -325,7 +326,8 @@ function initCommunityDualPopup() {
                 igStatus.innerHTML = `<span>Following...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
             }
 
-            window.open('https://www.instagram.com/PRINCE_YADAV_3030', '_blank');
+            // Updated: Official Instagram Profile Link
+            window.open('https://www.instagram.com/princeyadav_3030', '_blank');
 
             setTimeout(() => {
                 hasClickedIG = true;
@@ -712,9 +714,6 @@ window.openBannerModules = function(bannerId) {
     const titleEl = document.getElementById('moduleHeaderTitle');
     if (titleEl) titleEl.innerText = (banner.title || "MODULE PACK").toUpperCase();
     
-    const instEl = document.getElementById('moduleInstituteText');
-    if (instEl) instEl.innerText = banner.institute || "Physics Wallah";
-
     document.getElementById('bannerSubjectsView').classList.remove('hidden-view');
     document.getElementById('bannerModulesView').classList.add('hidden-view');
 
@@ -821,7 +820,7 @@ window.openSubjectModulesList = function(subjectKey) {
 };
 
 // ==========================================
-// READ MODULE PDF DIRECTLY (UPDATED TO CLOUDFLARE WORKER)
+// READ MODULE PDF DIRECTLY (CLOUDFLARE WORKER)
 // ==========================================
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
@@ -907,7 +906,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE (UPDATED TO CLOUDFLARE WORKER)
+// 8. BOOK DETAIL & READ ONLINE (CLOUDFLARE WORKER)
 // ==========================================
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
