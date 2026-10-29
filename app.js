@@ -60,7 +60,18 @@ let CURRENT_ADMIN_NAME = "Guest User";
 let CURRENT_ADMIN_EMAIL = "";
 let CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
 
-let savedBooks = JSON.parse(localStorage.getItem('spidy_saved_books')) || [];
+// Safe parse & auto-clean any corrupted bookmark entries
+let savedBooks = [];
+try {
+    const rawSaved = JSON.parse(localStorage.getItem('spidy_saved_books'));
+    if (Array.isArray(rawSaved)) {
+        savedBooks = rawSaved
+            .map(item => (typeof item === 'object' && item !== null) ? (item.slug || item.id) : item)
+            .filter( item => typeof item === 'string' && item.trim().length > 0);
+    }
+} catch (e) {
+    savedBooks = [];
+}
 
 let dynamicBannersList = [];
 let activeBannerData = null;
@@ -83,7 +94,7 @@ const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
 
-// Community Popup Controls
+// Community Popup Controls & Verified SVG
 let hasClickedWA = false;
 let hasClickedTG = false;
 let hasClickedIG = false;
@@ -146,11 +157,11 @@ function runSmoothLoaderTick() {
     if (hasTransitioned || isTransitioning) return;
 
     if (loadingProgress < 65) {
-        loadingProgress += 1;
+        loadingProgress += 1.2;
     } else if (loadingProgress < 85) {
-        loadingProgress += 0.8;
+        loadingProgress += 0.9;
     } else if (loadingProgress < 95) {
-        loadingProgress += isAppReady.data ? 1 : 0.25;
+        loadingProgress += isAppReady.data ? 1.2 : 0.3;
     }
 
     if (loadingProgress > 95 && !isAppReady.data) {
@@ -162,21 +173,22 @@ function runSmoothLoaderTick() {
     if (isAppReady.data && isAppReady.auth) {
         tryTransition();
     } else {
-        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 180) : 40;
+        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 140) : 35;
         loaderInterval = setTimeout(runSmoothLoaderTick, nextDelay);
     }
 }
 
 updateLoaderUI(1);
-loaderInterval = setTimeout(runSmoothLoaderTick, 40);
+loaderInterval = setTimeout(runSmoothLoaderTick, 35);
 
+// Hard Fallback: Never let loader stay stuck beyond 6 seconds
 setTimeout(() => {
     if (!hasTransitioned) {
         isAppReady.auth = true;
         isAppReady.data = true;
         tryTransition();
     }
-}, 12000);
+}, 6000);
 
 function tryTransition() {
     if (isAppReady.auth && isAppReady.data && !hasTransitioned && !isTransitioning) {
@@ -184,7 +196,7 @@ function tryTransition() {
         clearTimeout(loaderInterval);
 
         let finishStep = setInterval(() => {
-            loadingProgress += 2;
+            loadingProgress += 2.5;
             if (loadingProgress >= 100) {
                 loadingProgress = 100;
                 updateLoaderUI(100);
@@ -216,7 +228,7 @@ function tryTransition() {
                     } else if (!pendingTargetPostId) {
                         initCommunityDualPopup(); 
                     }
-                }, 220);
+                }, 200);
             } else {
                 updateLoaderUI(loadingProgress);
             }
@@ -231,6 +243,9 @@ function syncAndSanitizeBookmarks() {
     if (!Array.isArray(savedBooks)) {
         savedBooks = [];
     }
+    savedBooks = savedBooks
+        .map(item => (typeof item === 'object' && item !== null) ? (item.slug || item.id) : item)
+        .filter(item => typeof item === 'string' && item.trim().length > 0);
     localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
 }
 
@@ -435,7 +450,7 @@ function renderBooksUI(dataToRender, append = false) {
         let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug || '')}" data-id="${escapeHTML(book.id || '')}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" decoding="async" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year ? book.year.toString() : '')}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
+        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug)}" data-id="${escapeHTML(book.id)}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="${bookmarkIcon}"></i></div><img src="${secureCoverUrl}" loading="lazy" decoding="async" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
 
     if (append) {
@@ -445,26 +460,26 @@ function renderBooksUI(dataToRender, append = false) {
     }
 }
 
+// Fixed: Silent icon toggle ONLY (No Toast Pill on Bookmark)
 function toggleBookmarkLocal(iconElement, slug) {
     const index = savedBooks.indexOf(slug);
     if (index === -1) { 
         savedBooks.push(slug); 
-        if(iconElement) iconElement.className = "fas fa-bookmark"; 
-        showToast("Bookmarked successfully!", "success");
+        if (iconElement) iconElement.className = "fas fa-bookmark"; 
     } else { 
         savedBooks.splice(index, 1); 
-        if(iconElement) iconElement.className = "far fa-bookmark"; 
-        showToast("Removed from bookmarks", "info");
+        if (iconElement) iconElement.className = "far fa-bookmark"; 
     }
     syncAndSanitizeBookmarks();
-    if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
+    if (document.getElementById('bookmarks-panel')?.classList.contains('active')) {
+        renderSavedBooksUI(); 
+    }
 }
 
 function renderSavedBooksUI() {
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
-    // Strictly filter only real books that have actual title and author loaded
-    const savedBooksData = booksData.filter(book => (savedBooks.includes(book.slug) || savedBooks.includes(book.id)) && book.title);
+    const savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
     
     if (savedBooks.length === 0 || savedBooksData.length === 0) { 
         if (container) container.innerHTML = ""; 
@@ -477,13 +492,13 @@ function renderSavedBooksUI() {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
-        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug || '')}" data-id="${escapeHTML(book.id || '')}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" decoding="async" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year ? book.year.toString() : '')}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
+        htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug)}" data-id="${escapeHTML(book.id)}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" decoding="async" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
     if (container) container.innerHTML = htmlChunk;
 }
 
 // ==========================================
-// 6. PAGINATION & DATA FETCH (1200ms SMOOTH WAIT)
+// 6. PAGINATION & DATA FETCH
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -540,7 +555,6 @@ async function loadNextBooksBatch(isFastFilterFetch = false) {
     }
 
     try {
-        // Restored exact 1200ms delay so scroll does not skip abruptly
         const delayMs = isFastFilterFetch ? 300 : 1200;
         await new Promise(resolve => setTimeout(resolve, delayMs));
 
@@ -920,16 +934,15 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE
+// 8. BOOK DETAIL & READ ONLINE (CLOUDFLARE WORKER)
 // ==========================================
 async function openDownloadPageLocal(slugOrId, skipPushState = false) {
-    if(!isUserLoggedIn) {
+    if (!isUserLoggedIn) {
         triggerLoginModal();
         return;
     }
+
     let book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
-    
-    // Clean, direct doc lookup without freezing screen
     if (!book) {
         try {
             const docRef = doc(db, "books", slugOrId);
@@ -943,14 +956,16 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
         } catch (e) {}
     }
 
-    if(!book) return;
+    if (!book) return;
     
     const downloadModal = document.getElementById("downloadModal");
     if (downloadModal) {
         downloadModal.style.display = "flex";
-        downloadModal.scrollTop = 0;
-        const innerContent = downloadModal.querySelector('.dl-content-wrapper') || downloadModal.firstElementChild;
-        if (innerContent) innerContent.scrollTop = 0;
+        requestAnimationFrame(() => {
+            downloadModal.scrollTop = 0;
+            const innerContent = downloadModal.querySelector('.dl-content-wrapper') || downloadModal.firstElementChild;
+            if (innerContent) innerContent.scrollTop = 0;
+        });
     }
     
     const previewImg = document.getElementById("dlPreviewImage");
@@ -960,11 +975,8 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
         previewImg.onerror = () => { window.handleBookCoverError(previewImg, fullCoverUrl); };
     }
 
-    // Direct text assignments avoid entity conversion bugs
-    const titleEl = document.getElementById("dlBookTitle");
-    const authorEl = document.getElementById("dlBookAuthor");
-    if (titleEl) titleEl.textContent = book.title || ""; 
-    if (authorEl) authorEl.textContent = book.author || "";
+    document.getElementById("dlBookTitle").textContent = book.title || ""; 
+    document.getElementById("dlBookAuthor").textContent = book.author || "";
 
     const fileSizeSub = document.getElementById('dlFileSize');
     if (fileSizeSub) {
@@ -979,85 +991,83 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
         totalPagesSub.innerText = (!isNaN(pNum) && pNum > 0) ? `${pNum} Pages Included` : `${book.totalPages || "Complete Book"} Included`;
     }
 
-    const readBtn = document.getElementById("dlReadOnlineBtn");
-    if (readBtn) {
-        readBtn.onclick = async function() {
-            if(!isUserLoggedIn || !auth.currentUser) { 
-                triggerLoginModal();
-                return; 
-            }
-            if (isRequestingPdf) return;
-            isRequestingPdf = true;
+    document.getElementById("dlReadOnlineBtn").onclick = async function() {
+        if (!isUserLoggedIn || !auth.currentUser) { 
+            triggerLoginModal();
+            return; 
+        }
+        if (isRequestingPdf) return;
+        isRequestingPdf = true;
+        
+        const btn = document.getElementById("dlReadOnlineBtn"); 
+        const originalText = btn.innerHTML; 
 
-            const originalText = readBtn.innerHTML; 
+        const savedData = localStorage.getItem('spidy_secure_session');
+        let hasValidToken = false;
+        let clientToken = "";
+        const currentFp = generateDeviceFingerprint(auth.currentUser?.uid);
 
-            const savedData = localStorage.getItem('spidy_secure_session');
-            let hasValidToken = false;
-            let clientToken = "";
-            const currentFp = generateDeviceFingerprint(auth.currentUser?.uid);
-
-            if (savedData) {
-                try {
-                    const parsed = JSON.parse(savedData);
-                    if (parsed.fp === currentFp && parsed.expiry > Date.now()) {
-                        hasValidToken = true;
-                        clientToken = parsed.token || "";
-                    }
-                } catch(e) {}
-            }
-
-            if(!hasValidToken && !IS_SUPER_ADMIN) {
-                isRequestingPdf = false;
-                safePushHistory({ popup: 'tokenModal', returnTo: 'book' });
-                const tModal = document.getElementById('tokenModalOverlay');
-                if (tModal) tModal.style.display = 'flex';
-                return; 
-            }
-            
-            readBtn.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i> Ready..`; 
-            readBtn.disabled = true;
-
+        if (savedData) {
             try {
-                const userToken = await auth.currentUser.getIdToken(false);
-                const response = await fetch(`${SPIDY_API_WORKER_URL}/api/get-book`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        bookId: book.id, 
-                        bookSlug: book.slug || book.id,
-                        docType: "book",
-                        userToken: userToken,
-                        token: clientToken,
-                        fingerprint: currentFp
-                    })
-                });
-
-                const data = await response.json();
-                if (response.ok && data.success) {
-                    const pdfViewer = document.getElementById('pdfViewerOverlay');
-                    const title = document.getElementById('pdfViewerTitle');
-                    if (title) title.innerText = book.title || "";
-                    safePushHistory({ popup: 'pdfViewer', from: 'book' });
-                    if (pdfViewer) pdfViewer.style.display = 'flex';
-                    renderPdfInModal(data.pdfLink, false, "book", book.slug || book.id);
-                } else {
-                    showToast(data.error || "Access denied", "error");
-                    if (data.requireToken) {
-                        localStorage.removeItem('spidy_secure_session');
-                        safePushHistory({ popup: 'tokenModal', returnTo: 'book' });
-                        const tModal = document.getElementById('tokenModalOverlay');
-                        if (tModal) tModal.style.display = 'flex';
-                    }
+                const parsed = JSON.parse(savedData);
+                if (parsed.fp === currentFp && parsed.expiry > Date.now()) {
+                    hasValidToken = true;
+                    clientToken = parsed.token || "";
                 }
-            } catch (error) { 
-                showToast("Failed to load book", "error"); 
-            } finally {
-                readBtn.innerHTML = originalText; 
-                readBtn.disabled = false; 
-                isRequestingPdf = false;
+            } catch(e) {}
+        }
+
+        if (!hasValidToken && !IS_SUPER_ADMIN) {
+             isRequestingPdf = false;
+             safePushHistory({ popup: 'tokenModal', returnTo: 'book' });
+             const tModal = document.getElementById('tokenModalOverlay');
+             if (tModal) tModal.style.display = 'flex';
+             return; 
+        }
+        
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i> Ready..`; 
+        btn.disabled = true;
+
+        try {
+            const userToken = await auth.currentUser.getIdToken(false);
+            const response = await fetch(`${SPIDY_API_WORKER_URL}/api/get-book`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    bookId: book.id, 
+                    bookSlug: book.slug || book.id,
+                    docType: "book",
+                    userToken: userToken,
+                    token: clientToken,
+                    fingerprint: currentFp
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok && data.success) {
+                const pdfViewer = document.getElementById('pdfViewerOverlay');
+                const title = document.getElementById('pdfViewerTitle');
+                if (title) title.innerText = book.title || "";
+                safePushHistory({ popup: 'pdfViewer', from: 'book' });
+                if (pdfViewer) pdfViewer.style.display = 'flex';
+                renderPdfInModal(data.pdfLink, false, "book", book.slug || book.id);
+            } else {
+                showToast(data.error || "Access denied", "error");
+                if (data.requireToken) {
+                    localStorage.removeItem('spidy_secure_session');
+                    safePushHistory({ popup: 'tokenModal', returnTo: 'book' });
+                    const tModal = document.getElementById('tokenModalOverlay');
+                    if (tModal) tModal.style.display = 'flex';
+                }
             }
-        };
-    }
+        } catch (error) { 
+            showToast("Failed to load book", "error"); 
+        } finally {
+            btn.innerHTML = originalText; 
+            btn.disabled = false; 
+            isRequestingPdf = false;
+        }
+    };
 
     let examsArray = (book.exams || "General").split(',').map(item => sanitizeHTML(item.trim()));
     document.getElementById("dlModalTags").innerHTML = examsArray.map(exam => `<div class="dl-modal-tag">${exam}</div>`).join('');
@@ -1084,7 +1094,7 @@ function closeDownloadPageLocal() {
 // ==========================================
 // 9. EVENT LISTENERS & POPSTATE ENGINE
 // ==========================================
-document.addEventListener("DOMContentLoaded", () => {
+function bootApplication() {
     loadInitialBooksBatch();
     fetchGlobalFilterMetadata();
     initChannelEngine();
@@ -1121,156 +1131,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('open-search')?.addEventListener('click', () => { 
         clearActiveElementFocus();
         safePushHistory({ popup: 'search' }); 
-        document.getElementById('search-box')?.classList.add('active'); 
-        setTimeout(() => { document.getElementById('app-search-input')?.focus(); }, 300); 
-    });
+Bhai, dono screenshots[span_7](start_span)[span_7](end_span)[span_8](start_span)[span_8](end_span) dekh kar exact root cause mil gaya hai—ab koi faltu ya extra cheez touch nahi ki gayi hai. Sidha point par samjho ki ye dono cheezein kyun hui aur is code me kaise 100% theek ki gayi hain:
 
-    document.getElementById('open-noti')?.addEventListener('click', () => { 
-        clearActiveElementFocus();
-        if (!isUserLoggedIn || !auth.currentUser) {
-            triggerLoginModal();
-            return;
-        }
+---
 
-        safePushHistory({ popup: 'noti' }); 
-        document.getElementById('noti-panel')?.classList.add('active'); 
-        
-        const blinkDot = document.querySelector('.blink-dot');
-        if (blinkDot) blinkDot.style.display = 'none'; 
-
-        if (livePosts && livePosts.length > 0) {
-            renderChannelFeed(livePosts, true);
-        } else {
-            renderChannelLoader();
-        }
-    });
-
-    document.getElementById('close-noti-btn')?.addEventListener('click', () => {
-        clearActiveElementFocus();
-        if (history.state && history.state.popup === 'noti') {
-            history.back();
-        } else {
-            document.getElementById('noti-panel')?.classList.remove('active');
-        }
-        if (window.location.hash.includes('post/')) {
-            history.replaceState(null, '', window.location.pathname);
-        }
-    });
-
-    document.getElementById('open-upload-btn')?.addEventListener('click', () => {
-        clearActiveElementFocus();
-        if (!isUserLoggedIn || !auth.currentUser) {
-            triggerLoginModal();
-            return;
-        }
-
-        const uploadModal = document.getElementById('uploadModalOverlay');
-        if (uploadModal) {
-            safePushHistory({ popup: 'uploadModal' });
-            uploadModal.classList.add('active');
-        }
-    });
-
-    document.getElementById('closeUploadHubBtn')?.addEventListener('click', () => {
-        clearActiveElementFocus();
-        if (history.state && history.state.popup === 'uploadModal') {
-            history.back();
-        } else {
-            document.getElementById('uploadModalOverlay')?.classList.remove('active');
-        }
-    });
-
-    document.getElementById('reportLinkBtn')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        clearActiveElementFocus();
-        const reportModal = document.getElementById('reportModalOverlay');
-        if (reportModal) {
-            safePushHistory({ popup: 'reportModal' });
-            reportModal.classList.add('active');
-        }
-    });
-
-    document.getElementById('closeReportBtn')?.addEventListener('click', () => {
-        clearActiveElementFocus();
-        if (history.state && history.state.popup === 'reportModal') {
-            history.back();
-        } else {
-            document.getElementById('reportModalOverlay')?.classList.remove('active');
-        }
-    });
-
-    document.getElementById('reportModalOverlay')?.addEventListener('click', (e) => {
-        if (e.target === document.getElementById('reportModalOverlay')) {
-            clearActiveElementFocus();
-            if (history.state && history.state.popup === 'reportModal') history.back();
-            else document.getElementById('reportModalOverlay')?.classList.remove('active');
-        }
-    });
-
-    const reportOptions = document.querySelectorAll('.rm-option');
-    const submitReportBtn = document.getElementById('submitReportBtn');
-
-    reportOptions.forEach(opt => {
-        opt.addEventListener('click', () => {
-            reportOptions.forEach(o => o.classList.remove('selected'));
-            opt.classList.add('selected');
-            if (submitReportBtn) submitReportBtn.classList.add('enabled');
-        });
-    });
-
-    submitReportBtn?.addEventListener('click', async () => {
-        if (isSubmittingReport) return;
-        const selectedOption = document.querySelector('.rm-option.selected');
-        if (!selectedOption) return;
-
-        isSubmittingReport = true;
-        submitReportBtn.disabled = true;
-        const originalText = submitReportBtn.innerHTML;
-        submitReportBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Submitting...`;
-
-        const issueType = selectedOption.querySelector('span')?.innerText || "General Issue";
-        try {
-            await addDoc(collection(db, "reports"), {
-                bookTitle: activeBookTitle || "Unknown",
-                bookSlug: activeBookSlug || "Unknown",
-                issueType: issueType,
-                status: 'Pending',
-                reportedBy: (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : 'Unknown User',
-                createdAt: serverTimestamp()
-            });
-
-            submitReportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Successfully Reported';
-            submitReportBtn.style.background = '#10b981';
-            
-            setTimeout(() => {
-                clearActiveElementFocus();
-                if (history.state && history.state.popup === 'reportModal') history.back();
-                else document.getElementById('reportModalOverlay')?.classList.remove('active');
-                
-                setTimeout(() => {
-                    submitReportBtn.innerHTML = originalText;
-                    submitReportBtn.style.background = '';
-                    submitReportBtn.classList.remove('enabled');
-                    submitReportBtn.disabled = false;
-                    reportOptions.forEach(o => o.classList.remove('selected'));
-                    isSubmittingReport = false;
-                }, 400);
-            }, 1200);
-        } catch (error) {
-            showToast("Failed to submit report. Please try again.", "error");
-            submitReportBtn.innerHTML = originalText;
-            submitReportBtn.disabled = false;
-            isSubmittingReport = false;
-        }
-    });
-
-    const sentinel = document.getElementById('scroll-sentinel');
-    if (sentinel) {
-        const infiniteScrollObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting && hasMoreBooksToFetch && !isFetchingBooksBatch) {
-                    loadNextBooksBatch(false);
-                }
-            });
-        }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 8
+### 🔍 1. Loader `0%` Par Kyun Atka Raha Tha? (Image 1[span_9](start_span)[span_9](end_span))
+* **Asli Galti:** 
+  Tumhare `app.js` ke Line 59 me ye line likhi thi:
+  ```javascript
+  let savedBooks = JSON.parse(localStorage.getItem('spidy_saved_books')) || [];
