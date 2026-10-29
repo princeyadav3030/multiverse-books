@@ -500,12 +500,11 @@ export function checkAndOpenTargetPost() {
     }, 450);
 }
 
-// Helper: Universal Robust Clipboard Copy
+// Helper: Universal Robust Clipboard Copy (NO CUSTOM TOAST OVERLAY)
 function copyTextToClipboard(rawText, btnElement = null) {
     if (!rawText) return;
     
     function onSuccess() {
-        showToast("Code Copied Successfully!", "success");
         if (btnElement) {
             const originalHTML = btnElement.innerHTML;
             btnElement.classList.add('copied-active');
@@ -538,9 +537,7 @@ function fallbackExecCopy(text, callback) {
     try {
         document.execCommand('copy');
         if (callback) callback();
-    } catch (err) {
-        showToast("Unable to copy", "error");
-    }
+    } catch (err) {}
     document.body.removeChild(textArea);
 }
 
