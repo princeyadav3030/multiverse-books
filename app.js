@@ -77,7 +77,7 @@ let activeSubjectKey = null;
 let isAppReady = { auth: false, data: false }; 
 let hasTransitioned = false;
 let isTransitioning = false;
-let loadingProgress = 1;
+let loadingProgress = 5;
 let loaderInterval = null;
 let hasRealtimeListenersBound = false;
 
@@ -129,18 +129,20 @@ function isFilterOrSearchActive() {
 }
 
 // ==========================================
-// 2. LOADER & TRANSITION ENGINE
+// 2. LOADER & TRANSITION ENGINE (BULLETPROOF FIX)
 // ==========================================
 function updateLoaderUI(percent) {
     const loaderFill = document.getElementById('loaderFill');
     const loaderPercentage = document.getElementById('loaderPercentage');
     const loaderStatusText = document.getElementById('loaderStatusText');
-    if (loaderFill) loaderFill.style.width = percent + "%";
-    if (loaderPercentage) loaderPercentage.innerText = Math.floor(percent) + "%";
+    const cleanVal = Math.min(100, Math.max(0, Math.floor(percent)));
+
+    if (loaderFill) loaderFill.style.width = cleanVal + "%";
+    if (loaderPercentage) loaderPercentage.innerText = cleanVal + "%";
     if (loaderStatusText) {
-        if (percent < 30) loaderStatusText.innerText = "Initializing System...";
-        else if (percent < 65) loaderStatusText.innerText = "Loading Books Securely...";
-        else if (percent < 96) loaderStatusText.innerText = "Preparing Content...";
+        if (cleanVal < 30) loaderStatusText.innerText = "Initializing System...";
+        else if (cleanVal < 65) loaderStatusText.innerText = "Loading Books Securely...";
+        else if (cleanVal < 96) loaderStatusText.innerText = "Preparing Content...";
         else loaderStatusText.innerText = "Ready to Launch!";
     }
 }
@@ -148,79 +150,76 @@ function updateLoaderUI(percent) {
 function runSmoothLoaderTick() {
     if (hasTransitioned || isTransitioning) return;
 
-    if (loadingProgress < 65) {
-        loadingProgress += 1;
+    if (loadingProgress < 60) {
+        loadingProgress += 2.5;
     } else if (loadingProgress < 85) {
-        loadingProgress += 0.8;
+        loadingProgress += 1.5;
     } else if (loadingProgress < 95) {
-        loadingProgress += isAppReady.data ? 1 : 0.25;
+        loadingProgress += (isAppReady.data && isAppReady.auth) ? 2 : 0.4;
     }
 
-    if (loadingProgress > 95 && !isAppReady.data) {
+    if (loadingProgress > 95 && (!isAppReady.data || !isAppReady.auth)) {
         loadingProgress = 95;
     }
 
-    updateLoaderUI(Math.min(95, loadingProgress));
+    updateLoaderUI(loadingProgress);
 
     if (isAppReady.data && isAppReady.auth) {
         tryTransition();
     } else {
-        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 180) : 40;
+        const nextDelay = loadingProgress > 80 ? 40 : 30;
         loaderInterval = setTimeout(runSmoothLoaderTick, nextDelay);
     }
 }
 
-updateLoaderUI(1);
-loaderInterval = setTimeout(runSmoothLoaderTick, 40);
-
+// Safe Fallback: Agar connection ultra slow bhi ho, app 4.5 second ke andar enter ho jayegi
 setTimeout(() => {
     if (!hasTransitioned) {
         isAppReady.auth = true;
         isAppReady.data = true;
         tryTransition();
     }
-}, 20000);
+}, 4500);
 
 function tryTransition() {
-    if (isAppReady.auth && isAppReady.data && !hasTransitioned && !isTransitioning) {
-        isTransitioning = true;
-        clearTimeout(loaderInterval);
+    if (hasTransitioned || isTransitioning) return;
+    isTransitioning = true;
+    clearTimeout(loaderInterval);
 
-        let finishStep = setInterval(() => {
-            loadingProgress += 2;
-            if (loadingProgress >= 100) {
-                loadingProgress = 100;
-                updateLoaderUI(100);
-                clearInterval(finishStep);
-                hasTransitioned = true;
-                isTransitioning = false;
+    let finishStep = setInterval(() => {
+        loadingProgress += 4;
+        if (loadingProgress >= 100) {
+            loadingProgress = 100;
+            updateLoaderUI(100);
+            clearInterval(finishStep);
+            hasTransitioned = true;
+            isTransitioning = false;
 
-                setTimeout(() => {
-                    const mainApp = document.getElementById('mainAppWrapper');
-                    if (mainApp) mainApp.style.display = 'block';
+            setTimeout(() => {
+                const mainApp = document.getElementById('mainAppWrapper');
+                if (mainApp) mainApp.style.display = 'block';
 
-                    const loader = document.getElementById("loaderScreen");
-                    if (loader) {
-                        loader.style.opacity = "0"; 
-                        setTimeout(() => { 
-                            loader.style.display = "none"; 
-                            if (pendingTargetPostId) {
-                                checkAndOpenTargetPost();
-                            }
-                        }, 300);
-                    }
+                const loader = document.getElementById("loaderScreen");
+                if (loader) {
+                    loader.style.opacity = "0"; 
+                    setTimeout(() => { 
+                        loader.style.display = "none"; 
+                        if (pendingTargetPostId) {
+                            checkAndOpenTargetPost();
+                        }
+                    }, 300);
+                }
 
-                    if (isDeepLinkLoad && pendingBookSlug) {
-                        handleTargetDeepLink(pendingBookSlug);
-                    } else if (!pendingTargetPostId) {
-                        initCommunityDualPopup(); 
-                    }
-                }, 220);
-            } else {
-                updateLoaderUI(loadingProgress);
-            }
-        }, 12);
-    }
+                if (isDeepLinkLoad && pendingBookSlug) {
+                    handleTargetDeepLink(pendingBookSlug);
+                } else if (!pendingTargetPostId) {
+                    initCommunityDualPopup(); 
+                }
+            }, 150);
+        } else {
+            updateLoaderUI(loadingProgress);
+        }
+    }, 15);
 }
 
 // ==========================================
@@ -358,7 +357,7 @@ function initCommunityDualPopup() {
 }
 
 // ==========================================
-// 5. MASTER FILTER APPLIER & UI RENDER (NO FETCH LOOPS)
+// 5. MASTER FILTER APPLIER & UI RENDER
 // ==========================================
 function applyMasterFilter(isAppending = false, newBatchData = []) {
     const searchInputRaw = (document.getElementById('app-search-input')?.value || "").trim();
@@ -451,7 +450,7 @@ function toggleBookmarkLocal(iconElement, slug) {
     if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
 }
 
-// Full Saved Books Loader: Directly resolves books missing from initial batch
+// Instant Saved Books Loader: Loads bookmarks even if not in first batch
 async function renderSavedBooksUI() {
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
@@ -464,8 +463,6 @@ async function renderSavedBooksUI() {
     }
 
     let savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
-    
-    // Check if some bookmarks exist outside the current booksData array
     const knownKeys = new Set(savedBooksData.map(b => b.slug).concat(savedBooksData.map(b => b.id)));
     const missingKeys = savedBooks.filter(k => !knownKeys.has(k));
 
@@ -1112,6 +1109,10 @@ function closeDownloadPageLocal() {
 // 9. EVENT LISTENERS & POPSTATE ENGINE
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
+    // Start loader tick immediately upon DOM ready
+    updateLoaderUI(10);
+    loaderInterval = setTimeout(runSmoothLoaderTick, 25);
+
     loadInitialBooksBatch();
     fetchGlobalFilterMetadata();
     initChannelEngine();
