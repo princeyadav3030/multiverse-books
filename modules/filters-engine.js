@@ -23,12 +23,13 @@ export const ALL_EXAM_CATEGORIES = [
     "UGC NET / JRF", "CA / CS / CMA", "Insurance", "General Reading"
 ];
 
-// Sub-exams aur related keywords ka clean dictionary
+// Clean exam dictionary: Bare single digits ("9", "10", "11", "12") removed
+// to prevent matching random year digits, editions, or page numbers.
 export const EXAM_CATEGORY_MAP = {
-    "9th": ["9", "9TH", "CLASS 9", "CBSE 9", "ICSE 9"],
-    "10th": ["10", "10TH", "CLASS 10", "MATRIC", "CBSE 10", "ICSE 10"],
-    "11th": ["11", "11TH", "CLASS 11", "CBSE 11", "ISC 11"],
-    "12th": ["12", "12TH", "CLASS 12", "INTER", "INTERMEDIATE", "CBSE 12", "ISC 12"],
+    "9th": ["CLASS 9", "CLASS 9TH", "9TH", "CBSE 9", "ICSE 9", "GRADE 9"],
+    "10th": ["CLASS 10", "CLASS 10TH", "10TH", "MATRIC", "CBSE 10", "ICSE 10", "GRADE 10"],
+    "11th": ["CLASS 11", "CLASS 11TH", "11TH", "CBSE 11", "ISC 11", "GRADE 11"],
+    "12th": ["CLASS 12", "CLASS 12TH", "12TH", "INTER", "INTERMEDIATE", "CBSE 12", "ISC 12", "GRADE 12"],
     "SSC": ["SSC", "CGL", "CHSL", "MTS", "CPO", "GD", "CONSTABLE GD", "STENOGRAPHER", "SELECTION POST"],
     "Railway": ["RAILWAY", "RRB", "NTPC", "GROUP D", "ALP", "TECHNICIAN", "RPF", "LOCO PILOT"],
     "Defence": ["NDA", "CDS", "AFCAT", "NAVY", "ARMY", "AIRFORCE", "AGNIVEER", "DEFENCE", "CAPF"],
@@ -55,11 +56,10 @@ export const EXAM_CATEGORY_MAP = {
 // ==========================================
 export async function fetchGlobalFilterMetadata() {
     try {
-        // Session storage check to prevent repetitive Firestore reads on the same session
         const cachedMeta = sessionStorage.getItem('spidy_filter_meta_cached');
         if (cachedMeta) {
             const parsed = JSON.parse(cachedMeta);
-            if (parsed.authors && parsed.years) {
+            if (Array.isArray(parsed.authors) && Array.isArray(parsed.years)) {
                 parsed.authors.forEach(a => allAuthorsCache.add(a));
                 parsed.years.forEach(y => allYearsCache.add(y));
                 return;
@@ -76,13 +76,12 @@ export async function fetchGlobalFilterMetadata() {
             if (y && !isNaN(parseInt(y, 10))) allYearsCache.add(y);
         });
 
-        // Store into session storage to save reads
         sessionStorage.setItem('spidy_filter_meta_cached', JSON.stringify({
             authors: Array.from(allAuthorsCache),
             years: Array.from(allYearsCache)
         }));
     } catch (e) {
-        // Fallback gracefully on network/permission issues
+        // Fallback silently without throwing unhandled exceptions
     }
 }
 
@@ -154,7 +153,9 @@ export function openMainFilterModal() {
     const overlay = document.getElementById('mainFilterOverlay');
     if (!overlay) return;
     if (!overlay.classList.contains('active')) {
-        window.history.pushState({ popup: 'mainFilter' }, '');
+        if (!window.history.state || window.history.state.popup !== 'mainFilter') {
+            window.history.pushState({ popup: 'mainFilter' }, '');
+        }
         overlay.classList.add('active');
     }
 }
@@ -215,14 +216,18 @@ export function openSubFilterModal(type, booksData, onFilterApplyCallback) {
                 window.history.back();
             }
 
-            if (onFilterApplyCallback) onFilterApplyCallback();
+            if (typeof onFilterApplyCallback === 'function') {
+                onFilterApplyCallback();
+            }
         };
 
         grid.appendChild(btn);
     });
 
     if (!subOverlay.classList.contains('active')) {
-        window.history.pushState({ popup: 'subFilter', filterType: type }, '');
+        if (!window.history.state || window.history.state.popup !== 'subFilter') {
+            window.history.pushState({ popup: 'subFilter', filterType: type }, '');
+        }
         subOverlay.classList.add('active');
     }
 }
@@ -350,12 +355,18 @@ export function initFiltersEngine(getBooksDataCallback, onFilterApplyCallback) {
     let searchTimeout;
     searchInputEl?.addEventListener('input', () => { 
         clearTimeout(searchTimeout); 
-        searchTimeout = setTimeout(() => { onFilterApplyCallback(); }, 250); 
+        searchTimeout = setTimeout(() => { 
+            if (typeof onFilterApplyCallback === 'function') {
+                onFilterApplyCallback(); 
+            }
+        }, 300); 
     });
 
     document.getElementById('close-search')?.addEventListener('click', () => { 
         if (searchInputEl) searchInputEl.value = ''; 
-        onFilterApplyCallback(); 
+        if (typeof onFilterApplyCallback === 'function') {
+            onFilterApplyCallback(); 
+        }
         document.getElementById('search-box')?.classList.remove('active'); 
         if (window.history.state && window.history.state.popup === 'search') { 
             window.history.back(); 
