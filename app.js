@@ -2,7 +2,7 @@
 
 import { 
     auth, db, collection, addDoc, doc, getDoc, getDocs, 
-    query, where, orderBy, limit, startAfter, serverTimestamp, onAuthStateChanged, onSnapshot 
+    query, orderBy, limit, startAfter, serverTimestamp, onAuthStateChanged, onSnapshot 
 } from "./modules/firebase-config.js";
 
 import { 
@@ -60,15 +60,7 @@ let CURRENT_ADMIN_NAME = "Guest User";
 let CURRENT_ADMIN_EMAIL = "";
 let CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
 
-// Crash-Safe LocalStorage Reader
-let savedBooks = [];
-try {
-    const rawSaved = localStorage.getItem('spidy_saved_books');
-    savedBooks = rawSaved ? JSON.parse(rawSaved) : [];
-    if (!Array.isArray(savedBooks)) savedBooks = [];
-} catch (e) {
-    savedBooks = [];
-}
+let savedBooks = JSON.parse(localStorage.getItem('spidy_saved_books')) || [];
 
 let dynamicBannersList = [];
 let activeBannerData = null;
@@ -77,7 +69,7 @@ let activeSubjectKey = null;
 let isAppReady = { auth: false, data: false }; 
 let hasTransitioned = false;
 let isTransitioning = false;
-let loadingProgress = 10;
+let loadingProgress = 1;
 let loaderInterval = null;
 let hasRealtimeListenersBound = false;
 
@@ -86,7 +78,7 @@ const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
 
-// Community Popup Controls & Verified SVG
+// Community Popup Controls & Verified SVG (FIXED: PERFECT SYMMETRIC CIRCLE)
 let hasClickedWA = false;
 let hasClickedTG = false;
 let hasClickedIG = false;
@@ -101,14 +93,14 @@ const VERIFIED_CHECK_SVG = `
     <path d="M8 12.5L10.5 15L16 9.5" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
-// Helper: Clear active element focus on mobile
+// Helper: Remove lingering grey hover/focus boxes on mobile
 function clearActiveElementFocus() {
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
     }
 }
 
-// Helper: Safe History Push
+// Helper: Safe History Push (Prevents duplicate states on rapid taps)
 function safePushHistory(stateObj, url = '') {
     if (window.history.state && window.history.state.popup === stateObj.popup) {
         return;
@@ -116,7 +108,7 @@ function safePushHistory(stateObj, url = '') {
     window.history.pushState(stateObj, '', url || window.location.href);
 }
 
-// Helper: Check if filter or search active
+// Helper: Check if any filter or search query is currently active
 function isFilterOrSearchActive() {
     const searchVal = (document.getElementById('app-search-input')?.value || "").trim();
     return (
@@ -129,20 +121,18 @@ function isFilterOrSearchActive() {
 }
 
 // ==========================================
-// 2. BULLETPROOF IMMEDIATE LOADER ENGINE
+// 2. LOADER & TRANSITION ENGINE
 // ==========================================
 function updateLoaderUI(percent) {
     const loaderFill = document.getElementById('loaderFill');
     const loaderPercentage = document.getElementById('loaderPercentage');
     const loaderStatusText = document.getElementById('loaderStatusText');
-    const cleanVal = Math.min(100, Math.max(0, Math.floor(percent)));
-
-    if (loaderFill) loaderFill.style.width = cleanVal + "%";
-    if (loaderPercentage) loaderPercentage.innerText = cleanVal + "%";
+    if (loaderFill) loaderFill.style.width = percent + "%";
+    if (loaderPercentage) loaderPercentage.innerText = Math.floor(percent) + "%";
     if (loaderStatusText) {
-        if (cleanVal < 30) loaderStatusText.innerText = "Initializing System...";
-        else if (cleanVal < 65) loaderStatusText.innerText = "Loading Books Securely...";
-        else if (cleanVal < 96) loaderStatusText.innerText = "Preparing Content...";
+        if (percent < 30) loaderStatusText.innerText = "Initializing System...";
+        else if (percent < 65) loaderStatusText.innerText = "Loading Books Securely...";
+        else if (percent < 96) loaderStatusText.innerText = "Preparing Content...";
         else loaderStatusText.innerText = "Ready to Launch!";
     }
 }
@@ -151,72 +141,82 @@ function runSmoothLoaderTick() {
     if (hasTransitioned || isTransitioning) return;
 
     if (loadingProgress < 65) {
-        loadingProgress += 3.5;
-    } else if (loadingProgress < 90) {
-        loadingProgress += 2.0;
-    } else if (loadingProgress < 96) {
+        loadingProgress += 1;
+    } else if (loadingProgress < 85) {
         loadingProgress += 0.8;
+    } else if (loadingProgress < 95) {
+        loadingProgress += isAppReady.data ? 1 : 0.25;
     }
 
-    updateLoaderUI(loadingProgress);
+    if (loadingProgress > 95 && !isAppReady.data) {
+        loadingProgress = 95;
+    }
 
-    if (loadingProgress >= 95 && (isAppReady.data || isAppReady.auth)) {
+    updateLoaderUI(Math.min(95, loadingProgress));
+
+    if (isAppReady.data && isAppReady.auth) {
         tryTransition();
     } else {
-        loaderInterval = setTimeout(runSmoothLoaderTick, 30);
+        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 180) : 40;
+        loaderInterval = setTimeout(runSmoothLoaderTick, nextDelay);
     }
 }
 
-// Immediate Self-Start: Kisi event par depend nahi karega
-updateLoaderUI(10);
-loaderInterval = setTimeout(runSmoothLoaderTick, 20);
+updateLoaderUI(1);
+loaderInterval = setTimeout(runSmoothLoaderTick, 40);
 
-// Hard Fail-Safe (Loader kisi bhi halat me 2.5 second se zyada screen par nahi rukega)
 setTimeout(() => {
-    isAppReady.auth = true;
-    isAppReady.data = true;
-    tryTransition();
-}, 2500);
+    if (!hasTransitioned) {
+        isAppReady.auth = true;
+        isAppReady.data = true;
+        tryTransition();
+    }
+}, 20000);
 
 function tryTransition() {
-    if (hasTransitioned || isTransitioning) return;
-    isTransitioning = true;
-    clearTimeout(loaderInterval);
+    if (isAppReady.auth && isAppReady.data && !hasTransitioned && !isTransitioning) {
+        isTransitioning = true;
+        clearTimeout(loaderInterval);
 
-    let finishStep = setInterval(() => {
-        loadingProgress += 6;
-        if (loadingProgress >= 100) {
-            loadingProgress = 100;
-            updateLoaderUI(100);
-            clearInterval(finishStep);
-            hasTransitioned = true;
-            isTransitioning = false;
+        let finishStep = setInterval(() => {
+            loadingProgress += 2;
+            if (loadingProgress >= 100) {
+                loadingProgress = 100;
+                updateLoaderUI(100);
+                clearInterval(finishStep);
+                hasTransitioned = true;
+                isTransitioning = false;
 
-            // Instantly unhide UI
-            const mainApp = document.getElementById('mainAppWrapper');
-            if (mainApp) mainApp.style.display = 'block';
+                setTimeout(() => {
+                    const mainApp = document.getElementById('mainAppWrapper');
+                    if (mainApp) mainApp.style.display = 'block';
 
-            const loader = document.getElementById("loaderScreen");
-            if (loader) {
-                loader.style.opacity = "0"; 
-                loader.style.pointerEvents = "none";
-                setTimeout(() => { 
-                    loader.style.display = "none"; 
-                    if (pendingTargetPostId) {
-                        checkAndOpenTargetPost();
+                    const loader = document.getElementById("loaderScreen");
+                    if (loader) {
+                        loader.style.opacity = "0"; 
+                        setTimeout(() => { 
+                            loader.style.display = "none"; 
+                            if (pendingTargetPostId) {
+                                checkAndOpenTargetPost();
+                            }
+                        }, 300);
                     }
-                }, 200);
-            }
 
-            if (isDeepLinkLoad && pendingBookSlug) {
-                handleTargetDeepLink(pendingBookSlug);
-            } else if (!pendingTargetPostId) {
-                initCommunityDualPopup(); 
+                    if (isDeepLinkLoad && pendingBookSlug) {
+                        if (isUserLoggedIn) { 
+                            openDownloadPageLocal(pendingBookSlug, true); 
+                        } else {
+                            triggerLoginModal();
+                        }
+                    } else if (!pendingTargetPostId) {
+                        initCommunityDualPopup(); 
+                    }
+                }, 220);
+            } else {
+                updateLoaderUI(loadingProgress);
             }
-        } else {
-            updateLoaderUI(loadingProgress);
-        }
-    }, 15);
+        }, 12);
+    }
 }
 
 // ==========================================
@@ -226,13 +226,11 @@ function syncAndSanitizeBookmarks() {
     if (!Array.isArray(savedBooks)) {
         savedBooks = [];
     }
-    try {
-        localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
-    } catch (e) {}
+    localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
 }
 
 // ==========================================
-// 4. COMMUNITY POPUP ENGINE
+// 4. COMMUNITY POPUP ENGINE (UPDATED SOCIAL LINKS)
 // ==========================================
 function initCommunityDualPopup() {
     const popup = document.getElementById('communityPopup');
@@ -302,6 +300,7 @@ function initCommunityDualPopup() {
                 tgStatus.innerHTML = `<span>Joining...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
             }
 
+            // Updated: Official Community Invite Link
             window.open('https://t.me/+wJgG-_oBsHkxYTRl', '_blank');
 
             setTimeout(() => {
@@ -327,6 +326,7 @@ function initCommunityDualPopup() {
                 igStatus.innerHTML = `<span>Following...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
             }
 
+            // Updated: Official Instagram Profile Link
             window.open('https://www.instagram.com/princeyadav_3030', '_blank');
 
             setTimeout(() => {
@@ -354,7 +354,7 @@ function initCommunityDualPopup() {
 }
 
 // ==========================================
-// 5. MASTER FILTER APPLIER & UI RENDER (NO LOOP)
+// 5. MASTER FILTER APPLIER & UI RENDER
 // ==========================================
 function applyMasterFilter(isAppending = false, newBatchData = []) {
     const searchInputRaw = (document.getElementById('app-search-input')?.value || "").trim();
@@ -380,6 +380,10 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
         }
 
         if (infiniteLoader) infiniteLoader.style.display = 'none';
+
+        if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch) {
+            loadNextBooksBatch(true);
+        }
         return;
     }
 
@@ -399,6 +403,10 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
             if (noResultsMsg) noResultsMsg.style.display = 'none';
         }
         if (infiniteLoader) infiniteLoader.style.display = 'none';
+    }
+
+    if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch) {
+        loadNextBooksBatch(true);
     }
 }
 
@@ -447,55 +455,16 @@ function toggleBookmarkLocal(iconElement, slug) {
     if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
 }
 
-// Complete Saved Books Loader
-async function renderSavedBooksUI() {
+function renderSavedBooksUI() {
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
-    if (!container) return;
-
-    if (savedBooks.length === 0) { 
-        container.innerHTML = ""; 
+    const savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
+    
+    if (savedBooks.length === 0 || savedBooksData.length === 0) { 
+        if (container) container.innerHTML = ""; 
         if (noMsg) noMsg.style.display = "flex"; 
         return; 
     }
-
-    let savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
-    const knownKeys = new Set(savedBooksData.map(b => b.slug).concat(savedBooksData.map(b => b.id)));
-    const missingKeys = savedBooks.filter(k => !knownKeys.has(k));
-
-    if (missingKeys.length > 0) {
-        try {
-            for (const key of missingKeys) {
-                let docSnap = null;
-                try {
-                    docSnap = await getDoc(doc(db, "books", key));
-                } catch(e) {}
-
-                if (docSnap && docSnap.exists()) {
-                    let d = docSnap.data();
-                    d.id = docSnap.id;
-                    if (!d.slug || d.slug.includes('%')) d.slug = generateCleanSlug(d.title, d.id);
-                    savedBooksData.push(d);
-                    if (!booksData.some(b => b.id === d.id)) booksData.push(d);
-                } else {
-                    const qSnap = await getDocs(query(collection(db, "books"), where("slug", "==", key), limit(1)));
-                    if (!qSnap.empty) {
-                        let d = qSnap.docs[0].data();
-                        d.id = qSnap.docs[0].id;
-                        savedBooksData.push(d);
-                        if (!booksData.some(b => b.id === d.id)) booksData.push(d);
-                    }
-                }
-            }
-        } catch (err) {}
-    }
-
-    if (savedBooksData.length === 0) {
-        container.innerHTML = "";
-        if (noMsg) noMsg.style.display = "flex";
-        return;
-    }
-
     if (noMsg) noMsg.style.display = "none"; 
     let htmlChunk = "";
     savedBooksData.forEach(book => {
@@ -504,7 +473,7 @@ async function renderSavedBooksUI() {
 
         htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug)}" data-id="${escapeHTML(book.id)}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
-    container.innerHTML = htmlChunk;
+    if (container) container.innerHTML = htmlChunk;
 }
 
 // ==========================================
@@ -550,16 +519,24 @@ async function loadInitialBooksBatch() {
     }
 }
 
-async function loadNextBooksBatch() {
+async function loadNextBooksBatch(isFastFilterFetch = false) {
     if (!hasMoreBooksToFetch || isFetchingBooksBatch || !lastVisibleBookDoc) return;
     isFetchingBooksBatch = true;
 
     const infiniteLoader = document.getElementById('infinite-loader');
     if (infiniteLoader) {
         infiniteLoader.style.display = 'flex';
+        if (!isFastFilterFetch) {
+            setTimeout(() => {
+                infiniteLoader.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }, 50);
+        }
     }
 
     try {
+        const delayMs = isFastFilterFetch ? 300 : 1200;
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+
         const booksRef = collection(db, "books");
         const q = query(booksRef, orderBy("createdAt", "desc"), startAfter(lastVisibleBookDoc), limit(BATCH_SIZE));
         const snapshot = await getDocs(q);
@@ -568,6 +545,10 @@ async function loadNextBooksBatch() {
             hasMoreBooksToFetch = false;
             if (infiniteLoader) infiniteLoader.style.display = 'none';
             isFetchingBooksBatch = false;
+            if (mainFilteredData.length === 0) {
+                const noResultsMsg = document.getElementById('no-results-msg');
+                if (noResultsMsg) noResultsMsg.style.display = 'flex';
+            }
             return;
         }
 
@@ -598,45 +579,6 @@ async function loadNextBooksBatch() {
             infiniteLoader.style.display = 'none';
         }
     }
-}
-
-// Deep Link Targeted Fetch
-async function handleTargetDeepLink(slug) {
-    if (!slug) return;
-    if (!isUserLoggedIn) {
-        triggerLoginModal();
-        return;
-    }
-
-    const existing = booksData.find(b => b.slug === slug || b.id === slug);
-    if (existing) {
-        openDownloadPageLocal(existing.slug || existing.id, true);
-        return;
-    }
-
-    try {
-        let singleBook = null;
-        const docSnap = await getDoc(doc(db, "books", slug));
-        if (docSnap.exists()) {
-            singleBook = docSnap.data();
-            singleBook.id = docSnap.id;
-        } else {
-            const q = query(collection(db, "books"), where("slug", "==", slug), limit(1));
-            const snap = await getDocs(q);
-            if (!snap.empty) {
-                singleBook = snap.docs[0].data();
-                singleBook.id = snap.docs[0].id;
-            }
-        }
-
-        if (singleBook) {
-            if (!singleBook.slug || singleBook.slug.includes('%')) {
-                singleBook.slug = generateCleanSlug(singleBook.title, singleBook.id);
-            }
-            booksData.unshift(singleBook);
-            openDownloadPageLocal(singleBook.slug || singleBook.id, true);
-        }
-    } catch (e) {}
 }
 
 // ==========================================
@@ -878,7 +820,7 @@ window.openSubjectModulesList = function(subjectKey) {
 };
 
 // ==========================================
-// READ MODULE PDF DIRECTLY
+// READ MODULE PDF DIRECTLY (CLOUDFLARE WORKER)
 // ==========================================
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
@@ -964,7 +906,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE
+// 8. BOOK DETAIL & READ ONLINE (CLOUDFLARE WORKER)
 // ==========================================
 function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
@@ -1105,7 +1047,7 @@ function closeDownloadPageLocal() {
 // ==========================================
 // 9. EVENT LISTENERS & POPSTATE ENGINE
 // ==========================================
-function initAppComponents() {
+document.addEventListener("DOMContentLoaded", () => {
     loadInitialBooksBatch();
     fetchGlobalFilterMetadata();
     initChannelEngine();
@@ -1113,7 +1055,7 @@ function initAppComponents() {
     initAuthSystem(() => {
         if (isDeepLinkLoad && pendingBookSlug) {
             document.getElementById('mainAppWrapper').style.display = 'block';
-            setTimeout(() => handleTargetDeepLink(pendingBookSlug), 300);
+            setTimeout(() => openDownloadPageLocal(pendingBookSlug, true), 300);
         } else if (pendingTargetPostId) {
             document.getElementById('mainAppWrapper').style.display = 'block';
             setTimeout(checkAndOpenTargetPost, 350);
@@ -1268,7 +1210,7 @@ function initAppComponents() {
         const infiniteScrollObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting && hasMoreBooksToFetch && !isFetchingBooksBatch) {
-                    loadNextBooksBatch();
+                    loadNextBooksBatch(false);
                 }
             });
         }, { root: document.getElementById('mainContentArea'), rootMargin: '0px 0px 120px 0px', threshold: 0.1 });
@@ -1342,7 +1284,7 @@ function initAppComponents() {
     });
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // Popstate Engine
+    // Master Native Popstate Engine
     window.addEventListener('popstate', (e) => {
         clearActiveElementFocus();
 
@@ -1498,14 +1440,7 @@ function initAppComponents() {
             cleanupPdfResources();
         }
     });
-}
-
-// Ready Execution Check
-if (document.readyState === 'loading') {
-    document.addEventListener("DOMContentLoaded", initAppComponents);
-} else {
-    initAppComponents();
-}
+});
 
 // ==========================================
 // 10. AUTH STATE & LIVE SYNC PIPELINE
@@ -1542,7 +1477,7 @@ onAuthStateChanged(auth, async (user) => {
             if (pendingTargetPostId) {
                 checkAndOpenTargetPost();
             } else if (isDeepLinkLoad && pendingBookSlug) {
-                handleTargetDeepLink(pendingBookSlug);
+                openDownloadPageLocal(pendingBookSlug, true);
             }
         }
     } else {
