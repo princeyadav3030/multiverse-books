@@ -197,41 +197,45 @@ function tryTransition() {
         isTransitioning = true;
         clearTimeout(loaderInterval);
 
-        let finishStep = setInterval(() => {
+        let finishStep = setInterval(async () => {
             loadingProgress += 4;
             if (loadingProgress >= 100) {
+                clearInterval(finishStep);
                 loadingProgress = 100;
                 updateLoaderUI(100);
-                clearInterval(finishStep);
-                hasTransitioned = true;
-                isTransitioning = false;
 
-                // INSTANT ZERO-FLICKER ROUTING
-                // Agar deep link hai toh main wrapper visible hone se pehle book fetch/render trigger hoga
+                // ZERO-FLICKER LOGIC: Loader hatne se pehle modal render karwao
                 if (isDeepLinkLoad && pendingBookSlug) {
-                    const targetSlugToOpen = decodeURIComponent(pendingBookSlug);
+                    const targetSlug = decodeURIComponent(pendingBookSlug);
                     pendingBookSlug = null;
                     isDeepLinkLoad = false;
 
                     if (isUserLoggedIn) {
-                        openDownloadPageLocal(targetSlugToOpen, true);
+                        await openDownloadPageLocal(targetSlug, true);
                     } else {
                         triggerLoginModal();
                     }
                 }
 
+                // Main app reveal
                 const mainApp = document.getElementById('mainAppWrapper');
                 if (mainApp) mainApp.style.display = 'block';
 
+                // Ab loader ko fade-out karo
                 const loader = document.getElementById("loaderScreen");
                 if (loader) {
                     loader.style.opacity = "0"; 
                     setTimeout(() => { 
                         loader.style.display = "none"; 
+                        hasTransitioned = true;
+                        isTransitioning = false;
                         if (pendingTargetPostId) {
                             checkAndOpenTargetPost();
                         }
                     }, 250);
+                } else {
+                    hasTransitioned = true;
+                    isTransitioning = false;
                 }
 
                 if (!pendingTargetPostId && !document.getElementById('downloadModal')?.style.display?.includes('flex')) {
@@ -700,7 +704,7 @@ async function renderSavedBooksUI() {
 }
 
 // ==========================================
-// 6. PAGINATION & DATA FETCH
+// 6. PAGINATION & DATA FETCH (WITH DEEPLINK PREFETCH)
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -710,9 +714,46 @@ async function loadInitialBooksBatch() {
 
         const booksRef = collection(db, "books");
         const q = query(booksRef, orderBy("createdAt", "desc"), limit(BATCH_SIZE));
-        const snapshot = await getDocs(q);
+        
+        // PARALLEL EXECUTION: Normal Batch + Deep Link Book Ek Saath Fetch Hogi
+        const batchPromise = getDocs(q);
+        let deepLinkPromise = Promise.resolve(null);
+
+        if (isDeepLinkLoad && pendingBookSlug) {
+            const cleanKey = decodeURIComponent(pendingBookSlug).trim();
+            deepLinkPromise = (async () => {
+                try {
+                    const snapId = await getDoc(doc(db, "books", cleanKey));
+                    if (snapId.exists()) {
+                        const d = snapId.data();
+                        d.id = snapId.id;
+                        if (!d.slug) d.slug = generateCleanSlug(d.title, d.id);
+                        return d;
+                    }
+                    const qSlug = query(collection(db, "books"), where("slug", "==", cleanKey), limit(1));
+                    const snapSlug = await getDocs(qSlug);
+                    if (!snapSlug.empty) {
+                        const d = snapSlug.docs[0].data();
+                        d.id = snapSlug.docs[0].id;
+                        if (!d.slug) d.slug = cleanKey;
+                        return d;
+                    }
+                } catch (e) {}
+                return null;
+            })();
+        }
+
+        const [snapshot, preloadedDeepBook] = await Promise.all([batchPromise, deepLinkPromise]);
 
         const seenBatchIds = new Set();
+
+        if (preloadedDeepBook) {
+            seenBatchIds.add(preloadedDeepBook.id);
+            booksData.push(preloadedDeepBook);
+            if (preloadedDeepBook.author) allAuthorsCache.add(preloadedDeepBook.author.trim());
+            if (preloadedDeepBook.year) allYearsCache.add(preloadedDeepBook.year.toString().trim());
+        }
+
         snapshot.forEach((docSnap) => {
             let data = docSnap.data();
             data.id = docSnap.id;
@@ -1161,7 +1202,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE (SAFE & FAST ID/SLUG LOOKUP)
+// 8. BOOK DETAIL & READ ONLINE (100% IN-MEMORY / FIRESTORE LOOKUP)
 // ==========================================
 async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
     if (!idOrSlug) return;
@@ -1194,7 +1235,7 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
                 book.id = docSnap.id;
                 if (!book.slug) book.slug = generateCleanSlug(book.title, book.id);
                 if (!booksData.some(b => b.id === book.id)) {
-                    booksData.push(book);
+                    booksData.unshift(book);
                 }
             }
         } catch (e) {
@@ -1213,7 +1254,7 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
                 book.id = targetDoc.id;
                 if (!book.slug) book.slug = cleanKey;
                 if (!booksData.some(b => b.id === book.id)) {
-                    booksData.push(book);
+                    booksData.unshift(book);
                 }
             }
         } catch (e) {
@@ -1233,7 +1274,7 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
                 book.id = targetDoc.id;
                 if (!book.slug) book.slug = generateCleanSlug(book.title, book.id);
                 if (!booksData.some(b => b.id === book.id)) {
-                    booksData.push(book);
+                    booksData.unshift(book);
                 }
             }
         } catch (e) {}
@@ -1258,7 +1299,7 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
     }
 
     if (!book) {
-        showToast("Book not found or link expired", "error");[span_0](start_span)[span_0](end_span)[span_1](start_span)[span_1](end_span)
+        showToast("Book not found or link expired", "error");[span_1](start_span)[span_1](end_span)[span_2](start_span)[span_2](end_span)
         return;
     }
     
