@@ -222,8 +222,12 @@ function tryTransition() {
                     }
 
                     if (isDeepLinkLoad && pendingBookSlug) {
+                        const targetSlugToOpen = decodeURIComponent(pendingBookSlug);
+                        pendingBookSlug = null;
+                        isDeepLinkLoad = false;
+
                         if (isUserLoggedIn) { 
-                            openDownloadPageLocal(pendingBookSlug, true); 
+                            openDownloadPageLocal(targetSlugToOpen, true); 
                         } else {
                             triggerLoginModal();
                         }
@@ -1154,26 +1158,34 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE (SAFE & FAST ID LOOKUP)
+// 8. BOOK DETAIL & READ ONLINE (SAFE & FAST ID/SLUG LOOKUP)
 // ==========================================
 async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
-    if(!isUserLoggedIn) {
+    if (!idOrSlug) return;
+
+    if (!isUserLoggedIn) {
         triggerLoginModal();
         return;
     }
 
-    // 1. In-memory check: Match ID or Slug
-    let book = booksData.find(b => b.id === idOrSlug || b.slug === idOrSlug);
+    const cleanKey = decodeURIComponent(String(idOrSlug).trim());
+    const cleanLowerKey = cleanKey.toLowerCase();
+
+    // 1. In-memory check: Match Document ID or Slug
+    let book = booksData.find(b => 
+        (b.id && b.id === cleanKey) || 
+        (b.slug && (b.slug === cleanKey || b.slug.toLowerCase() === cleanLowerKey))
+    );
 
     // 2. Check local bookmark cache
-    if (!book && savedBooksCache[idOrSlug]) {
-        book = savedBooksCache[idOrSlug];
+    if (!book && savedBooksCache[cleanKey]) {
+        book = savedBooksCache[cleanKey];
     }
 
-    // 3. Fallback: Firestore Direct Document ID Fetch
-    if (!book && idOrSlug) {
+    // 3. Direct Firestore Document ID lookup
+    if (!book) {
         try {
-            const docSnap = await getDoc(doc(db, "books", idOrSlug));
+            const docSnap = await getDoc(doc(db, "books", cleanKey));
             if (docSnap.exists()) {
                 book = docSnap.data();
                 book.id = docSnap.id;
@@ -1183,31 +1195,67 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
                 }
             }
         } catch (e) {
-            console.warn("Direct ID lookup error:", e);
+            console.warn("Direct doc ID lookup error:", e);
         }
     }
 
-    // 4. Fallback: Firestore Slug Query Fetch (Fixes "Book not found or link expired" bug)
-    if (!book && idOrSlug) {
+    // 4. Firestore Query by 'slug' field
+    if (!book) {
         try {
-            const slugQuery = query(collection(db, "books"), where("slug", "==", idOrSlug), limit(1));
+            const slugQuery = query(collection(db, "books"), where("slug", "==", cleanKey), limit(1));
             const slugSnap = await getDocs(slugQuery);
             if (!slugSnap.empty) {
                 const targetDoc = slugSnap.docs[0];
                 book = targetDoc.data();
                 book.id = targetDoc.id;
-                if (!book.slug) book.slug = idOrSlug;
+                if (!book.slug) book.slug = cleanKey;
                 if (!booksData.some(b => b.id === book.id)) {
                     booksData.push(book);
                 }
             }
         } catch (e) {
-            console.warn("Direct slug lookup error:", e);
+            console.warn("Firestore slug query error:", e);
         }
     }
 
+    // 5. Fallback: Title lookup in case cleanKey resembles title
     if (!book) {
-        showToast("Book not found or link expired", "error");
+        try {
+            const guessedTitle = cleanKey.replace(/[-_]/g, ' ').trim();
+            const titleQuery = query(collection(db, "books"), where("title", "==", guessedTitle), limit(1));
+            const titleSnap = await getDocs(titleQuery);
+            if (!titleSnap.empty) {
+                const targetDoc = titleSnap.docs[0];
+                book = targetDoc.data();
+                book.id = targetDoc.id;
+                if (!book.slug) book.slug = generateCleanSlug(book.title, book.id);
+                if (!booksData.some(b => b.id === book.id)) {
+                    booksData.push(book);
+                }
+            }
+        } catch (e) {}
+    }
+
+    // 6. Deep Scan Fallback: Agar Firestore indexes me slug na mile
+    if (!book && booksData.length < 50) {
+        try {
+            const fallbackSnap = await getDocs(query(collection(db, "books"), limit(50)));
+            fallbackSnap.forEach(d => {
+                const dData = d.data();
+                dData.id = d.id;
+                if (!dData.slug) dData.slug = generateCleanSlug(dData.title, dData.id);
+                if (!booksData.some(b => b.id === dData.id)) {
+                    booksData.push(dData);
+                }
+                if (dData.id === cleanKey || dData.slug === cleanKey || dData.slug.toLowerCase() === cleanLowerKey) {
+                    book = dData;
+                }
+            });
+        } catch (e) {}
+    }
+
+    if (!book) {
+        showToast("Book not found or link expired", "error");[span_0](start_span)[span_0](end_span)
         return;
     }
     
@@ -1226,8 +1274,8 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
         previewImg.onerror = () => { window.handleBookCoverError(previewImg, fullCoverUrl); };
     }
 
-    document.getElementById("dlBookTitle").innerText = sanitizeHTML(book.title); 
-    document.getElementById("dlBookAuthor").innerText = sanitizeHTML(book.author);
+    document.getElementById("dlBookTitle").innerText = sanitizeHTML(book.title || "Untitled Book"); 
+    document.getElementById("dlBookAuthor").innerText = sanitizeHTML(book.author || "Unknown Author");
 
     const fileSizeSub = document.getElementById('dlFileSize');
     if (fileSizeSub) {
@@ -1325,7 +1373,7 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
     activeBookTitle = book.title; 
     
     if (!skipPushState) { 
-        safePushHistory({ popup: 'book' }, '?book=' + (book.slug || book.id)); 
+        safePushHistory({ popup: 'book' }, '?book=' + encodeURIComponent(book.slug || book.id)); 
     }
 }
 
@@ -1355,7 +1403,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     initAuthSystem(() => {
         if (isDeepLinkLoad && pendingBookSlug && hasTransitioned) {
-            openDownloadPageLocal(pendingBookSlug, true);
+            const slug = decodeURIComponent(pendingBookSlug);
+            pendingBookSlug = null;
+            isDeepLinkLoad = false;
+            openDownloadPageLocal(slug, true);
         } else if (pendingTargetPostId && hasTransitioned) {
             checkAndOpenTargetPost();
         }
@@ -1548,7 +1599,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('closeDlBtn')?.addEventListener('click', closeDownloadPageLocal);
     document.getElementById('shareBookBtn')?.addEventListener('click', () => {
-        const shareUrl = window.location.origin + window.location.pathname + "?book=" + activeBookSlug;
+        const shareUrl = window.location.origin + window.location.pathname + "?book=" + encodeURIComponent(activeBookSlug);
         if (navigator.share) {
             navigator.share({ title: activeBookTitle, text: "Read this book online", url: shareUrl });
         } else { 
@@ -1784,7 +1835,10 @@ onAuthStateChanged(auth, async (user) => {
             if (pendingTargetPostId) {
                 checkAndOpenTargetPost();
             } else if (isDeepLinkLoad && pendingBookSlug) {
-                openDownloadPageLocal(pendingBookSlug, true);
+                const slugToLoad = decodeURIComponent(pendingBookSlug);
+                pendingBookSlug = null;
+                isDeepLinkLoad = false;
+                openDownloadPageLocal(slugToLoad, true);
             }
         }
     } else {
