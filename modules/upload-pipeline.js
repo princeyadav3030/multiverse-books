@@ -10,9 +10,9 @@ export let selectedCoverFile = null;
 export let selectedPdfFile = null;
 export let detectedTotalPages = 0;
 export let detectedFileSizeMB = "0 MB";
-let cachedCoverDataUrl = null; // Memory-safe Base64 cache for Cover Preview
+let cachedCoverDataUrl = null;
 
-// 8 MB Chunk Size (Cloudflare Worker limit aur Mobile Network ke liye sabse best aur fast)
+// 8 MB Chunk Size (Cloudflare Worker limit & Mobile Network stability ke liye optimized)
 const CHUNK_SIZE = 8 * 1024 * 1024; 
 
 export function autoScrollToElement(el, container) {
@@ -26,13 +26,53 @@ export function autoScrollToElement(el, container) {
     }, 180);
 }
 
-// FIXED: Memory & CSP Safe Base64 Cover Preview (Kabhi Broken Icon Nahi Aayega)
+// Memory-Safe Fast PDF Page Counter (Up to 1GB files without crashing Mobile RAM)
+async function getExactPdfPageCount(file) {
+    // Step 1: Memory-Safe Blob URL stream via PDF.js
+    if (window.pdfjsLib) {
+        let blobUrl = null;
+        try {
+            blobUrl = URL.createObjectURL(file);
+            const loadingTask = window.pdfjsLib.getDocument({
+                url: blobUrl,
+                disableAutoFetch: true,
+                disableStream: true
+            });
+            const docRef = await loadingTask.promise;
+            const numPages = docRef.numPages;
+            await docRef.destroy();
+            URL.revokeObjectURL(blobUrl);
+            if (numPages > 0) return numPages;
+        } catch (err) {
+            if (blobUrl) URL.revokeObjectURL(blobUrl);
+        }
+    }
+
+    // Step 2: Binary Scanner Fallback (Scans Header & Trailer /Count metadata)
+    try {
+        const scanChunkSize = Math.min(file.size, 4 * 1024 * 1024); // First & Last 4MB
+        const headText = await file.slice(0, scanChunkSize).text();
+        const tailText = file.size > scanChunkSize ? await file.slice(file.size - scanChunkSize).text() : "";
+        const combinedMeta = headText + "\n" + tailText;
+        
+        const countMatches = [...combinedMeta.matchAll(/\/Type\s*\/Pages[^>]*?\/Count\s+(\d+)|\/Count\s+(\d+)[^>]*?\/Type\s*\/Pages/gs)];
+        let maxPages = 0;
+        countMatches.forEach(m => {
+            const count = parseInt(m[1] || m[2], 10);
+            if (!isNaN(count) && count > maxPages) maxPages = count;
+        });
+        if (maxPages > 0) return maxPages;
+    } catch (e) {}
+
+    return 0;
+}
+
+// Memory & CSP Safe Base64 Cover Preview
 export function updateLiveCoverPreviewUI(file) {
     const liveCoverImg = document.getElementById('syncLiveCoverImg');
     const defaultCoverIcon = document.getElementById('syncDefaultCoverIcon');
     if (!liveCoverImg) return;
 
-    // Reset state if no file is passed
     if (!file) {
         cachedCoverDataUrl = null;
         liveCoverImg.removeAttribute('src');
@@ -41,7 +81,6 @@ export function updateLiveCoverPreviewUI(file) {
         return;
     }
 
-    // Fallback handler if image ever fails to decode
     liveCoverImg.onerror = () => {
         liveCoverImg.style.display = 'none';
         if (defaultCoverIcon) defaultCoverIcon.style.display = 'block';
@@ -56,7 +95,6 @@ export function updateLiveCoverPreviewUI(file) {
         if (defaultCoverIcon) defaultCoverIcon.style.display = 'none';
     };
 
-    // If we already converted this exact file, reuse cached Base64 immediately
     if (cachedCoverDataUrl && file._cachedBase64) {
         liveCoverImg.src = file._cachedBase64;
         return;
@@ -72,7 +110,6 @@ export function updateLiveCoverPreviewUI(file) {
         }
     };
     reader.onerror = () => {
-        // Fallback to ObjectURL only if FileReader fails
         try {
             const objUrl = URL.createObjectURL(file);
             liveCoverImg.src = objUrl;
@@ -124,7 +161,6 @@ export function resetUploadFormState() {
 // 2. ZERO-FAILURE CHUNKED & STREAM UPLOAD ENGINE
 // ==========================================
 
-// Single binary chunk ya small file bhejne ka bulletproof XHR helper (with retries & real error capture)
 export function sendBinaryXHR(targetUrl, blobOrFile, mimeType, onChunkProgress, maxRetries = 4) {
     return new Promise((resolve, reject) => {
         let attempts = 0;
@@ -134,11 +170,10 @@ export function sendBinaryXHR(targetUrl, blobOrFile, mimeType, onChunkProgress, 
             const xhr = new XMLHttpRequest();
             xhr.open("PUT", targetUrl, true);
             
-            // Safe Content-Type header to avoid strict CORS preflight rejection
             if (mimeType) {
                 xhr.setRequestHeader("Content-Type", mimeType);
             }
-            xhr.timeout = 0; // Prevent mobile network timeout drops
+            xhr.timeout = 0; 
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable && onChunkProgress) {
@@ -195,30 +230,28 @@ export function sendBinaryXHR(targetUrl, blobOrFile, mimeType, onChunkProgress, 
     });
 }
 
-// Multipart Chunked Engine (Uses spidy-proxy worker /multipart/* routes)
 export async function uploadMultipartViaWorker(cleanKey, file, mimeType, onProgress) {
     const baseUrl = WORKER_PROXY_URL.replace(/\/+$/, "");
 
-    // Step A: Create Multipart Upload Session on R2 via Worker
     let createRes;
     try {
         createRes = await fetch(`${baseUrl}/multipart/create`, {
             method: "POST",
-            headers: { "Content-Type": "text/plain;charset=UTF-8" }, // Bypasses strict CORS preflight
+            headers: { "Content-Type": "text/plain;charset=UTF-8" },
             body: JSON.stringify({
                 key: cleanKey,
                 contentType: mimeType || "application/pdf"
             })
         });
     } catch (netErr) {
-        throw new Error("Cannot connect to Cloudflare Worker (/multipart/create). Please deploy updated worker.js!");
+        throw new Error("Cannot connect to Cloudflare Worker (/multipart/create). Please verify worker deployment.");
     }
 
     let createData = {};
     try {
         createData = await createRes.json();
     } catch (e) {
-        throw new Error(`Worker returned status ${createRes.status} on /multipart/create. Please deploy updated worker.js!`);
+        throw new Error(`Worker returned status ${createRes.status} on /multipart/create.`);
     }
 
     if (!createRes.ok || !createData.uploadId) {
@@ -230,7 +263,6 @@ export async function uploadMultipartViaWorker(cleanKey, file, mimeType, onProgr
     const uploadedParts = [];
     let totalConfirmedBytes = 0;
 
-    // Step B: Upload 8MB Chunks Sequentially with Instant Progress & Auto-Retry
     for (let partIndex = 0; partIndex < totalChunks; partIndex++) {
         const partNumber = partIndex + 1;
         const startByte = partIndex * CHUNK_SIZE;
@@ -248,7 +280,7 @@ export async function uploadMultipartViaWorker(cleanKey, file, mimeType, onProgr
                     onProgress(totalConfirmedBytes + chunkLoadedBytes, file.size);
                 }
             },
-            5 // 5 retries per 8MB chunk
+            5
         );
 
         if (!partResult || !partResult.etag) {
@@ -266,10 +298,9 @@ export async function uploadMultipartViaWorker(cleanKey, file, mimeType, onProgr
         });
     }
 
-    // Step C: Complete Multipart Upload & Merge Chunks in R2
     const completeRes = await fetch(`${baseUrl}/multipart/complete`, {
         method: "POST",
-        headers: { "Content-Type": "text/plain;charset=UTF-8" }, // Bypasses strict CORS preflight
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: JSON.stringify({
             key: cleanKey,
             uploadId: uploadId,
@@ -285,20 +316,16 @@ export async function uploadMultipartViaWorker(cleanKey, file, mimeType, onProgr
     return { success: true, key: cleanKey };
 }
 
-// Smart Router: Small files (< 8MB) direct worker stream + Multipart fallback, Large files (>= 8MB) Chunked Multipart
 export async function uploadFileSmart(authData, file, mimeType, onProgress) {
     const fileKey = typeof authData === 'string' ? authData : (authData?.fileKey || "");
     const directPresignedUrl = typeof authData === 'object' ? authData?.uploadUrl : null;
     const cleanKey = fileKey.replace(/^\/+/, "");
     const baseUrl = WORKER_PROXY_URL.replace(/\/+$/, "");
 
-    // 1. Agar file 8 MB ya usse badi hai (jaise 215MB PDF), toh hamesha Chunked Multipart engine chalao
     if (file.size >= CHUNK_SIZE) {
         return await uploadMultipartViaWorker(cleanKey, file, mimeType, onProgress);
     }
 
-    // 2. Chhoti files (Cover Image ya small PDF < 8MB) ke liye:
-    // Attempt A: Direct Worker PUT (/upload)
     const workerUploadUrl = `${baseUrl}/upload?key=${encodeURIComponent(cleanKey)}`;
     try {
         await sendBinaryXHR(workerUploadUrl, file, mimeType || "application/octet-stream", (loaded) => {
@@ -306,15 +333,9 @@ export async function uploadFileSmart(authData, file, mimeType, onProgress) {
         }, 2);
         return { success: true, key: cleanKey };
     } catch (workerPutErr) {
-        console.warn("Direct /upload failed, trying Multipart via Worker...", workerPutErr.message);
-        
-        // Attempt B: Multipart via Worker (100% immune to single-stream PUT issues)
         try {
             return await uploadMultipartViaWorker(cleanKey, file, mimeType, onProgress);
         } catch (multipartErr) {
-            console.warn("Multipart fallback failed, trying Presigned R2 URL...", multipartErr.message);
-
-            // Attempt C: Direct R2 Presigned URL (if R2 bucket has CORS enabled)
             if (directPresignedUrl) {
                 await sendBinaryXHR(directPresignedUrl, file, mimeType, (loaded) => {
                     if (onProgress) onProgress(loaded, file.size);
@@ -437,7 +458,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
     document.getElementById('fileCoverSelect')?.addEventListener('change', (e) => {
         if (e.target.files && e.target.files.length > 0) {
             selectedCoverFile = e.target.files[0];
-            cachedCoverDataUrl = null; // Clear old cache for new file
+            cachedCoverDataUrl = null;
             const coverStatus = document.getElementById('coverStatusText');
             if (coverStatus) {
                 coverStatus.innerText = "Selected: " + selectedCoverFile.name;
@@ -445,7 +466,6 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
                 coverStatus.style.color = '#ffffff';
             }
 
-            // Immediately convert & bind cover preview into memory
             updateLiveCoverPreviewUI(selectedCoverFile);
 
             const pdfCard = document.getElementById('cardPdfContainer');
@@ -453,7 +473,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         }
     });
 
-    // PDF File Selection & Size Guard (Admin: 1GB, Normal User: 250MB)
+    // PDF File Selection & Robust Page Scanner (Fixed: Handles 100MB+ without failing)
     document.getElementById('filePdfSelect')?.addEventListener('change', async (e) => {
         if (e.target.files && e.target.files.length > 0) {
             selectedPdfFile = e.target.files[0];
@@ -472,34 +492,22 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
                 return;
             }
 
-            if (selectedPdfFile.size > 50 * 1024 * 1024) {
-                detectedTotalPages = 0;
-                const fastLabel = `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB})`;
-                if (statusText) {
-                    statusText.innerText = fastLabel;
-                    statusText.title = fastLabel;
-                    statusText.style.color = '#ffffff';
-                }
-            } else {
-                if (statusText) statusText.innerText = `Calculating Pages...`;
-                try {
-                    const arrayBuffer = await selectedPdfFile.arrayBuffer();
-                    const docRef = await window.pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
-                    detectedTotalPages = docRef.numPages;
+            if (statusText) {
+                statusText.innerText = `Calculating Pages (${detectedFileSizeMB})...`;
+                statusText.style.color = '#fbbf24';
+            }
 
-                    const fullLabel = `Selected: ${selectedPdfFile.name} (${detectedTotalPages} Pages)`;
-                    if (statusText) {
-                        statusText.innerText = fullLabel;
-                        statusText.title = fullLabel;
-                        statusText.style.color = '#ffffff';
-                    }
-                } catch (err) {
-                    detectedTotalPages = 0;
-                    if (statusText) {
-                        statusText.innerText = `Selected: ${selectedPdfFile.name}`;
-                        statusText.style.color = '#ffffff';
-                    }
-                }
+            // Accurate page count extraction
+            detectedTotalPages = await getExactPdfPageCount(selectedPdfFile);
+
+            const displayLabel = detectedTotalPages > 0 
+                ? `Selected: ${selectedPdfFile.name} (${detectedTotalPages} Pages • ${detectedFileSizeMB})`
+                : `Selected: ${selectedPdfFile.name} (${detectedFileSizeMB})`;
+
+            if (statusText) {
+                statusText.innerText = displayLabel;
+                statusText.title = displayLabel;
+                statusText.style.color = '#ffffff';
             }
 
             const publishBtn = document.getElementById('publishBtn');
@@ -518,6 +526,9 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         if (!selectedCoverFile) return showToast("Select a cover image", "error");
         if (!selectedPdfFile) return showToast("Select book PDF", "error");
 
+        const publishBtn = document.getElementById('publishBtn');
+        if (publishBtn) publishBtn.disabled = true;
+
         const pipeline = document.getElementById('uploadPipelineOverlay');
         const percentDisplay = document.getElementById('syncPercentDisplay');
         const progressFill = document.getElementById('syncProgressFill');
@@ -531,10 +542,8 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
         if (titleEl) titleEl.innerText = inputTitle;
         if (sizeEl) sizeEl.innerText = `PDF Size: ${(selectedPdfFile.size / (1024 * 1024)).toFixed(2)} MB`;
 
-        // Ensure Cover Preview Image is visible inside the upload modal card
         updateLiveCoverPreviewUI(selectedCoverFile);
 
-        // Unified Combined Byte Counter (Cover + PDF)
         const totalBytes = selectedCoverFile.size + selectedPdfFile.size;
         const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
         let coverLoaded = 0;
@@ -576,7 +585,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
             const coverMime = selectedCoverFile.type || "image/jpeg";
             const pdfMime = selectedPdfFile.type || "application/pdf";
 
-            // 1. Verify User Quota & Get Safe Keys from Backend
+            // 1. Verify User Quota & Get Safe Storage Keys
             const [coverAuthRes, pdfAuthRes] = await Promise.all([
                 fetch('/api/generate-upload-url', {
                     method: 'POST',
@@ -614,7 +623,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
                 throw new Error(pdfAuthData.error || "PDF upload permission denied");
             }
 
-            // 2. Upload Cover Image First (Seamless part of 0-100% bar)
+            // 2. Upload Cover Image First
             if (stageTitle) stageTitle.innerText = "Uploading Book Assets...";
             await uploadFileSmart(coverAuthData, selectedCoverFile, coverMime, (loaded) => {
                 coverLoaded = loaded;
@@ -623,7 +632,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
             coverLoaded = selectedCoverFile.size;
             updateTelemetry();
 
-            // 3. Upload PDF (Automatically uses 8MB Multipart Chunks for large PDFs)
+            // 3. Upload PDF via Multipart Chunks
             if (stageTitle) {
                 stageTitle.innerText = selectedPdfFile.size >= CHUNK_SIZE 
                     ? "High-Speed Chunked Uploading..." 
@@ -636,12 +645,14 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
             pdfLoaded = selectedPdfFile.size;
             updateTelemetry();
 
-            // 4. Register Book & Uploader Profile in Firestore
+            // 4. Register Book with Unique Slug & Metadata
             if (stageTitle) stageTitle.innerText = "Finalizing & Publishing Book...";
             if (percentDisplay) percentDisplay.innerHTML = `99<span class="percent-symbol">%</span>`;
             if (progressFill) progressFill.style.width = `99%`;
 
-            const finalSlug = generateCleanSlug(inputTitle);
+            // Unique suffix prevents duplicate slug collisions
+            const randomSuffix = Math.random().toString(36).substring(2, 6);
+            const finalSlug = generateCleanSlug(inputTitle, randomSuffix);
             const finalPagesCount = detectedTotalPages > 0 ? detectedTotalPages.toString() : "Complete Book";
 
             const currentUser = auth.currentUser;
@@ -665,7 +676,6 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
                 dateAdded: new Date().toLocaleDateString('en-GB').toUpperCase(),
                 createdAt: serverTimestamp(),
                 
-                // Complete Uploader Identity
                 uploaderUid: currentUser.uid,
                 uploaderName: uploaderName,
                 uploaderEmail: uploaderEmail,
@@ -675,7 +685,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
             const docRef = await addDoc(collection(db, "books"), newBook);
             newBook.id = docRef.id;
 
-            // Update 24-Hr Cooldown Timestamp for Normal Users
+            // Update 24-Hr Cooldown for Normal Users
             if (!isSuperAdminCheck()) {
                 await setDoc(doc(db, "users", currentUser.uid), {
                     lastBookUploadTime: Date.now(),
@@ -691,6 +701,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
 
             setTimeout(() => {
                 if (pipeline) pipeline.style.display = 'none';
+                if (publishBtn) publishBtn.disabled = false;
                 resetUploadFormState();
                 showToast("Book Published Successfully!", "success");
 
@@ -703,6 +714,7 @@ export function initUploadPipeline(isSuperAdminCheck, onBookPublishedCallback) {
 
         } catch (error) {
             if (pipeline) pipeline.style.display = 'none';
+            if (publishBtn) publishBtn.disabled = false;
             showToast(error.message || "Upload failed. Please try again.", "error");
         }
     });
