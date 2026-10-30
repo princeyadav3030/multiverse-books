@@ -60,7 +60,14 @@ let CURRENT_ADMIN_NAME = "Guest User";
 let CURRENT_ADMIN_EMAIL = "";
 let CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
 
-let savedBooks = JSON.parse(localStorage.getItem('spidy_saved_books')) || [];
+// Sanitized LocalStorage Bookmarks Array (Strict Unique)
+let savedBooks = [];
+try {
+    const rawSaved = JSON.parse(localStorage.getItem('spidy_saved_books')) || [];
+    savedBooks = Array.from(new Set(rawSaved.map(s => String(s).trim()))).filter(Boolean);
+} catch (e) {
+    savedBooks = [];
+}
 
 let dynamicBannersList = [];
 let activeBannerData = null;
@@ -93,14 +100,12 @@ const VERIFIED_CHECK_SVG = `
     <path d="M8 12.5L10.5 15L16 9.5" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
-// Helper: Clear Active Element Focus
 function clearActiveElementFocus() {
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
     }
 }
 
-// Helper: Safe History Push
 function safePushHistory(stateObj, url = '') {
     if (window.history.state && window.history.state.popup === stateObj.popup) {
         return;
@@ -108,7 +113,6 @@ function safePushHistory(stateObj, url = '') {
     window.history.pushState(stateObj, '', url || window.location.href);
 }
 
-// Helper: Check if filter or search is active
 function isFilterOrSearchActive() {
     const searchVal = (document.getElementById('app-search-input')?.value || "").trim();
     return (
@@ -141,11 +145,11 @@ function runSmoothLoaderTick() {
     if (hasTransitioned || isTransitioning) return;
 
     if (loadingProgress < 65) {
-        loadingProgress += 1.5;
+        loadingProgress += 1.8;
     } else if (loadingProgress < 85) {
-        loadingProgress += 0.9;
+        loadingProgress += 1.0;
     } else if (loadingProgress < 95) {
-        loadingProgress += isAppReady.data ? 1.5 : 0.3;
+        loadingProgress += isAppReady.data ? 2.0 : 0.3;
     }
 
     if (loadingProgress > 95 && !isAppReady.data) {
@@ -157,23 +161,21 @@ function runSmoothLoaderTick() {
     if (isAppReady.data && isAppReady.auth) {
         tryTransition();
     } else {
-        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 150) : 35;
+        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 120) : 35;
         loaderInterval = setTimeout(runSmoothLoaderTick, nextDelay);
     }
 }
 
-// Start Loader Tick Immediately
 updateLoaderUI(1);
 loaderInterval = setTimeout(runSmoothLoaderTick, 35);
 
-// Fail-safe Timeout: 7 seconds ke baad automatically app open kar dega
 setTimeout(() => {
     if (!hasTransitioned) {
         isAppReady.auth = true;
         isAppReady.data = true;
         tryTransition();
     }
-}, 7000);
+}, 6000);
 
 function tryTransition() {
     if (isAppReady.auth && isAppReady.data && !hasTransitioned && !isTransitioning) {
@@ -181,7 +183,7 @@ function tryTransition() {
         clearTimeout(loaderInterval);
 
         let finishStep = setInterval(() => {
-            loadingProgress += 3;
+            loadingProgress += 4;
             if (loadingProgress >= 100) {
                 loadingProgress = 100;
                 updateLoaderUI(100);
@@ -213,7 +215,7 @@ function tryTransition() {
                     } else if (!pendingTargetPostId) {
                         initCommunityDualPopup(); 
                     }
-                }, 200);
+                }, 180);
             } else {
                 updateLoaderUI(loadingProgress);
             }
@@ -222,12 +224,10 @@ function tryTransition() {
 }
 
 // ==========================================
-// 3. BOOKMARK CACHE SANITIZER
+// 3. BOOKMARK SANITIZER (STRICT SET DEDUPLICATION)
 // ==========================================
 function syncAndSanitizeBookmarks() {
-    if (!Array.isArray(savedBooks)) {
-        savedBooks = [];
-    }
+    savedBooks = Array.from(new Set(savedBooks.map(s => String(s).trim()))).filter(Boolean);
     localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
 }
 
@@ -476,9 +476,20 @@ function renderBooksUI(dataToRender, append = false) {
     const container = document.getElementById("bookContainer");
     if (!container) return;
     let htmlChunk = "";
-    dataToRender.forEach(book => {
+
+    // Deduplicate render items by ID
+    const seenIds = new Set();
+    const uniqueData = dataToRender.filter(b => {
+        if (!b.id || seenIds.has(b.id)) return false;
+        seenIds.add(b.id);
+        return true;
+    });
+
+    uniqueData.forEach(book => {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
-        let isSaved = savedBooks.includes(book.slug) || savedBooks.includes(book.id);
+        
+        // Strict ID check for bookmark state
+        let isSaved = savedBooks.includes(book.id) || (book.slug && savedBooks.includes(book.slug));
         let bookmarkIcon = isSaved ? 'fas fa-bookmark' : 'far fa-bookmark';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
@@ -492,45 +503,78 @@ function renderBooksUI(dataToRender, append = false) {
     }
 }
 
-function toggleBookmarkLocal(iconElement, slug) {
-    const index = savedBooks.indexOf(slug);
-    if (index === -1) { 
-        savedBooks.push(slug); 
+// Single Source of Truth for Bookmarks (Primary Key: doc ID)
+function toggleBookmarkLocal(iconElement, bookId, bookSlug) {
+    const targetKey = bookId || bookSlug;
+    if (!targetKey) return;
+
+    // Check if either id or slug is currently stored
+    const existingIndex = savedBooks.findIndex(k => k === bookId || (bookSlug && k === bookSlug));
+
+    if (existingIndex === -1) { 
+        savedBooks.push(bookId); 
         if(iconElement) iconElement.className = "fas fa-bookmark"; 
+        showToast("Book saved to your library", "success");
     } else { 
-        savedBooks.splice(index, 1); 
+        // Remove both matching IDs and Slugs to completely clean duplicates
+        savedBooks = savedBooks.filter(k => k !== bookId && k !== bookSlug);
         if(iconElement) iconElement.className = "far fa-bookmark"; 
+        showToast("Book removed from library", "info");
     }
+
     syncAndSanitizeBookmarks();
-    if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
+
+    // Sync all icons currently rendered on screen
+    document.querySelectorAll(`.book-card[data-id="${bookId}"] .bookmark-btn i`).forEach(i => {
+        i.className = existingIndex === -1 ? "fas fa-bookmark" : "far fa-bookmark";
+    });
+
+    if (document.getElementById('bookmarks-panel')?.classList.contains('active')) {
+        renderSavedBooksUI(); 
+    }
 }
 
-// Persistent Bookmark Renderer (Direct doc fetch without needing where/documentId)
+// Zero-Loss Saved Books Engine: Direct Document Retrieval for Missing Books
 async function renderSavedBooksUI() {
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
+    if (!container) return;
     
-    if (!savedBooks || savedBooks.length === 0) { 
-        if (container) container.innerHTML = ""; 
+    syncAndSanitizeBookmarks();
+
+    if (savedBooks.length === 0) { 
+        container.innerHTML = ""; 
         if (noMsg) noMsg.style.display = "flex"; 
         return; 
     }
 
-    let savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
-    const foundKeys = new Set(savedBooksData.map(b => b.id).concat(savedBooksData.map(b => b.slug)));
-    const missingKeys = savedBooks.filter(k => !foundKeys.has(k));
+    const savedBooksMap = new Map();
 
+    // 1. First add already cached items from memory
+    booksData.forEach(b => {
+        if (savedBooks.includes(b.id) || (b.slug && savedBooks.includes(b.slug))) {
+            savedBooksMap.set(b.id, b);
+        }
+    });
+
+    // 2. Identify missing keys not loaded in memory yet
+    const missingKeys = savedBooks.filter(key => {
+        for (const b of savedBooksMap.values()) {
+            if (b.id === key || b.slug === key) return false;
+        }
+        return true;
+    });
+
+    // 3. Direct fetch from Firestore for any book not yet in memory
     if (missingKeys.length > 0) {
-        const fetchPromises = missingKeys.map(async (key) => {
+        const fetchTasks = missingKeys.map(async (key) => {
             try {
-                const docSnap = await getDoc(doc(db, "books", key));
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    data.id = docSnap.id;
-                    if (!data.slug || data.slug.includes('%')) {
-                        data.slug = generateCleanSlug(data.title, data.id);
-                    }
-                    if (!booksData.some(b => b.id === data.id)) {
+                const snap = await getDoc(doc(db, "books", key));
+                if (snap.exists()) {
+                    const data = snap.data();
+                    data.id = snap.id;
+                    if (!data.slug) data.slug = generateCleanSlug(data.title, data.id);
+                    if (!booksData.some(item => item.id === data.id)) {
                         booksData.push(data);
                     }
                     return data;
@@ -539,29 +583,33 @@ async function renderSavedBooksUI() {
             return null;
         });
 
-        const fetchedItems = await Promise.all(fetchPromises);
-        fetchedItems.forEach(item => {
-            if (item && !savedBooksData.some(b => b.id === item.id)) {
-                savedBooksData.push(item);
+        const fetchedDocs = await Promise.all(fetchTasks);
+        fetchedDocs.forEach(item => {
+            if (item && !savedBooksMap.has(item.id)) {
+                savedBooksMap.set(item.id, item);
             }
         });
     }
 
-    if (savedBooksData.length === 0) { 
-        if (container) container.innerHTML = ""; 
+    const finalDisplayList = Array.from(savedBooksMap.values());
+
+    if (finalDisplayList.length === 0) { 
+        container.innerHTML = ""; 
         if (noMsg) noMsg.style.display = "flex"; 
         return; 
     }
 
     if (noMsg) noMsg.style.display = "none"; 
     let htmlChunk = "";
-    savedBooksData.forEach(book => {
+
+    finalDisplayList.forEach(book => {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
         htmlChunk += `<div class="book-card" data-slug="${escapeHTML(book.slug)}" data-id="${escapeHTML(book.id)}"><div class="card-img-wrapper"><div class="badge-free">FREE</div><div class="bookmark-btn" data-action="bookmark"><i class="fas fa-bookmark"></i></div><img src="${secureCoverUrl}" loading="lazy" class="book-image" onerror="window.handleBookCoverError(this, '${secureCoverUrl}')" oncontextmenu="return false;" draggable="false"></div><div class="book-details"><div class="book-title">${sanitizeHTML(book.title)}</div><div class="book-author">${sanitizeHTML(book.author)}</div><div class="tags-container"><span class="book-tag tag-year">${sanitizeHTML(book.year)}</span><span class="book-tag ${langClass}">${sanitizeHTML(book.lang)}</span></div></div></div>`;
     });
-    if (container) container.innerHTML = htmlChunk;
+
+    container.innerHTML = htmlChunk;
 }
 
 // ==========================================
@@ -577,15 +625,19 @@ async function loadInitialBooksBatch() {
         const q = query(booksRef, orderBy("createdAt", "desc"), limit(BATCH_SIZE));
         const snapshot = await getDocs(q);
 
+        const seenBatchIds = new Set();
         snapshot.forEach((docSnap) => {
             let data = docSnap.data();
             data.id = docSnap.id;
-            if (!data.slug || data.slug.includes('%')) {
-                data.slug = generateCleanSlug(data.title, data.id);
+            if (!seenBatchIds.has(data.id)) {
+                seenBatchIds.add(data.id);
+                if (!data.slug || data.slug.includes('%')) {
+                    data.slug = generateCleanSlug(data.title, data.id);
+                }
+                booksData.push(data);
+                if (data.author) allAuthorsCache.add(data.author.trim());
+                if (data.year) allYearsCache.add(data.year.toString().trim());
             }
-            booksData.push(data);
-            if (data.author) allAuthorsCache.add(data.author.trim());
-            if (data.year) allYearsCache.add(data.year.toString().trim());
         });
 
         if (snapshot.docs.length > 0) {
@@ -622,7 +674,7 @@ async function loadNextBooksBatch(isFastFilterFetch = false) {
     }
 
     try {
-        const delayMs = isFastFilterFetch ? 80 : 150;
+        const delayMs = isFastFilterFetch ? 60 : 120;
         await new Promise(resolve => setTimeout(resolve, delayMs));
 
         const booksRef = collection(db, "books");
@@ -644,13 +696,17 @@ async function loadNextBooksBatch(isFastFilterFetch = false) {
         snapshot.forEach((docSnap) => {
             let data = docSnap.data();
             data.id = docSnap.id;
-            if (!data.slug || data.slug.includes('%')) {
-                data.slug = generateCleanSlug(data.title, data.id);
+            
+            // Deduplicate against global memory array
+            if (!booksData.some(b => b.id === data.id)) {
+                if (!data.slug || data.slug.includes('%')) {
+                    data.slug = generateCleanSlug(data.title, data.id);
+                }
+                booksData.push(data);
+                newItems.push(data);
+                if (data.author) allAuthorsCache.add(data.author.trim());
+                if (data.year) allYearsCache.add(data.year.toString().trim());
             }
-            booksData.push(data);
-            newItems.push(data);
-            if (data.author) allAuthorsCache.add(data.author.trim());
-            if (data.year) allYearsCache.add(data.year.toString().trim());
         });
 
         lastVisibleBookDoc = snapshot.docs[snapshot.docs.length - 1];
@@ -886,7 +942,7 @@ window.openSubjectModulesList = function(subjectKey) {
                     <svg viewBox="0 0 64 64" fill="none" width="44" height="44">
                         <path d="M16 8C14.9 8 14 8.9 14 10V54C14 55.1 14.9 56 16 56H48C49.1 56 50 55.1 50 54V22L36 8H16Z" fill="#dc2626"/>
                         <path d="M36 8V22H50L36 8Z" fill="#f87171"/>
-                        <line x1="22" y1="28" x2="42" y2="28" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+                        <line x1="22" y1="28" x2="34" y2="28" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
                         <line x1="22" y1="34" x2="34" y2="34" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
                         <rect x="20" y="40" width="24" height="9" rx="3" fill="#ffffff"/>
                         <text x="32" y="47" font-family="sans-serif" font-size="6.8" font-weight="800" fill="#dc2626" text-anchor="middle">PDF</text>
@@ -994,7 +1050,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE (SAFE DIRECT FETCH)
+// 8. BOOK DETAIL & READ ONLINE (DEEPLINK FALLBACK)
 // ==========================================
 async function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
@@ -1002,23 +1058,21 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
         return;
     }
 
-    let book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId);
+    let book = booksData.find(b => b.id === slugOrId || b.slug === slugOrId);
 
-    // Fallback: Agar shared book batch me na ho, toh direct doc ID se fetch karo
+    // Deep link fallback: direct fetch from Firestore if not in memory
     if (!book && slugOrId) {
         try {
             const docSnap = await getDoc(doc(db, "books", slugOrId));
             if (docSnap.exists()) {
                 book = docSnap.data();
                 book.id = docSnap.id;
-                if (!book.slug || book.slug.includes('%')) {
-                    book.slug = generateCleanSlug(book.title, book.id);
+                if (!book.slug) book.slug = generateCleanSlug(book.title, book.id);
+                if (!booksData.some(b => b.id === book.id)) {
+                    booksData.push(book);
                 }
-                booksData.push(book);
             }
-        } catch (e) {
-            console.warn("Direct book fetch fallback:", e.message);
-        }
+        } catch (e) {}
     }
 
     if (!book) {
@@ -1175,10 +1229,12 @@ document.addEventListener("DOMContentLoaded", () => {
     initFiltersEngine(() => booksData, () => applyMasterFilter(false));
     initPdfViewerUI();
     initUploadPipeline(() => IS_SUPER_ADMIN, (newBook) => {
-        booksData.unshift(newBook);
-        allAuthorsCache.add(newBook.author);
-        allYearsCache.add(newBook.year);
-        applyMasterFilter(false);
+        if (!booksData.some(b => b.id === newBook.id)) {
+            booksData.unshift(newBook);
+            allAuthorsCache.add(newBook.author);
+            allYearsCache.add(newBook.year);
+            applyMasterFilter(false);
+        }
     });
 
     document.getElementById('open-search')?.addEventListener('click', () => { 
@@ -1327,24 +1383,32 @@ document.addEventListener("DOMContentLoaded", () => {
         infiniteScrollObserver.observe(sentinel);
     }
 
-    // Book Cards Click Listeners
+    // Book Cards Click Listeners (Strict ID Mapping)
     document.getElementById('bookContainer')?.addEventListener('click', (e) => {
         const card = e.target.closest('.book-card');
         if(card) {
-            const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
+            const bookId = card.getAttribute('data-id');
+            const slug = card.getAttribute('data-slug');
             const bookmarkBtn = e.target.closest('.bookmark-btn');
-            if(bookmarkBtn) toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug); 
-            else openDownloadPageLocal(slug);
+            if(bookmarkBtn) {
+                toggleBookmarkLocal(bookmarkBtn.querySelector('i'), bookId, slug); 
+            } else {
+                openDownloadPageLocal(slug || bookId);
+            }
         }
     });
 
     document.getElementById('savedBooksContainer')?.addEventListener('click', (e) => {
         const card = e.target.closest('.book-card');
         if(card) {
-            const slug = card.getAttribute('data-slug') || card.getAttribute('data-id');
+            const bookId = card.getAttribute('data-id');
+            const slug = card.getAttribute('data-slug');
             const bookmarkBtn = e.target.closest('.bookmark-btn');
-            if(bookmarkBtn) toggleBookmarkLocal(bookmarkBtn.querySelector('i'), slug); 
-            else openDownloadPageLocal(slug); 
+            if(bookmarkBtn) {
+                toggleBookmarkLocal(bookmarkBtn.querySelector('i'), bookId, slug); 
+            } else {
+                openDownloadPageLocal(slug || bookId); 
+            }
         }
     });
 
