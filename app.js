@@ -2,7 +2,7 @@
 
 import { 
     auth, db, collection, addDoc, doc, getDoc, getDocs, 
-    query, orderBy, limit, startAfter, serverTimestamp, onAuthStateChanged, onSnapshot 
+    query, where, orderBy, limit, startAfter, serverTimestamp, onAuthStateChanged, onSnapshot, documentId
 } from "./modules/firebase-config.js";
 
 import { 
@@ -78,7 +78,7 @@ const urlParamsCheck = new URLSearchParams(window.location.search);
 let isDeepLinkLoad = urlParamsCheck.has('book'); 
 let pendingBookSlug = urlParamsCheck.get('book');
 
-// Community Popup Controls & Verified SVG (FIXED: PERFECT SYMMETRIC CIRCLE)
+// Community Popup Controls & Persistence State
 let hasClickedWA = false;
 let hasClickedTG = false;
 let hasClickedIG = false;
@@ -93,14 +93,14 @@ const VERIFIED_CHECK_SVG = `
     <path d="M8 12.5L10.5 15L16 9.5" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
-// Helper: Remove lingering grey hover/focus boxes on mobile
+// Helper: Clear Active Element Focus
 function clearActiveElementFocus() {
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
     }
 }
 
-// Helper: Safe History Push (Prevents duplicate states on rapid taps)
+// Helper: Safe History Push
 function safePushHistory(stateObj, url = '') {
     if (window.history.state && window.history.state.popup === stateObj.popup) {
         return;
@@ -108,7 +108,7 @@ function safePushHistory(stateObj, url = '') {
     window.history.pushState(stateObj, '', url || window.location.href);
 }
 
-// Helper: Check if any filter or search query is currently active
+// Helper: Check if filter or search is active
 function isFilterOrSearchActive() {
     const searchVal = (document.getElementById('app-search-input')?.value || "").trim();
     return (
@@ -230,7 +230,7 @@ function syncAndSanitizeBookmarks() {
 }
 
 // ==========================================
-// 4. COMMUNITY POPUP ENGINE (UPDATED SOCIAL LINKS)
+// 4. COMMUNITY POPUP ENGINE (FORCEFUL & PERSISTENT)
 // ==========================================
 function initCommunityDualPopup() {
     const popup = document.getElementById('communityPopup');
@@ -242,10 +242,11 @@ function initCommunityDualPopup() {
 
     if (lastLockedTime && now < parseInt(lastLockedTime, 10)) return;
 
-    clearTimeout(communityPopupTimer);
-    communityPopupTimer = setTimeout(() => {
-        popup.classList.add('active');
-    }, 120000);
+    // Load saved verification steps from localStorage
+    let savedSteps = JSON.parse(localStorage.getItem('spidy_comm_steps') || '{"wa":false,"tg":false,"ig":false}');
+    hasClickedWA = !!savedSteps.wa;
+    hasClickedTG = !!savedSteps.tg;
+    hasClickedIG = !!savedSteps.ig;
 
     const waCard = document.getElementById('btnJoinWhatsApp');
     const tgCard = document.getElementById('btnJoinTelegram');
@@ -256,11 +257,60 @@ function initCommunityDualPopup() {
     const igStatus = document.getElementById('igStatusBtn');
     const maybeLaterBtn = document.getElementById('communityMaybeLaterBtn');
 
+    function saveStepProgress() {
+        localStorage.setItem('spidy_comm_steps', JSON.stringify({
+            wa: hasClickedWA,
+            tg: hasClickedTG,
+            ig: hasClickedIG
+        }));
+    }
+
+    function syncPopupUI() {
+        if (hasClickedWA && waStatus) {
+            waStatus.classList.add('completed');
+            waStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
+        }
+        if (hasClickedTG && tgStatus) {
+            tgStatus.classList.add('completed');
+            tgStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
+        }
+        if (hasClickedIG && igStatus) {
+            igStatus.classList.add('completed');
+            igStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
+        }
+
+        const totalDone = (hasClickedWA ? 1 : 0) + (hasClickedTG ? 1 : 0) + (hasClickedIG ? 1 : 0);
+        if (maybeLaterBtn) {
+            if (totalDone < 3) {
+                maybeLaterBtn.innerText = `Join All Channels to Continue (${totalDone}/3)`;
+                maybeLaterBtn.style.opacity = "0.75";
+            } else {
+                maybeLaterBtn.innerText = `Access Spidy Book Hub Now 🚀`;
+                maybeLaterBtn.style.opacity = "1";
+                maybeLaterBtn.style.background = "#10b981";
+                maybeLaterBtn.style.color = "#ffffff";
+            }
+        }
+    }
+
+    syncPopupUI();
+
+    clearTimeout(communityPopupTimer);
+    communityPopupTimer = setTimeout(() => {
+        const isPdfReading = document.getElementById('pdfViewerOverlay')?.style.display === 'flex';
+        if (!isPdfReading) {
+            popup.classList.add('active');
+        }
+    }, 120000);
+
     function checkAndComplete() {
+        saveStepProgress();
+        syncPopupUI();
         if (hasClickedWA && hasClickedTG && hasClickedIG) {
             localStorage.setItem('spidy_community_popup_locked_until', (Date.now() + THREE_DAYS_MS).toString());
+            localStorage.removeItem('spidy_comm_steps');
             showToast("Community joined successfully!", "success");
-            setTimeout(() => { popup.classList.remove('active'); }, 800);
+            setTimeout(() => { popup.classList.remove('active'); }, 700);
         }
     }
 
@@ -280,12 +330,8 @@ function initCommunityDualPopup() {
             setTimeout(() => {
                 hasClickedWA = true;
                 isJoiningWA = false;
-                if (waStatus) {
-                    waStatus.classList.add('completed');
-                    waStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
-                }
                 checkAndComplete();
-            }, 6000);
+            }, 5500);
         };
     }
 
@@ -300,18 +346,13 @@ function initCommunityDualPopup() {
                 tgStatus.innerHTML = `<span>Joining...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
             }
 
-            // Updated: Official Community Invite Link
             window.open('https://t.me/+wJgG-_oBsHkxYTRl', '_blank');
 
             setTimeout(() => {
                 hasClickedTG = true;
                 isJoiningTG = false;
-                if (tgStatus) {
-                    tgStatus.classList.add('completed');
-                    tgStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
-                }
                 checkAndComplete();
-            }, 6000);
+            }, 5500);
         };
     }
 
@@ -326,18 +367,13 @@ function initCommunityDualPopup() {
                 igStatus.innerHTML = `<span>Following...</span> <i class="fas fa-spinner fa-spin" style="font-size:11px;"></i>`;
             }
 
-            // Updated: Official Instagram Profile Link
             window.open('https://www.instagram.com/princeyadav_3030', '_blank');
 
             setTimeout(() => {
                 hasClickedIG = true;
                 isJoiningIG = false;
-                if (igStatus) {
-                    igStatus.classList.add('completed');
-                    igStatus.innerHTML = `<span>Done</span> ${VERIFIED_CHECK_SVG}`;
-                }
                 checkAndComplete();
-            }, 6000);
+            }, 5500);
         };
     }
 
@@ -345,7 +381,11 @@ function initCommunityDualPopup() {
         maybeLaterBtn.onclick = (e) => {
             e.preventDefault();
             if (!hasClickedWA || !hasClickedTG || !hasClickedIG) {
-                showToast("Please follow all channels to continue", "error");
+                const missing = [];
+                if (!hasClickedWA) missing.push("WhatsApp");
+                if (!hasClickedTG) missing.push("Telegram");
+                if (!hasClickedIG) missing.push("Instagram");
+                showToast(`Please follow ${missing.join(" & ")} to continue`, "error");
                 return;
             }
             popup.classList.remove('active');
@@ -354,9 +394,16 @@ function initCommunityDualPopup() {
 }
 
 // ==========================================
-// 5. MASTER FILTER APPLIER & UI RENDER
+// 5. MASTER FILTER APPLIER & UI RENDER (THROTTLED BATCH GUARD)
 // ==========================================
+let filterAutoFetchCount = 0;
+const MAX_AUTO_FILTER_FETCHES = 3;
+
 function applyMasterFilter(isAppending = false, newBatchData = []) {
+    if (!isAppending) {
+        filterAutoFetchCount = 0;
+    }
+
     const searchInputRaw = (document.getElementById('app-search-input')?.value || "").trim();
     const rawLower = searchInputRaw.toLowerCase();
     const cleanSearchNoSpaces = rawLower.replace(/[^\p{L}\p{N}]/gu, '');
@@ -375,13 +422,14 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
 
         if (mainFilteredData.length > 0) {
             if (noResultsMsg) noResultsMsg.style.display = 'none';
-        } else if (!hasMoreBooksToFetch) {
+        } else if (!hasMoreBooksToFetch || filterAutoFetchCount >= MAX_AUTO_FILTER_FETCHES) {
             if (noResultsMsg) noResultsMsg.style.display = 'flex';
         }
 
         if (infiniteLoader) infiniteLoader.style.display = 'none';
 
-        if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch) {
+        if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch && filterAutoFetchCount < MAX_AUTO_FILTER_FETCHES) {
+            filterAutoFetchCount++;
             loadNextBooksBatch(true);
         }
         return;
@@ -397,7 +445,7 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
         renderBooksUI(mainFilteredData, false); 
     } else { 
         if (bookContainer) bookContainer.innerHTML = ""; 
-        if (!hasMoreBooksToFetch) {
+        if (!hasMoreBooksToFetch || filterAutoFetchCount >= MAX_AUTO_FILTER_FETCHES) {
             if (noResultsMsg) noResultsMsg.style.display = 'flex'; 
         } else {
             if (noResultsMsg) noResultsMsg.style.display = 'none';
@@ -405,7 +453,8 @@ function applyMasterFilter(isAppending = false, newBatchData = []) {
         if (infiniteLoader) infiniteLoader.style.display = 'none';
     }
 
-    if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch) {
+    if (isFilterOrSearchActive() && mainFilteredData.length < 6 && hasMoreBooksToFetch && !isFetchingBooksBatch && filterAutoFetchCount < MAX_AUTO_FILTER_FETCHES) {
+        filterAutoFetchCount++;
         loadNextBooksBatch(true);
     }
 }
@@ -455,19 +504,57 @@ function toggleBookmarkLocal(iconElement, slug) {
     if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
 }
 
-function renderSavedBooksUI() {
+// Persistent Bookmark Renderer (Queries missing saved books directly from DB without full collection scan)
+async function renderSavedBooksUI() {
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
-    const savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
     
-    if (savedBooks.length === 0 || savedBooksData.length === 0) { 
+    if (!savedBooks || savedBooks.length === 0) { 
         if (container) container.innerHTML = ""; 
         if (noMsg) noMsg.style.display = "flex"; 
         return; 
     }
+
+    let existingMatches = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
+    const foundIds = new Set(existingMatches.map(b => b.id));
+    const foundSlugs = new Set(existingMatches.map(b => b.slug));
+    const missingKeys = savedBooks.filter(key => !foundIds.has(key) && !foundSlugs.has(key));
+
+    if (missingKeys.length > 0) {
+        try {
+            // Fetch missing books in batches of 10 to keep firestore reads light
+            const fetchBatches = [];
+            for (let i = 0; i < missingKeys.length; i += 10) {
+                const chunk = missingKeys.slice(i, i + 10);
+                const qDocs = query(collection(db, "books"), where(documentId(), "in", chunk));
+                fetchBatches.push(getDocs(qDocs));
+            }
+            const results = await Promise.all(fetchBatches);
+            results.forEach(snap => {
+                snap.forEach(docSnap => {
+                    const data = docSnap.data();
+                    data.id = docSnap.id;
+                    if (!data.slug) data.slug = generateCleanSlug(data.title, data.id);
+                    if (!booksData.some(b => b.id === data.id)) {
+                        booksData.push(data);
+                    }
+                    existingMatches.push(data);
+                });
+            });
+        } catch (e) {
+            console.warn("Saved books direct fetch skipped:", e.message);
+        }
+    }
+
+    if (existingMatches.length === 0) {
+        if (container) container.innerHTML = ""; 
+        if (noMsg) noMsg.style.display = "flex"; 
+        return; 
+    }
+
     if (noMsg) noMsg.style.display = "none"; 
     let htmlChunk = "";
-    savedBooksData.forEach(book => {
+    existingMatches.forEach(book => {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
@@ -534,7 +621,8 @@ async function loadNextBooksBatch(isFastFilterFetch = false) {
     }
 
     try {
-        const delayMs = isFastFilterFetch ? 300 : 1200;
+        // Reduced artificial delay for smooth performance
+        const delayMs = isFastFilterFetch ? 100 : 180;
         await new Promise(resolve => setTimeout(resolve, delayMs));
 
         const booksRef = collection(db, "books");
@@ -820,7 +908,7 @@ window.openSubjectModulesList = function(subjectKey) {
 };
 
 // ==========================================
-// READ MODULE PDF DIRECTLY (CLOUDFLARE WORKER)
+// READ MODULE PDF DIRECTLY
 // ==========================================
 window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
     if (!isUserLoggedIn || !auth.currentUser) {
@@ -906,15 +994,43 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE (CLOUDFLARE WORKER)
+// 8. BOOK DETAIL & READ ONLINE (DIRECT DB DEEPLINK FETCH)
 // ==========================================
-function openDownloadPageLocal(slugOrId, skipPushState = false) {
+async function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
         triggerLoginModal();
         return;
     }
-    const book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId); 
-    if(!book) return;
+
+    let book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId);
+
+    // Fallback: Query single book directly from DB if not present in memory array
+    if (!book && slugOrId) {
+        try {
+            const docDirectRef = doc(db, "books", slugOrId);
+            const docSnap = await getDoc(docDirectRef);
+            if (docSnap.exists()) {
+                book = { id: docSnap.id, ...docSnap.data() };
+                if (!book.slug) book.slug = generateCleanSlug(book.title, book.id);
+                booksData.push(book);
+            } else {
+                const qSlug = query(collection(db, "books"), where("slug", "==", slugOrId), limit(1));
+                const snapSlug = await getDocs(qSlug);
+                if (!snapSlug.empty) {
+                    const d = snapSlug.docs[0];
+                    book = { id: d.id, ...d.data() };
+                    booksData.push(book);
+                }
+            }
+        } catch (e) {
+            console.warn("Direct deeplink book fetch error:", e.message);
+        }
+    }
+
+    if (!book) {
+        showToast("Book not found or link expired", "error");
+        return;
+    }
     
     const downloadModal = document.getElementById("downloadModal");
     if (downloadModal) {
@@ -1133,7 +1249,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Report Broken Link Modal
+    // Report Link Modal Listeners
     document.getElementById('reportLinkBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
