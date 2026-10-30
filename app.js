@@ -60,7 +60,7 @@ let CURRENT_ADMIN_NAME = "Guest User";
 let CURRENT_ADMIN_EMAIL = "";
 let CURRENT_ADMIN_PHOTO = DEFAULT_AVATAR;
 
-// Sanitized LocalStorage Bookmarks Array (Unique Keys)
+// Sanitized LocalStorage Bookmarks Array (Strict Unique)
 let savedBooks = [];
 try {
     const rawSaved = JSON.parse(localStorage.getItem('spidy_saved_books')) || [];
@@ -69,7 +69,7 @@ try {
     savedBooks = [];
 }
 
-// Persistent Bookmark Object Cache: stores complete cards locally
+// Persistent Bookmark Object Cache
 let savedBooksCache = {};
 try {
     savedBooksCache = JSON.parse(localStorage.getItem('spidy_saved_books_cache')) || {};
@@ -232,10 +232,19 @@ function tryTransition() {
 }
 
 // ==========================================
-// 3. BOOKMARK CACHE SANITIZER
+// 3. BOOKMARK SANITIZER (ORDER PRESERVING)
 // ==========================================
 function syncAndSanitizeBookmarks() {
-    savedBooks = Array.from(new Set(savedBooks.map(s => String(s).trim()))).filter(Boolean);
+    const seen = new Set();
+    const ordered = [];
+    savedBooks.forEach(s => {
+        const clean = String(s).trim();
+        if (clean && !seen.has(clean)) {
+            seen.add(clean);
+            ordered.push(clean);
+        }
+    });
+    savedBooks = ordered;
     localStorage.setItem('spidy_saved_books', JSON.stringify(savedBooks));
     localStorage.setItem('spidy_saved_books_cache', JSON.stringify(savedBooksCache));
 }
@@ -509,7 +518,7 @@ function renderBooksUI(dataToRender, append = false) {
     }
 }
 
-// Bookmark Toggle: Updates both ID list and the persistent card cache
+// Bookmark Toggle: NO TOAST + LATEST BOOK ON TOP (UNSHIFT)
 function toggleBookmarkLocal(iconElement, bookId, bookSlug) {
     const targetKey = bookId || bookSlug;
     if (!targetKey) return;
@@ -522,7 +531,8 @@ function toggleBookmarkLocal(iconElement, bookId, bookSlug) {
     const existingIndex = savedBooks.findIndex(k => k === bookId || (bookSlug && k === bookSlug));
 
     if (existingIndex === -1) { 
-        savedBooks.push(bookId);
+        // Add latest saved book to the BEGINNING (top) of the array
+        savedBooks.unshift(bookId);
         if (targetBook) {
             savedBooksCache[bookId] = {
                 id: targetBook.id || bookId,
@@ -538,17 +548,17 @@ function toggleBookmarkLocal(iconElement, bookId, bookSlug) {
             };
         }
         if (iconElement) iconElement.className = "fas fa-bookmark"; 
-        showToast("Book saved to your library", "success");
     } else { 
+        // Remove from saved
         savedBooks = savedBooks.filter(k => k !== bookId && k !== bookSlug);
         delete savedBooksCache[bookId];
         if (bookSlug) delete savedBooksCache[bookSlug];
         if (iconElement) iconElement.className = "far fa-bookmark"; 
-        showToast("Book removed from library", "info");
     }
 
     syncAndSanitizeBookmarks();
 
+    // Sync all rendered icons on the current page
     document.querySelectorAll(`.book-card[data-id="${bookId}"] .bookmark-btn i`).forEach(i => {
         i.className = existingIndex === -1 ? "fas fa-bookmark" : "far fa-bookmark";
     });
@@ -558,7 +568,7 @@ function toggleBookmarkLocal(iconElement, bookId, bookSlug) {
     }
 }
 
-// Zero-Loss Saved Books Engine: Renders from cache instantly, then recovers missing items
+// Zero-Loss Saved Books Engine: Latest saved books on top
 async function renderSavedBooksUI() {
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
@@ -574,7 +584,7 @@ async function renderSavedBooksUI() {
 
     const savedBooksMap = new Map();
 
-    // 1. Populate from persistent local cache first
+    // 1. Populate from memory cache
     Object.values(savedBooksCache).forEach(book => {
         if (book && book.id) {
             savedBooksMap.set(book.id, book);
@@ -597,7 +607,7 @@ async function renderSavedBooksUI() {
         }
     });
 
-    // 3. Identify missing items (users with old slugs stored)
+    // 3. Identify missing items
     const missingKeys = savedBooks.filter(key => {
         for (const b of savedBooksMap.values()) {
             if (b.id === key || b.slug === key) return false;
@@ -605,7 +615,7 @@ async function renderSavedBooksUI() {
         return true;
     });
 
-    // 4. Fallback: Fetch missing items by ID, or run slug scan
+    // 4. Fetch missing items directly from DB
     if (missingKeys.length > 0) {
         let needsCollectionScan = false;
         const fetchTasks = missingKeys.map(async (key) => {
@@ -633,7 +643,6 @@ async function renderSavedBooksUI() {
             }
         });
 
-        // If old slugs were used, scan remaining collection documents once to migrate
         if (needsCollectionScan && booksData.length < 50) {
             try {
                 const allBooksSnap = await getDocs(query(collection(db, "books"), limit(40)));
@@ -645,7 +654,6 @@ async function renderSavedBooksUI() {
                     if (missingKeys.includes(bData.slug) || missingKeys.includes(bData.id)) {
                         savedBooksMap.set(bData.id, bData);
                         savedBooksCache[bData.id] = bData;
-                        // Replace slug in savedBooks with proper ID
                         const idx = savedBooks.indexOf(bData.slug);
                         if (idx !== -1) savedBooks[idx] = bData.id;
                     }
@@ -655,7 +663,16 @@ async function renderSavedBooksUI() {
         syncAndSanitizeBookmarks();
     }
 
-    const finalDisplayList = Array.from(savedBooksMap.values());
+    // Sort order: Exactly match savedBooks order (latest saved first)
+    const finalDisplayList = [];
+    savedBooks.forEach(key => {
+        for (const book of savedBooksMap.values()) {
+            if ((book.id === key || book.slug === key) && !finalDisplayList.some(b => b.id === book.id)) {
+                finalDisplayList.push(book);
+                break;
+            }
+        }
+    });
 
     if (finalDisplayList.length === 0) { 
         container.innerHTML = ""; 
@@ -702,7 +719,6 @@ async function loadInitialBooksBatch() {
                 if (data.author) allAuthorsCache.add(data.author.trim());
                 if (data.year) allYearsCache.add(data.year.toString().trim());
 
-                // Auto-sync into saved cache if previously bookmarked
                 if (savedBooks.includes(data.id) || savedBooks.includes(data.slug)) {
                     savedBooksCache[data.id] = {
                         id: data.id,
@@ -1031,7 +1047,7 @@ window.openSubjectModulesList = function(subjectKey) {
                     <svg viewBox="0 0 64 64" fill="none" width="44" height="44">
                         <path d="M16 8C14.9 8 14 8.9 14 10V54C14 55.1 14.9 56 16 56H48C49.1 56 50 55.1 50 54V22L36 8H16Z" fill="#dc2626"/>
                         <path d="M36 8V22H50L36 8Z" fill="#f87171"/>
-                        <line x1="22" y1="28" x2="34" y2="28" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+                        <line x1="22" y1="28" x2="42" y2="28" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
                         <line x1="22" y1="34" x2="34" y2="34" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
                         <rect x="20" y="40" width="24" height="9" rx="3" fill="#ffffff"/>
                         <text x="32" y="47" font-family="sans-serif" font-size="6.8" font-weight="800" fill="#dc2626" text-anchor="middle">PDF</text>
@@ -1149,12 +1165,10 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
     let book = booksData.find(b => b.id === slugOrId || b.slug === slugOrId);
 
-    // Check saved books cache if not loaded in active batch
     if (!book && savedBooksCache[slugOrId]) {
         book = savedBooksCache[slugOrId];
     }
 
-    // Direct Firestore fetch fallback
     if (!book && slugOrId) {
         try {
             const docSnap = await getDoc(doc(db, "books", slugOrId));
@@ -1548,7 +1562,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById('close-bookmarks-btn')?.addEventListener('click', () => history.back());
 
-    // Native Popstate Handler
     window.addEventListener('popstate', (e) => {
         clearActiveElementFocus();
 
