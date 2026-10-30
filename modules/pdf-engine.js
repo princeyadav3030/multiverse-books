@@ -250,8 +250,15 @@ export async function executePageRender(pdf, pageNum, isSeamlessSwap = false) {
 
         page.cleanup();
     } catch (e) {
+        activeRenderTasks.delete(pageNum);
         if (e.name !== 'RenderingCancelledException') {
-            activeRenderTasks.delete(pageNum);
+            if (wrapper && !wrapper.querySelector('canvas')) {
+                wrapper.innerHTML = `
+                    <div class="pdf-placeholder-box" style="display:flex; flex-direction:column; align-items:center; gap:8px; color:#ef4444;">
+                        <i class="fas fa-triangle-exclamation" style="font-size:18px;"></i>
+                        <span>Failed to render page ${pageNum}</span>
+                    </div>`;
+            }
         }
     }
 }
@@ -301,7 +308,7 @@ export function initVirtualizationObserver(pdf) {
         });
     }, {
         root: document.getElementById('pdfContainer'),
-        rootMargin: '350px 0px 350px 0px',
+        rootMargin: '450px 0px 450px 0px',
         threshold: 0.01
     });
 
@@ -552,7 +559,7 @@ export function executeGoToPage() {
 }
 
 // ==========================================
-// 7. RENDER PDF IN MODAL MAIN FUNCTION (1GB+ CHUNK STREAMING)
+// 7. RENDER PDF IN MODAL MAIN FUNCTION (OPTIMIZED FOR 299MB - 1GB+)
 // ==========================================
 export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docType = "book", activeBookSlug = "", retryCount = 0) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -584,19 +591,15 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
     }
 
     try {
-        // 1GB+ ULTRA-FAST RANGE STREAMING CONFIGURATION:
-        // rangeChunkSize: 262144 (256KB) -> Optimal for mobile 4G/5G networks on 300MB-1GB PDFs
-        // disableRange: false -> Forces HTTP 206 Partial Content byte range requests
-        // disableAutoFetch: true -> Never downloads the entire 300MB-1GB PDF into RAM
-        // disableStream: true -> Prevents browser fetch stream lockups on large files
+        // High-speed config for 299MB - 1GB PDF range streaming
         activeLoadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
             cMapPacked: true,
             disableRange: false,
             disableAutoFetch: true,
-            disableStream: true,
-            rangeChunkSize: 262144
+            disableStream: false,
+            rangeChunkSize: 2097152 // 2MB chunk: drastically cuts down round-trips for big files
         });
 
         const pdf = await activeLoadingTask.promise;
@@ -607,8 +610,10 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
         if (loaderToDel) loaderToDel.remove();
 
         scrollContainer.innerHTML = '';
-        document.getElementById('pdfCurrentPageNum').innerText = `1`;
-        document.getElementById('goToPageRange').innerText = `1 - ${pdfTotalPagesCount}`;
+        const curPageBadge = document.getElementById('pdfCurrentPageNum');
+        if (curPageBadge) curPageBadge.innerText = `1`;
+        const pageRangeBadge = document.getElementById('goToPageRange');
+        if (pageRangeBadge) pageRangeBadge.innerText = `1 - ${pdfTotalPagesCount}`;
 
         const screenWidth = window.innerWidth;
         basePageWidth = Math.min(screenWidth - 12, 850);
@@ -666,7 +671,6 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
 
     } catch (err) {
         console.warn("PDF Load Attempt Error:", err);
-        // Clean retry using original URL (without breaking R2 file key)
         if (retryCount < 2) {
             setTimeout(() => {
                 renderPdfInModal(pdfUrl, true, docType, activeBookSlug, retryCount + 1);
