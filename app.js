@@ -2,7 +2,7 @@
 
 import { 
     auth, db, collection, addDoc, doc, getDoc, getDocs, 
-    query, orderBy, limit, startAfter, serverTimestamp, onAuthStateChanged, onSnapshot 
+    query, where, orderBy, limit, startAfter, serverTimestamp, onAuthStateChanged, onSnapshot 
 } from "./modules/firebase-config.js";
 
 import { 
@@ -1162,15 +1162,15 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
         return;
     }
 
-    // First search in memory array using ID then Slug
+    // 1. In-memory check: Match ID or Slug
     let book = booksData.find(b => b.id === idOrSlug || b.slug === idOrSlug);
 
-    // Fallback: Check local cache
+    // 2. Check local bookmark cache
     if (!book && savedBooksCache[idOrSlug]) {
         book = savedBooksCache[idOrSlug];
     }
 
-    // Direct Firestore fetch using Document ID (Eliminates "Book not found" bug)
+    // 3. Fallback: Firestore Direct Document ID Fetch
     if (!book && idOrSlug) {
         try {
             const docSnap = await getDoc(doc(db, "books", idOrSlug));
@@ -1181,12 +1181,28 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
                 if (!booksData.some(b => b.id === book.id)) {
                     booksData.push(book);
                 }
-            } else {
-                // If idOrSlug was a legacy slug, query all documents currently fetched
-                book = booksData.find(b => b.slug === idOrSlug);
             }
         } catch (e) {
-            console.warn("Direct fetch error:", e);
+            console.warn("Direct ID lookup error:", e);
+        }
+    }
+
+    // 4. Fallback: Firestore Slug Query Fetch (Fixes "Book not found or link expired" bug)
+    if (!book && idOrSlug) {
+        try {
+            const slugQuery = query(collection(db, "books"), where("slug", "==", idOrSlug), limit(1));
+            const slugSnap = await getDocs(slugQuery);
+            if (!slugSnap.empty) {
+                const targetDoc = slugSnap.docs[0];
+                book = targetDoc.data();
+                book.id = targetDoc.id;
+                if (!book.slug) book.slug = idOrSlug;
+                if (!booksData.some(b => b.id === book.id)) {
+                    booksData.push(book);
+                }
+            }
+        } catch (e) {
+            console.warn("Direct slug lookup error:", e);
         }
     }
 
@@ -1315,11 +1331,17 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
 
 function closeDownloadPageLocal() {
     clearActiveElementFocus();
+    const downloadModal = document.getElementById("downloadModal");
+    if (downloadModal) downloadModal.style.display = "none";
+
+    const cleanUrl = new URL(window.location.href);
+    if (cleanUrl.searchParams.has('book')) {
+        cleanUrl.searchParams.delete('book');
+        window.history.replaceState({}, '', cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : ''));
+    }
+
     if (history.state && history.state.popup === 'book') { 
         history.back(); 
-    } else { 
-        document.getElementById("downloadModal").style.display = "none"; 
-        window.history.replaceState({}, '', window.location.pathname); 
     }
 }
 
@@ -1332,12 +1354,10 @@ document.addEventListener("DOMContentLoaded", () => {
     initChannelEngine();
 
     initAuthSystem(() => {
-        if (isDeepLinkLoad && pendingBookSlug) {
-            document.getElementById('mainAppWrapper').style.display = 'block';
-            setTimeout(() => openDownloadPageLocal(pendingBookSlug, true), 300);
-        } else if (pendingTargetPostId) {
-            document.getElementById('mainAppWrapper').style.display = 'block';
-            setTimeout(checkAndOpenTargetPost, 350);
+        if (isDeepLinkLoad && pendingBookSlug && hasTransitioned) {
+            openDownloadPageLocal(pendingBookSlug, true);
+        } else if (pendingTargetPostId && hasTransitioned) {
+            checkAndOpenTargetPost();
         }
     });
 
@@ -1652,7 +1672,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const downloadModal = document.getElementById("downloadModal");
         if (downloadModal && downloadModal.style.display === "flex") {
             downloadModal.style.display = "none";
-            window.history.replaceState({}, '', window.location.pathname);
+            const cleanUrl = new URL(window.location.href);
+            if (cleanUrl.searchParams.has('book')) {
+                cleanUrl.searchParams.delete('book');
+                window.history.replaceState({}, '', cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : ''));
+            }
             return;
         }
 
