@@ -206,35 +206,37 @@ function tryTransition() {
                 hasTransitioned = true;
                 isTransitioning = false;
 
-                setTimeout(() => {
-                    const mainApp = document.getElementById('mainAppWrapper');
-                    if (mainApp) mainApp.style.display = 'block';
+                // INSTANT ZERO-FLICKER ROUTING
+                // Agar deep link hai toh main wrapper visible hone se pehle book fetch/render trigger hoga
+                if (isDeepLinkLoad && pendingBookSlug) {
+                    const targetSlugToOpen = decodeURIComponent(pendingBookSlug);
+                    pendingBookSlug = null;
+                    isDeepLinkLoad = false;
 
-                    const loader = document.getElementById("loaderScreen");
-                    if (loader) {
-                        loader.style.opacity = "0"; 
-                        setTimeout(() => { 
-                            loader.style.display = "none"; 
-                            if (pendingTargetPostId) {
-                                checkAndOpenTargetPost();
-                            }
-                        }, 300);
+                    if (isUserLoggedIn) {
+                        openDownloadPageLocal(targetSlugToOpen, true);
+                    } else {
+                        triggerLoginModal();
                     }
+                }
 
-                    if (isDeepLinkLoad && pendingBookSlug) {
-                        const targetSlugToOpen = decodeURIComponent(pendingBookSlug);
-                        pendingBookSlug = null;
-                        isDeepLinkLoad = false;
+                const mainApp = document.getElementById('mainAppWrapper');
+                if (mainApp) mainApp.style.display = 'block';
 
-                        if (isUserLoggedIn) { 
-                            openDownloadPageLocal(targetSlugToOpen, true); 
-                        } else {
-                            triggerLoginModal();
+                const loader = document.getElementById("loaderScreen");
+                if (loader) {
+                    loader.style.opacity = "0"; 
+                    setTimeout(() => { 
+                        loader.style.display = "none"; 
+                        if (pendingTargetPostId) {
+                            checkAndOpenTargetPost();
                         }
-                    } else if (!pendingTargetPostId) {
-                        initCommunityDualPopup(); 
-                    }
-                }, 180);
+                    }, 250);
+                }
+
+                if (!pendingTargetPostId && !document.getElementById('downloadModal')?.style.display?.includes('flex')) {
+                    initCommunityDualPopup(); 
+                }
             } else {
                 updateLoaderUI(loadingProgress);
             }
@@ -328,7 +330,8 @@ function initCommunityDualPopup() {
     clearTimeout(communityPopupTimer);
     communityPopupTimer = setTimeout(() => {
         const isPdfReading = document.getElementById('pdfViewerOverlay')?.style.display === 'flex';
-        if (!isPdfReading) {
+        const isBookModalOpen = document.getElementById('downloadModal')?.style.display === 'flex';
+        if (!isPdfReading && !isBookModalOpen) {
             popup.classList.add('active');
         }
     }, 120000);
@@ -1255,7 +1258,7 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
     }
 
     if (!book) {
-        showToast("Book not found or link expired", "error");[span_0](start_span)[span_0](end_span)
+        showToast("Book not found or link expired", "error");[span_0](start_span)[span_0](end_span)[span_1](start_span)[span_1](end_span)
         return;
     }
     
