@@ -22,6 +22,7 @@ const RENDER_BUFFER_DISTANCE = 2;
 let renderQueue = [];
 let isQueueProcessing = false;
 let lastContainerScrollTime = 0;
+let activeLoadingTask = null;
 
 // ==========================================
 // 2. RESOURCE CLEANUP & MEMORY DESTROYER
@@ -47,6 +48,13 @@ export function cleanupPdfResources() {
     });
     
     renderedPagesMap.clear();
+
+    if (activeLoadingTask) {
+        try {
+            activeLoadingTask.destroy();
+        } catch (e) {}
+        activeLoadingTask = null;
+    }
 
     if (currentPdfDocument) {
         try {
@@ -544,7 +552,7 @@ export function executeGoToPage() {
 }
 
 // ==========================================
-// 7. RENDER PDF IN MODAL MAIN FUNCTION (AUTO-RETRY & FAST STREAM)
+// 7. RENDER PDF IN MODAL MAIN FUNCTION (1GB+ CHUNK STREAMING)
 // ==========================================
 export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docType = "book", activeBookSlug = "", retryCount = 0) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -576,20 +584,22 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
     }
 
     try {
-        // FAST 1GB INSTANT CHUNKED STREAMING SETUP:
-        // disableStream: true -> Web Streams deadlock completely eliminated
-        // disableAutoFetch: true -> Entire 1GB is never downloaded at once
-        // rangeChunkSize: 524288 (512KB) -> Perfectly optimized for heavy scanned pages
-        const loadingTask = window.pdfjsLib.getDocument({
+        // 1GB+ ULTRA-FAST RANGE STREAMING CONFIGURATION:
+        // rangeChunkSize: 262144 (256KB) -> Optimal for mobile 4G/5G networks on 300MB-1GB PDFs
+        // disableRange: false -> Forces HTTP 206 Partial Content byte range requests
+        // disableAutoFetch: true -> Never downloads the entire 300MB-1GB PDF into RAM
+        // disableStream: true -> Prevents browser fetch stream lockups on large files
+        activeLoadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
             cMapPacked: true,
+            disableRange: false,
             disableAutoFetch: true,
             disableStream: true,
-            rangeChunkSize: 524288
+            rangeChunkSize: 262144
         });
 
-        const pdf = await loadingTask.promise;
+        const pdf = await activeLoadingTask.promise;
         currentPdfDocument = pdf;
         pdfTotalPagesCount = pdf.numPages;
 
@@ -655,13 +665,12 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
         }
 
     } catch (err) {
-        // AUTOMATIC SILENT RETRY ON TEMPORARY NETWORK DROP (Up to 2 Retries)
+        console.warn("PDF Load Attempt Error:", err);
+        // Clean retry using original URL (without breaking R2 file key)
         if (retryCount < 2) {
             setTimeout(() => {
-                const separator = pdfUrl.includes('?') ? '&' : '?';
-                const retryUrl = `${pdfUrl}${separator}retry=${Date.now()}`;
-                renderPdfInModal(retryUrl, true, docType, activeBookSlug, retryCount + 1);
-            }, 1000);
+                renderPdfInModal(pdfUrl, true, docType, activeBookSlug, retryCount + 1);
+            }, 900);
             return;
         }
 
