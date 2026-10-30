@@ -559,7 +559,7 @@ export function executeGoToPage() {
 }
 
 // ==========================================
-// 7. RENDER PDF IN MODAL MAIN FUNCTION (OPTIMIZED FOR 299MB - 1GB+)
+// 7. RENDER PDF IN MODAL MAIN FUNCTION (ZERO-FAIL CONFIG)
 // ==========================================
 export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docType = "book", activeBookSlug = "", retryCount = 0) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -591,15 +591,15 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
     }
 
     try {
-        // High-speed config for 299MB - 1GB PDF range streaming
+        // Bulletproof Range Setup: disableStream true prevents worker connection cut-offs
         activeLoadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
             cMapPacked: true,
             disableRange: false,
             disableAutoFetch: true,
-            disableStream: false,
-            rangeChunkSize: 2097152 // 2MB chunk: drastically cuts down round-trips for big files
+            disableStream: true,
+            rangeChunkSize: 1048576 // 1MB Chunk (Best for high-speed range seeks)
         });
 
         const pdf = await activeLoadingTask.promise;
