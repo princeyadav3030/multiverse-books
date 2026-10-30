@@ -2,7 +2,7 @@
 
 import { 
     auth, db, collection, addDoc, doc, getDoc, getDocs, 
-    query, where, orderBy, limit, startAfter, serverTimestamp, onAuthStateChanged, onSnapshot, documentId
+    query, orderBy, limit, startAfter, serverTimestamp, onAuthStateChanged, onSnapshot 
 } from "./modules/firebase-config.js";
 
 import { 
@@ -141,11 +141,11 @@ function runSmoothLoaderTick() {
     if (hasTransitioned || isTransitioning) return;
 
     if (loadingProgress < 65) {
-        loadingProgress += 1;
+        loadingProgress += 1.5;
     } else if (loadingProgress < 85) {
-        loadingProgress += 0.8;
+        loadingProgress += 0.9;
     } else if (loadingProgress < 95) {
-        loadingProgress += isAppReady.data ? 1 : 0.25;
+        loadingProgress += isAppReady.data ? 1.5 : 0.3;
     }
 
     if (loadingProgress > 95 && !isAppReady.data) {
@@ -157,21 +157,23 @@ function runSmoothLoaderTick() {
     if (isAppReady.data && isAppReady.auth) {
         tryTransition();
     } else {
-        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 180) : 40;
+        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 150) : 35;
         loaderInterval = setTimeout(runSmoothLoaderTick, nextDelay);
     }
 }
 
+// Start Loader Tick Immediately
 updateLoaderUI(1);
-loaderInterval = setTimeout(runSmoothLoaderTick, 40);
+loaderInterval = setTimeout(runSmoothLoaderTick, 35);
 
+// Fail-safe Timeout: 7 seconds ke baad automatically app open kar dega
 setTimeout(() => {
     if (!hasTransitioned) {
         isAppReady.auth = true;
         isAppReady.data = true;
         tryTransition();
     }
-}, 20000);
+}, 7000);
 
 function tryTransition() {
     if (isAppReady.auth && isAppReady.data && !hasTransitioned && !isTransitioning) {
@@ -179,7 +181,7 @@ function tryTransition() {
         clearTimeout(loaderInterval);
 
         let finishStep = setInterval(() => {
-            loadingProgress += 2;
+            loadingProgress += 3;
             if (loadingProgress >= 100) {
                 loadingProgress = 100;
                 updateLoaderUI(100);
@@ -211,7 +213,7 @@ function tryTransition() {
                     } else if (!pendingTargetPostId) {
                         initCommunityDualPopup(); 
                     }
-                }, 220);
+                }, 200);
             } else {
                 updateLoaderUI(loadingProgress);
             }
@@ -242,7 +244,6 @@ function initCommunityDualPopup() {
 
     if (lastLockedTime && now < parseInt(lastLockedTime, 10)) return;
 
-    // Load saved verification steps from localStorage
     let savedSteps = JSON.parse(localStorage.getItem('spidy_comm_steps') || '{"wa":false,"tg":false,"ig":false}');
     hasClickedWA = !!savedSteps.wa;
     hasClickedTG = !!savedSteps.tg;
@@ -394,7 +395,7 @@ function initCommunityDualPopup() {
 }
 
 // ==========================================
-// 5. MASTER FILTER APPLIER & UI RENDER (THROTTLED BATCH GUARD)
+// 5. MASTER FILTER APPLIER & UI RENDER
 // ==========================================
 let filterAutoFetchCount = 0;
 const MAX_AUTO_FILTER_FETCHES = 3;
@@ -504,7 +505,7 @@ function toggleBookmarkLocal(iconElement, slug) {
     if(document.getElementById('bookmarks-panel')?.classList.contains('active')) renderSavedBooksUI(); 
 }
 
-// Persistent Bookmark Renderer (Queries missing saved books directly from DB without full collection scan)
+// Persistent Bookmark Renderer (Direct doc fetch without needing where/documentId)
 async function renderSavedBooksUI() {
     const container = document.getElementById("savedBooksContainer"); 
     const noMsg = document.getElementById("no-saved-msg");
@@ -515,38 +516,38 @@ async function renderSavedBooksUI() {
         return; 
     }
 
-    let existingMatches = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
-    const foundIds = new Set(existingMatches.map(b => b.id));
-    const foundSlugs = new Set(existingMatches.map(b => b.slug));
-    const missingKeys = savedBooks.filter(key => !foundIds.has(key) && !foundSlugs.has(key));
+    let savedBooksData = booksData.filter(book => savedBooks.includes(book.slug) || savedBooks.includes(book.id));
+    const foundKeys = new Set(savedBooksData.map(b => b.id).concat(savedBooksData.map(b => b.slug)));
+    const missingKeys = savedBooks.filter(k => !foundKeys.has(k));
 
     if (missingKeys.length > 0) {
-        try {
-            // Fetch missing books in batches of 10 to keep firestore reads light
-            const fetchBatches = [];
-            for (let i = 0; i < missingKeys.length; i += 10) {
-                const chunk = missingKeys.slice(i, i + 10);
-                const qDocs = query(collection(db, "books"), where(documentId(), "in", chunk));
-                fetchBatches.push(getDocs(qDocs));
-            }
-            const results = await Promise.all(fetchBatches);
-            results.forEach(snap => {
-                snap.forEach(docSnap => {
+        const fetchPromises = missingKeys.map(async (key) => {
+            try {
+                const docSnap = await getDoc(doc(db, "books", key));
+                if (docSnap.exists()) {
                     const data = docSnap.data();
                     data.id = docSnap.id;
-                    if (!data.slug) data.slug = generateCleanSlug(data.title, data.id);
+                    if (!data.slug || data.slug.includes('%')) {
+                        data.slug = generateCleanSlug(data.title, data.id);
+                    }
                     if (!booksData.some(b => b.id === data.id)) {
                         booksData.push(data);
                     }
-                    existingMatches.push(data);
-                });
-            });
-        } catch (e) {
-            console.warn("Saved books direct fetch skipped:", e.message);
-        }
+                    return data;
+                }
+            } catch (err) {}
+            return null;
+        });
+
+        const fetchedItems = await Promise.all(fetchPromises);
+        fetchedItems.forEach(item => {
+            if (item && !savedBooksData.some(b => b.id === item.id)) {
+                savedBooksData.push(item);
+            }
+        });
     }
 
-    if (existingMatches.length === 0) {
+    if (savedBooksData.length === 0) { 
         if (container) container.innerHTML = ""; 
         if (noMsg) noMsg.style.display = "flex"; 
         return; 
@@ -554,7 +555,7 @@ async function renderSavedBooksUI() {
 
     if (noMsg) noMsg.style.display = "none"; 
     let htmlChunk = "";
-    existingMatches.forEach(book => {
+    savedBooksData.forEach(book => {
         let langClass = (book.lang || "").toLowerCase() === 'hindi' ? 'tag-lang-hindi' : 'tag-lang-english';
         const secureCoverUrl = getSecureAssetUrl(book.image);
 
@@ -621,8 +622,7 @@ async function loadNextBooksBatch(isFastFilterFetch = false) {
     }
 
     try {
-        // Reduced artificial delay for smooth performance
-        const delayMs = isFastFilterFetch ? 100 : 180;
+        const delayMs = isFastFilterFetch ? 80 : 150;
         await new Promise(resolve => setTimeout(resolve, delayMs));
 
         const booksRef = collection(db, "books");
@@ -994,7 +994,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE (DIRECT DB DEEPLINK FETCH)
+// 8. BOOK DETAIL & READ ONLINE (SAFE DIRECT FETCH)
 // ==========================================
 async function openDownloadPageLocal(slugOrId, skipPushState = false) {
     if(!isUserLoggedIn) {
@@ -1004,26 +1004,20 @@ async function openDownloadPageLocal(slugOrId, skipPushState = false) {
 
     let book = booksData.find(b => b.slug === slugOrId || b.id === slugOrId);
 
-    // Fallback: Query single book directly from DB if not present in memory array
+    // Fallback: Agar shared book batch me na ho, toh direct doc ID se fetch karo
     if (!book && slugOrId) {
         try {
-            const docDirectRef = doc(db, "books", slugOrId);
-            const docSnap = await getDoc(docDirectRef);
+            const docSnap = await getDoc(doc(db, "books", slugOrId));
             if (docSnap.exists()) {
-                book = { id: docSnap.id, ...docSnap.data() };
-                if (!book.slug) book.slug = generateCleanSlug(book.title, book.id);
-                booksData.push(book);
-            } else {
-                const qSlug = query(collection(db, "books"), where("slug", "==", slugOrId), limit(1));
-                const snapSlug = await getDocs(qSlug);
-                if (!snapSlug.empty) {
-                    const d = snapSlug.docs[0];
-                    book = { id: d.id, ...d.data() };
-                    booksData.push(book);
+                book = docSnap.data();
+                book.id = docSnap.id;
+                if (!book.slug || book.slug.includes('%')) {
+                    book.slug = generateCleanSlug(book.title, book.id);
                 }
+                booksData.push(book);
             }
         } catch (e) {
-            console.warn("Direct deeplink book fetch error:", e.message);
+            console.warn("Direct book fetch fallback:", e.message);
         }
     }
 
