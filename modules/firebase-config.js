@@ -3,7 +3,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { 
     getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, 
-    query, orderBy, setDoc, getDoc, getDocs, limit, startAfter, Timestamp, serverTimestamp 
+    query, where, orderBy, setDoc, getDoc, getDocs, limit, startAfter, Timestamp, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { 
     getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, 
@@ -60,7 +60,7 @@ async function syncUserProfileToFirestore(user, defaultAvatar = "https://i.posti
 
 export { 
     app, db, auth, provider, analytics, syncUserProfileToFirestore,
-    collection, addDoc, doc, updateDoc, onSnapshot, query, orderBy, 
+    collection, addDoc, doc, updateDoc, onSnapshot, query, where, orderBy, 
     setDoc, getDoc, getDocs, limit, startAfter, Timestamp, serverTimestamp,
     signInWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, 
     onAuthStateChanged, signOut 
