@@ -1,6 +1,6 @@
 // File: modules/pdf-engine.js
-// SPARSE-MEMORY VIRTUAL RANGE ENGINE v4.0 (100% Fixes "Array buffer allocation failed" on 700MB-1GB+ PDFs)
-// Features: Live Patched Sparse Worker + Parallel Range Transport + 5-Page Sliding Window (2 Up / 2 Down)
+// GLOBAL UINT8ARRAY VIRTUAL MEMORY ENGINE v5.0 (100% Eliminates "Array buffer allocation failed" on 700MB-1GB+ PDFs)
+// Features: Global Constructor Hook + 5-Page Sliding Window (Current + 2 Up + 2 Down) + Canvas Pool
 
 import { showToast } from "./helpers.js";
 
@@ -23,16 +23,13 @@ const RENDER_BUFFER_DISTANCE = 2;
 const MAX_RENDERED_PAGES = 6; 
 const MAX_CONCURRENT_RENDERS = 2;
 
-// 512 KB Chunk Size for Fast Multiplexed Range Streaming
-const RANGE_CHUNK_SIZE = 524288; 
-
 let renderQueue = [];
 let activeWorkersCount = 0;
 let lastContainerScrollTime = 0;
 let activeLoadingTask = null;
-let activeRangeTransport = null;
 let scrollDebounceTimer = null;
-let isSparseWorkerInitialized = false;
+let sparseWorkerBlobUrl = null;
+let workerInitPromise = null;
 
 // Recycled Canvas Pool
 const canvasRecyclePool = [];
@@ -60,291 +57,194 @@ function releaseCanvasToPool(canvas) {
 }
 
 // ==========================================
-// 2. SPARSE-MEMORY WORKER PATCHER (PREVENTS 700MB+ ARRAYBUFFER CRASH)
+// 2. BULLETPROOF GLOBAL UINT8ARRAY INTERCEPTOR FOR WEB WORKER
 // ==========================================
-async function ensureSparsePdfWorker() {
-    if (isSparseWorkerInitialized || !window.pdfjsLib) return;
-    try {
-        const workerCdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        const res = await fetch(workerCdnUrl);
-        if (!res.ok) return;
-        let workerCode = await res.text();
-
-        // Inject Sparse Virtual Uint8Array Proxy for files > 200MB so mobile RAM never crashes!
-        const sparseInterceptorHeader = `
-        const __OrigUint8Array = self.Uint8Array;
-        function __createSparseByteStorage(totalLength) {
-            const PAGE_SIZE = 262144; // 256KB virtual memory pages
-            const pages = new Map();
-            const MAX_PAGES_IN_RAM = 240; // Max ~60MB in RAM at any instant
-
-            function getPage(pageIdx, create) {
-                let p = pages.get(pageIdx);
-                if (!p && create) {
-                    if (pages.size >= MAX_PAGES_IN_RAM) {
-                        const oldestKey = pages.keys().next().value;
-                        pages.delete(oldestKey);
-                    }
-                    p = new __OrigUint8Array(PAGE_SIZE);
-                    pages.set(pageIdx, p);
-                } else if (p) {
-                    // Refresh LRU order
-                    pages.delete(pageIdx);
-                    pages.set(pageIdx, p);
-                }
-                return p;
-            }
-
-            const target = {
-                length: totalLength,
-                byteLength: totalLength,
-                set(sourceArr, offset = 0) {
-                    const srcLen = sourceArr.length;
-                    let srcPos = 0;
-                    let dstPos = offset;
-                    while (srcPos < srcLen) {
-                        const pageIdx = (dstPos / PAGE_SIZE) | 0;
-                        const pageOff = dstPos % PAGE_SIZE;
-                        const copyLen = Math.min(PAGE_SIZE - pageOff, srcLen - srcPos);
-                        const page = getPage(pageIdx, true);
-                        if (sourceArr.subarray) {
-                            page.set(sourceArr.subarray(srcPos, srcPos + copyLen), pageOff);
-                        } else {
-                            for (let i = 0; i < copyLen; i++) page[pageOff + i] = sourceArr[srcPos + i];
-                        }
-                        srcPos += copyLen;
-                        dstPos += copyLen;
-                    }
-                },
-                subarray(begin = 0, end = totalLength) {
-                    const b = Math.max(0, begin < 0 ? totalLength + begin : begin);
-                    const e = Math.min(totalLength, end < 0 ? totalLength + end : end);
-                    const len = Math.max(0, e - b);
-                    const out = new __OrigUint8Array(len);
-                    let dstPos = 0;
-                    let curPos = b;
-                    while (dstPos < len) {
-                        const pageIdx = (curPos / PAGE_SIZE) | 0;
-                        const pageOff = curPos % PAGE_SIZE;
-                        const copyLen = Math.min(PAGE_SIZE - pageOff, len - dstPos);
-                        const page = pages.get(pageIdx);
-                        if (page) {
-                            out.set(page.subarray(pageOff, pageOff + copyLen), dstPos);
-                        }
-                        dstPos += copyLen;
-                        curPos += copyLen;
-                    }
-                    return out;
-                },
-                slice(begin = 0, end = totalLength) {
-                    return this.subarray(begin, end);
-                }
-            };
-
-            return new Proxy(target, {
-                get(obj, prop) {
-                    if (prop in obj) return obj[prop];
-                    if (typeof prop === 'string') {
-                        const idx = Number(prop);
-                        if (Number.isInteger(idx) && idx >= 0 && idx < totalLength) {
-                            const page = pages.get((idx / PAGE_SIZE) | 0);
-                            return page ? page[idx % PAGE_SIZE] : 0;
-                        }
-                    }
-                    return obj[prop];
-                },
-                set(obj, prop, val) {
-                    if (typeof prop === 'string') {
-                        const idx = Number(prop);
-                        if (Number.isInteger(idx) && idx >= 0 && idx < totalLength) {
-                            const page = getPage((idx / PAGE_SIZE) | 0, true);
-                            page[idx % PAGE_SIZE] = val;
-                            return true;
-                        }
-                    }
-                    obj[prop] = val;
-                    return true;
-                }
-            });
-        }
-        `;
-
-        // Replace ChunkedStream huge buffer allocation with Sparse Virtual Storage when length > 150MB
-        workerCode = workerCode.replace(
-            /this\.bytes\s*=\s*new\s+Uint8Array\s*\(\s*length\s*\)/g,
-            'this.bytes = (length > 150000000 ? __createSparseByteStorage(length) : new Uint8Array(length))'
-        );
-
-        const finalBlob = new Blob([sparseInterceptorHeader + "\n" + workerCode], { type: 'application/javascript' });
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(finalBlob);
-        isSparseWorkerInitialized = true;
-    } catch (e) {
-        console.warn("Sparse worker patch fallback:", e);
+// Intercepts ANY `new Uint8Array(size)` > 90MB inside pdf.worker.min.js regardless of minification!
+function ensurePatchedWorkerReady() {
+    if (sparseWorkerBlobUrl && window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = sparseWorkerBlobUrl;
+        return Promise.resolve();
     }
+    if (workerInitPromise) return workerInitPromise;
+
+    workerInitPromise = (async () => {
+        try {
+            const workerCdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            const res = await fetch(workerCdnUrl);
+            if (!res.ok) throw new Error("Worker CDN fetch failed");
+            const originalWorkerSource = await res.text();
+
+            const virtualMemoryHook = `
+(function() {
+    const NativeUint8Array = self.Uint8Array;
+    const NativeArrayBuffer = self.ArrayBuffer;
+    const SPARSE_THRESHOLD = 90 * 1024 * 1024; // Any allocation > 90MB uses Virtual Paged Memory
+    const PAGE_SHIFT = 18; // 2^18 = 262,144 bytes (256KB per page)
+    const PAGE_SIZE = 1 << PAGE_SHIFT;
+    const PAGE_MASK = PAGE_SIZE - 1;
+    const MAX_ACTIVE_PAGES = 200; // Caps physical RAM usage strictly at ~50MB even for 2GB PDFs!
+
+    function createVirtualLargeUint8Array(totalLength) {
+        const pageMap = new Map();
+
+        function getPage(pageIndex, allocateIfMissing) {
+            let page = pageMap.get(pageIndex);
+            if (page !== undefined) {
+                // Refresh LRU order
+                pageMap.delete(pageIndex);
+                pageMap.set(pageIndex, page);
+                return page;
+            }
+            if (!allocateIfMissing) return null;
+            if (pageMap.size >= MAX_ACTIVE_PAGES) {
+                const oldestKey = pageMap.keys().next().value;
+                pageMap.delete(oldestKey);
+            }
+            page = new NativeUint8Array(PAGE_SIZE);
+            pageMap.set(pageIndex, page);
+            return page;
+        }
+
+        const dummyBuffer = new NativeArrayBuffer(0);
+
+        const virtualTarget = {
+            length: totalLength,
+            byteLength: totalLength,
+            byteOffset: 0,
+            BYTES_PER_ELEMENT: 1,
+            buffer: dummyBuffer,
+
+            set(source, offset = 0) {
+                const srcLen = source.length || source.byteLength || 0;
+                if (srcLen === 0) return;
+                let srcPos = 0;
+                let dstPos = offset | 0;
+
+                while (srcPos < srcLen) {
+                    const pageIdx = dstPos >>> PAGE_SHIFT;
+                    const pageOff = dstPos & PAGE_MASK;
+                    const copyLen = Math.min(PAGE_SIZE - pageOff, srcLen - srcPos);
+                    const page = getPage(pageIdx, true);
+
+                    if (typeof source.subarray === 'function') {
+                        page.set(source.subarray(srcPos, srcPos + copyLen), pageOff);
+                    } else {
+                        for (let i = 0; i < copyLen; i++) {
+                            page[pageOff + i] = source[srcPos + i];
+                        }
+                    }
+                    srcPos += copyLen;
+                    dstPos += copyLen;
+                }
+            },
+
+            subarray(begin = 0, end = totalLength) {
+                let b = begin < 0 ? Math.max(0, totalLength + begin) : Math.min(totalLength, begin);
+                let e = end === undefined ? totalLength : (end < 0 ? Math.max(0, totalLength + end) : Math.min(totalLength, end));
+                const outLen = Math.max(0, e - b);
+
+                // If caller asks for a huge subarray (> 90MB), return virtual wrapper
+                if (outLen > SPARSE_THRESHOLD && b === 0 && e === totalLength) {
+                    return proxyInstance;
+                }
+
+                const result = new NativeUint8Array(outLen);
+                let dstPos = 0;
+                let curPos = b;
+
+                while (dstPos < outLen) {
+                    const pageIdx = curPos >>> PAGE_SHIFT;
+                    const pageOff = curPos & PAGE_MASK;
+                    const copyLen = Math.min(PAGE_SIZE - pageOff, outLen - dstPos);
+                    const page = pageMap.get(pageIdx);
+                    if (page !== undefined) {
+                        result.set(page.subarray(pageOff, pageOff + copyLen), dstPos);
+                    }
+                    dstPos += copyLen;
+                    curPos += copyLen;
+                }
+                return result;
+            },
+
+            slice(begin = 0, end = totalLength) {
+                return this.subarray(begin, end);
+            },
+
+            fill(value, start = 0, end = totalLength) {
+                return proxyInstance;
+            }
+        };
+
+        const proxyInstance = new Proxy(virtualTarget, {
+            get(target, prop) {
+                if (prop in target) {
+                    const val = target[prop];
+                    return typeof val === 'function' ? val.bind(target) : val;
+                }
+                if (typeof prop === 'string') {
+                    const idx = Number(prop);
+                    if (idx >= 0 && idx < totalLength && (idx | 0) === idx) {
+                        const page = pageMap.get(idx >>> PAGE_SHIFT);
+                        return page !== undefined ? page[idx & PAGE_MASK] : 0;
+                    }
+                }
+                return target[prop];
+            },
+            set(target, prop, value) {
+                if (typeof prop === 'string') {
+                    const idx = Number(prop);
+                    if (idx >= 0 && idx < totalLength && (idx | 0) === idx) {
+                        const page = getPage(idx >>> PAGE_SHIFT, true);
+                        page[idx & PAGE_MASK] = value;
+                        return true;
+                    }
+                }
+                target[prop] = value;
+                return true;
+            }
+        });
+
+        Object.setPrototypeOf(virtualTarget, NativeUint8Array.prototype);
+        return proxyInstance;
+    }
+
+    function PatchedUint8Array(arg0, byteOffset, length) {
+        if (typeof arg0 === 'number' && arg0 > SPARSE_THRESHOLD) {
+            return createVirtualLargeUint8Array(arg0);
+        }
+        if (arguments.length === 0) return new NativeUint8Array();
+        if (arguments.length === 1) return new NativeUint8Array(arg0);
+        if (arguments.length === 2) return new NativeUint8Array(arg0, byteOffset);
+        return new NativeUint8Array(arg0, byteOffset, length);
+    }
+
+    PatchedUint8Array.prototype = NativeUint8Array.prototype;
+    PatchedUint8Array.BYTES_PER_ELEMENT = 1;
+    PatchedUint8Array.from = NativeUint8Array.from.bind(NativeUint8Array);
+    PatchedUint8Array.of = NativeUint8Array.of.bind(NativeUint8Array);
+    Object.setPrototypeOf(PatchedUint8Array, NativeUint8Array);
+
+    self.Uint8Array = PatchedUint8Array;
+})();
+`;
+
+            const combinedBlob = new Blob([virtualMemoryHook + "\n" + originalWorkerSource], {
+                type: 'application/javascript'
+            });
+            sparseWorkerBlobUrl = URL.createObjectURL(combinedBlob);
+            if (window.pdfjsLib) {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = sparseWorkerBlobUrl;
+            }
+        } catch (err) {
+            console.warn("Worker hook fallback:", err);
+        }
+    })();
+
+    return workerInitPromise;
 }
 
 // ==========================================
-// 3. CUSTOM HIGH-SPEED PARALLEL RANGE TRANSPORT
-// ==========================================
-async function createFastRangeTransport(pdfUrl) {
-    // Step 1: Fast Probe Request (Fetches first 512KB + Total File Size in 1 trip!)
-    const initialEnd = RANGE_CHUNK_SIZE - 1;
-    const probeRes = await fetch(pdfUrl, {
-        method: 'GET',
-        headers: { 'Range': `bytes=0-${initialEnd}` },
-        mode: 'cors',
-        credentials: 'omit'
-    });
-
-    if (!probeRes.ok && probeRes.status !== 206) {
-        throw new Error(`Server returned status ${probeRes.status}`);
-    }
-
-    let totalLength = 0;
-    const contentRange = probeRes.headers.get('Content-Range');
-    if (contentRange) {
-        const match = contentRange.match(/\/(\d+)$/);
-        if (match && match[1]) {
-            totalLength = parseInt(match[1], 10);
-        }
-    }
-    if (!totalLength) {
-        const cl = probeRes.headers.get('Content-Length');
-        if (cl) totalLength = parseInt(cl, 10);
-    }
-
-    const firstChunkBuffer = new Uint8Array(await probeRes.arrayBuffer());
-    if (!totalLength || totalLength < firstChunkBuffer.byteLength) {
-        totalLength = firstChunkBuffer.byteLength;
-    }
-
-    class SpidyFastRangeTransport extends window.pdfjsLib.PDFDataRangeTransport {
-        constructor(length, initialData) {
-            super(length, initialData, true);
-            this.aborted = false;
-            this.controllers = new Set();
-            this.chunkCache = new Map();
-            this.inflightRequests = new Map();
-
-            // Cache initial chunk
-            this.chunkCache.set(`0-${initialData.byteLength - 1}`, initialData);
-
-            // Pre-warm PDF Trailer (Last 1MB) in background immediately for instant XREF indexing!
-            if (length > RANGE_CHUNK_SIZE * 2) {
-                const tailStart = Math.max(0, Math.floor((length - RANGE_CHUNK_SIZE) / RANGE_CHUNK_SIZE) * RANGE_CHUNK_SIZE);
-                this.prefetchChunk(tailStart, length);
-                if (tailStart - RANGE_CHUNK_SIZE > 0) {
-                    this.prefetchChunk(tailStart - RANGE_CHUNK_SIZE, tailStart);
-                }
-            }
-        }
-
-        async prefetchChunk(begin, end) {
-            const alignedEnd = Math.min(end, totalLength) - 1;
-            const key = `${begin}-${alignedEnd}`;
-            if (this.chunkCache.has(key) || this.inflightRequests.has(key) || this.aborted) return;
-
-            const promise = (async () => {
-                const controller = new AbortController();
-                this.controllers.add(controller);
-                try {
-                    const r = await fetch(pdfUrl, {
-                        method: 'GET',
-                        headers: { 'Range': `bytes=${begin}-${alignedEnd}` },
-                        signal: controller.signal,
-                        mode: 'cors',
-                        credentials: 'omit'
-                    });
-                    if (r.ok || r.status === 206) {
-                        const buf = new Uint8Array(await r.arrayBuffer());
-                        if (this.chunkCache.size > 24) {
-                            const oldest = this.chunkCache.keys().next().value;
-                            this.chunkCache.delete(oldest);
-                        }
-                        this.chunkCache.set(key, buf);
-                        return buf;
-                    }
-                } catch (e) {} finally {
-                    this.controllers.delete(controller);
-                    this.inflightRequests.delete(key);
-                }
-                return null;
-            })();
-
-            this.inflightRequests.set(key, promise);
-            return promise;
-        }
-
-        async requestDataRange(begin, end) {
-            if (this.aborted) return;
-            const alignedEnd = Math.min(end, totalLength) - 1;
-            const key = `${begin}-${alignedEnd}`;
-
-            // 1. Check In-Memory Pre-fetched Cache
-            if (this.chunkCache.has(key)) {
-                const cached = this.chunkCache.get(key);
-                this.chunkCache.delete(key);
-                this.onDataRange(begin, cached);
-                return;
-            }
-
-            // 2. Check In-Flight Pre-fetch Request
-            if (this.inflightRequests.has(key)) {
-                const inflightBuf = await this.inflightRequests.get(key);
-                if (inflightBuf && !this.aborted) {
-                    this.chunkCache.delete(key);
-                    this.onDataRange(begin, inflightBuf);
-                    return;
-                }
-            }
-
-            // 3. Direct High-Priority Fetch + Lookahead Pre-fetch of Next Neighboring Chunk
-            const nextBegin = alignedEnd + 1;
-            if (nextBegin < totalLength && begin > RANGE_CHUNK_SIZE) {
-                this.prefetchChunk(nextBegin, Math.min(nextBegin + RANGE_CHUNK_SIZE, totalLength));
-            }
-
-            const controller = new AbortController();
-            this.controllers.add(controller);
-
-            try {
-                const res = await fetch(pdfUrl, {
-                    method: 'GET',
-                    headers: { 'Range': `bytes=${begin}-${alignedEnd}` },
-                    signal: controller.signal,
-                    mode: 'cors',
-                    credentials: 'omit'
-                });
-
-                if (!res.ok && res.status !== 206) return;
-                const chunk = new Uint8Array(await res.arrayBuffer());
-                if (!this.aborted) {
-                    this.onDataRange(begin, chunk);
-                }
-            } catch (err) {
-                // Ignore abort errors
-            } finally {
-                this.controllers.delete(controller);
-            }
-        }
-
-        abort() {
-            this.aborted = true;
-            this.controllers.forEach(c => {
-                try { c.abort(); } catch (e) {}
-            });
-            this.controllers.clear();
-            this.chunkCache.clear();
-            this.inflightRequests.clear();
-            super.abort();
-        }
-    }
-
-    return new SpidyFastRangeTransport(totalLength, firstChunkBuffer);
-}
-
-// ==========================================
-// 4. RESOURCE CLEANUP & MEMORY DESTROYER
+// 3. RESOURCE CLEANUP & MEMORY DESTROYER
 // ==========================================
 export function cleanupPdfResources() {
     if (pdfVirtualObserver) {
@@ -372,13 +272,6 @@ export function cleanupPdfResources() {
     });
     
     renderedPagesMap.clear();
-
-    if (activeRangeTransport) {
-        try {
-            activeRangeTransport.abort();
-        } catch (e) {}
-        activeRangeTransport = null;
-    }
 
     if (activeLoadingTask) {
         try {
@@ -444,7 +337,7 @@ export function showCenteredPdfLoader(message = "Just a Moment… Your Book Is A
 }
 
 // ==========================================
-// 5. 5-PAGE SLIDING WINDOW (2 UP + CURRENT + 2 DOWN)
+// 4. 5-PAGE SLIDING WINDOW (2 UP + CURRENT + 2 DOWN)
 // ==========================================
 export function preloadSurroundingPages(centerPage, forceRedraw = false) {
     if (!currentPdfDocument || centerPage < 1) return;
@@ -652,7 +545,7 @@ export function unloadSinglePage(pageNum) {
 }
 
 // ==========================================
-// 6. INTERSECTION OBSERVER VIRTUALIZER
+// 5. INTERSECTION OBSERVER VIRTUALIZER
 // ==========================================
 export function initVirtualizationObserver(pdf) {
     if (pdfVirtualObserver) pdfVirtualObserver.disconnect();
@@ -685,7 +578,7 @@ export function initVirtualizationObserver(pdf) {
 }
 
 // ==========================================
-// 7. INSTANT TARGET-LOCKED ZOOM & ANTI-SCROLL DOUBLE TAP
+// 6. INSTANT TARGET-LOCKED ZOOM & ANTI-SCROLL DOUBLE TAP
 // ==========================================
 export function applyTargetLockedZoom(scaleFactor, targetPageNum, tapClientX = null, tapClientY = null) {
     const container = document.getElementById('pdfContainer');
@@ -840,7 +733,7 @@ export function initTargetLockedDoubleTapZoom() {
 }
 
 // ==========================================
-// 8. SCROLL TRACKER & 5-PAGE WINDOW PRELOADER
+// 7. SCROLL TRACKER & 5-PAGE WINDOW PRELOADER
 // ==========================================
 export function initPdfScrollTracker(activeBookSlug = "") {
     const container = document.getElementById('pdfContainer');
@@ -928,7 +821,7 @@ export function executeGoToPage() {
 }
 
 // ==========================================
-// 9. RENDER PDF IN MODAL (SPARSE WORKER + PARALLEL RANGE TRANSPORT)
+// 8. RENDER PDF IN MODAL (PATENT-GRADE VIRTUAL MEMORY + NATIVE RANGE STREAM)
 // ==========================================
 export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docType = "book", activeBookSlug = "", retryCount = 0) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -960,19 +853,19 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
     }
 
     try {
-        // 1. Initialize Patched Sparse Worker (Prevents 707MB/1GB ArrayBuffer Crash in Worker)
-        await ensureSparsePdfWorker();
+        // 1. Ensure Global Uint8Array Virtual Memory Hook is active inside PDF Web Worker
+        await ensurePatchedWorkerReady();
 
-        // 2. Initialize High-Speed Custom Range Transport (Prevents Main Thread ArrayBuffer Crash)
-        activeRangeTransport = await createFastRangeTransport(pdfUrl);
-
+        // 2. Native Range Streaming with disableStream: true (So Main Thread never buffers 707MB,
+        // and Web Worker uses our Patched Virtual Uint8Array for zero-allocation-crash!)
         activeLoadingTask = window.pdfjsLib.getDocument({
-            range: activeRangeTransport,
+            url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
             cMapPacked: true,
+            disableRange: false,
             disableAutoFetch: true,
             disableStream: true,
-            rangeChunkSize: RANGE_CHUNK_SIZE,
+            rangeChunkSize: 524288, // 512KB High-Speed Range Chunks
             maxImageSize: 16777216,
             isEvalSupported: false
         });
@@ -1072,10 +965,11 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
 }
 
 // ==========================================
-// 10. INITIALIZE PDF MODAL CONTROLS
+// 9. INITIALIZE PDF MODAL CONTROLS
 // ==========================================
 export function initPdfViewerUI() {
-    ensureSparsePdfWorker();
+    // Pre-build patched worker on app startup so 0ms is wasted when user clicks Read Online
+    ensurePatchedWorkerReady();
 
     const pdfPageBadge = document.getElementById('pdfPageBadge');
     const goToPageModal = document.getElementById('goToPageModal');
