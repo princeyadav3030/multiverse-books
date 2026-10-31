@@ -1,5 +1,5 @@
 // File: modules/pdf-engine.js
-// 1GB+ DATA-SAVER MICRO-RANGE ENGINE (128KB Chunks + Instant Page 1 + Zero RAM Lag)
+// HYPER-PREFETCH ENGINE v3.0 (Current Page + 2 Up + 2 Down Instant Preload & Fast Streaming)
 
 import { showToast } from "./helpers.js";
 
@@ -17,16 +17,18 @@ export let basePageWidth = 0;
 export let basePageAspectRatio = 1.414;
 export let isDoubleTapBound = false;
 
-// Strict Memory & Concurrency Controls (Mobile RAM Safe for 1GB+ Books)
-const MAX_RENDERED_PAGES = 4; 
-const RENDER_BUFFER_DISTANCE = 1; 
+// STRICT 5-PAGE WINDOW: Current Page + 2 Pages Above + 2 Pages Below
+const RENDER_BUFFER_DISTANCE = 2; 
+const MAX_RENDERED_PAGES = 6; 
+const MAX_CONCURRENT_RENDERS = 2; // Renders 2 pages in parallel for zero scroll wait
+
 let renderQueue = [];
-let isQueueProcessing = false;
+let activeWorkersCount = 0;
 let lastContainerScrollTime = 0;
 let activeLoadingTask = null;
 let scrollDebounceTimer = null;
 
-// Recycled Canvas Pool
+// Recycled Canvas Pool (Zero RAM Crash on Mobile)
 const canvasRecyclePool = [];
 
 function acquirePooledCanvas() {
@@ -45,7 +47,7 @@ function releaseCanvasToPool(canvas) {
         canvas.height = 1;
         canvas.removeAttribute('style');
         if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
-        if (canvasRecyclePool.length < 6) {
+        if (canvasRecyclePool.length < 8) {
             canvasRecyclePool.push(canvas);
         }
     } catch (e) {}
@@ -66,7 +68,7 @@ export function cleanupPdfResources() {
     }
 
     renderQueue = [];
-    isQueueProcessing = false;
+    activeWorkersCount = 0;
 
     activeRenderTasks.forEach((taskObj) => {
         try { 
@@ -139,14 +141,27 @@ export function showCenteredPdfLoader(message = "Just a Moment… Your Book Is A
             <div class="orbit-inner-ring"></div>
             <div class="orbit-core"></div>
         </div>
-        <div class="pdf-loader-text" id="pdfLoaderStatusMsg">${message}</div>
+        <div class="pdf-loader-text">${message}</div>
     `;
     container?.appendChild(loaderDiv);
 }
 
 // ==========================================
-// 3. SMART SLIDING WINDOW & TWO-STAGE RENDERER
+// 3. 5-PAGE SLIDING WINDOW (2 UP + CURRENT + 2 DOWN)
 // ==========================================
+export function preloadSurroundingPages(centerPage, forceRedraw = false) {
+    if (!currentPdfDocument || centerPage < 1) return;
+
+    // Priority Order: Current -> +1 -> -1 -> +2 -> -2
+    const offsets = [0, 1, -1, 2, -2];
+    offsets.forEach(offset => {
+        const targetPage = centerPage + offset;
+        if (targetPage >= 1 && targetPage <= pdfTotalPagesCount) {
+            queuePageRender(targetPage, forceRedraw);
+        }
+    });
+}
+
 function recycleFarPages(activePage) {
     const pagesToKeep = new Set();
     for (let i = activePage - RENDER_BUFFER_DISTANCE; i <= activePage + RENDER_BUFFER_DISTANCE; i++) {
@@ -155,6 +170,7 @@ function recycleFarPages(activePage) {
         }
     }
 
+    // Cancel any ongoing render tasks outside the +/- 2 page window
     activeRenderTasks.forEach((task, pNum) => {
         if (!pagesToKeep.has(pNum)) {
             try {
@@ -163,6 +179,9 @@ function recycleFarPages(activePage) {
             activeRenderTasks.delete(pNum);
         }
     });
+
+    // Remove queued items outside the +/- 2 page window
+    renderQueue = renderQueue.filter(item => pagesToKeep.has(item.pageNum));
 
     renderedPagesMap.forEach((_, pageNum) => {
         if (!pagesToKeep.has(pageNum)) {
@@ -190,22 +209,31 @@ function recycleFarPages(activePage) {
     }
 }
 
-async function processRenderQueue() {
-    if (isQueueProcessing || renderQueue.length === 0) return;
-    isQueueProcessing = true;
+function processRenderQueue() {
+    if (!currentPdfDocument || renderQueue.length === 0) return;
 
-    while (renderQueue.length > 0) {
-        renderQueue.sort((a, b) => Math.abs(a.pageNum - currentPdfPageInView) - Math.abs(b.pageNum - currentPdfPageInView));
+    while (activeWorkersCount < MAX_CONCURRENT_RENDERS && renderQueue.length > 0) {
+        // Always sort so the closest page to the user's screen renders first
+        renderQueue.sort((a, b) => {
+            const distA = Math.abs(a.pageNum - currentPdfPageInView);
+            const distB = Math.abs(b.pageNum - currentPdfPageInView);
+            if (distA !== distB) return distA - distB;
+            // Tie-breaker: prefer forward page (+1, +2) over backward page (-1, -2)
+            return b.pageNum - a.pageNum;
+        });
+
         const item = renderQueue.shift();
+        if (!item) break;
 
-        if (item && currentPdfDocument) {
-            if (Math.abs(item.pageNum - currentPdfPageInView) <= RENDER_BUFFER_DISTANCE + 1) {
-                await executePageRender(currentPdfDocument, item.pageNum, item.forceRedraw);
-            }
+        if (Math.abs(item.pageNum - currentPdfPageInView) <= RENDER_BUFFER_DISTANCE) {
+            activeWorkersCount++;
+            executePageRender(currentPdfDocument, item.pageNum, item.forceRedraw)
+                .finally(() => {
+                    activeWorkersCount = Math.max(0, activeWorkersCount - 1);
+                    processRenderQueue();
+                });
         }
     }
-
-    isQueueProcessing = false;
 }
 
 export function queuePageRender(pageNum, forceRedraw = false) {
@@ -241,7 +269,7 @@ export async function executePageRender(pdf, pageNum, isSeamlessSwap = false) {
     try {
         const page = await pdf.getPage(pageNum);
         
-        if (Math.abs(pageNum - currentPdfPageInView) > RENDER_BUFFER_DISTANCE + 1) {
+        if (Math.abs(pageNum - currentPdfPageInView) > RENDER_BUFFER_DISTANCE) {
             activeRenderTasks.delete(pageNum);
             page.cleanup();
             return;
@@ -255,7 +283,7 @@ export async function executePageRender(pdf, pageNum, isSeamlessSwap = false) {
         const rawDpr = window.devicePixelRatio || 2;
         const targetDpr = currentZoomScale > 1.1 
             ? Math.min(Math.max(rawDpr, 1.8), 2.2) 
-            : Math.min(Math.max(rawDpr * 1.25, 2.2), 2.65);
+            : Math.min(Math.max(rawDpr * 1.2, 2.0), 2.5);
 
         const newCanvas = acquirePooledCanvas();
         const context = newCanvas.getContext('2d', { alpha: false });
@@ -331,7 +359,7 @@ export function unloadSinglePage(pageNum) {
 }
 
 // ==========================================
-// 4. INTERSECTION OBSERVER VIRTUALIZER
+// 4. INTERSECTION OBSERVER VIRTUALIZER (WIDE 2-PAGE MARGIN)
 // ==========================================
 export function initVirtualizationObserver(pdf) {
     if (pdfVirtualObserver) pdfVirtualObserver.disconnect();
@@ -354,7 +382,7 @@ export function initVirtualizationObserver(pdf) {
         });
     }, {
         root: document.getElementById('pdfContainer'),
-        rootMargin: '250px 0px 250px 0px',
+        rootMargin: '1400px 0px 1400px 0px', // Covers 2 full pages above and 2 full pages below
         threshold: 0.01
     });
 
@@ -428,13 +456,7 @@ export function applyTargetLockedZoom(scaleFactor, targetPageNum, tapClientX = n
     }
 
     if (currentPdfDocument) {
-        queuePageRender(pageToAnchor, true);
-        if (pageToAnchor - 1 >= 1 && renderedPagesMap.has(pageToAnchor - 1)) {
-            queuePageRender(pageToAnchor - 1, true);
-        }
-        if (pageToAnchor + 1 <= pdfTotalPagesCount && renderedPagesMap.has(pageToAnchor + 1)) {
-            queuePageRender(pageToAnchor + 1, true);
-        }
+        preloadSurroundingPages(pageToAnchor, true);
     }
 }
 
@@ -525,7 +547,7 @@ export function initTargetLockedDoubleTapZoom() {
 }
 
 // ==========================================
-// 6. SCROLL TRACKER & RECYCLER OBSERVER
+// 6. SCROLL TRACKER & 5-PAGE WINDOW PRELOADER
 // ==========================================
 export function initPdfScrollTracker(activeBookSlug = "") {
     const container = document.getElementById('pdfContainer');
@@ -556,6 +578,7 @@ export function initPdfScrollTracker(activeBookSlug = "") {
                         if (currentPdfPageInView !== matchedNum) {
                             currentPdfPageInView = matchedNum;
                             recycleFarPages(matchedNum);
+                            preloadSurroundingPages(matchedNum, false);
                         }
                         if (badge && badge.innerText !== String(matchedNum)) {
                             badge.innerText = String(matchedNum);
@@ -568,12 +591,9 @@ export function initPdfScrollTracker(activeBookSlug = "") {
             clearTimeout(scrollDebounceTimer);
             scrollDebounceTimer = setTimeout(() => {
                 if (currentPdfDocument && currentPdfPageInView > 0) {
-                    queuePageRender(currentPdfPageInView, false);
-                    if (currentPdfPageInView + 1 <= pdfTotalPagesCount) {
-                        queuePageRender(currentPdfPageInView + 1, false);
-                    }
+                    preloadSurroundingPages(currentPdfPageInView, false);
                 }
-            }, 90);
+            }, 60);
 
             if (activeBookSlug && currentPdfPageInView > 0) {
                 localStorage.setItem(`last_read_${activeBookSlug}`, currentPdfPageInView);
@@ -590,7 +610,7 @@ export async function jumpToPdfPage(pageNum) {
     if (targetWrapper) {
         currentPdfPageInView = pageNum;
         recycleFarPages(pageNum);
-        queuePageRender(pageNum, false);
+        preloadSurroundingPages(pageNum, false);
 
         targetWrapper.scrollIntoView({ behavior: 'auto', block: 'start' });
         const numEl = document.getElementById('pdfCurrentPageNum');
@@ -615,7 +635,7 @@ export function executeGoToPage() {
 }
 
 // ==========================================
-// 7. RENDER PDF IN MODAL (128KB DATA-SAVER FOR 1GB+ FILES)
+// 7. RENDER PDF IN MODAL (FAST 1MB STREAMING + 5-PAGE PREFETCH)
 // ==========================================
 export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docType = "book", activeBookSlug = "", retryCount = 0) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -647,29 +667,20 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
     }
 
     try {
-        // 128KB MICRO-RANGE ENGINE:
-        // Opens a 1GB file by downloading only ~256KB-384KB of index + Page 1 bytes!
+        // HIGH-THROUGHPUT 1MB RANGE ENGINE:
+        // Cuts down network round-trips by 8x compared to 128KB chunks while keeping disableAutoFetch: true
+        // so ONLY the required index and viewed pages are downloaded!
         activeLoadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
             cMapPacked: true,
             disableRange: false,
             disableAutoFetch: true,
-            disableStream: true,
-            rangeChunkSize: 131072, // 128KB Micro-Chunk (Saves 80% Mobile Data & 3x Faster TTFB)
+            disableStream: false,
+            rangeChunkSize: 1048576, // 1MB Chunk (8x fewer network round-trips on large files)
             maxImageSize: 16777216,
             isEvalSupported: false
         });
-
-        activeLoadingTask.onProgress = (progressData) => {
-            const statusEl = document.getElementById('pdfLoaderStatusMsg');
-            if (statusEl && progressData && progressData.loaded) {
-                const loadedMb = (progressData.loaded / (1024 * 1024)).toFixed(1);
-                if (parseFloat(loadedMb) >= 1.0) {
-                    statusEl.innerText = `Opening Large Book (${loadedMb} MB indexed)... 🚀`;
-                }
-            }
-        };
 
         const pdf = await activeLoadingTask.promise;
         currentPdfDocument = pdf;
@@ -714,7 +725,7 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
         }
         scrollContainer.appendChild(fragment);
 
-        // Hide loader immediately so user sees the layout right away!
+        // Hide loader as soon as document structure is ready
         const loaderToDel = document.getElementById('pdfCenteredLoader');
         if (loaderToDel) loaderToDel.remove();
 
@@ -732,16 +743,15 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
         initPdfScrollTracker(activeBookSlug);
         initTargetLockedDoubleTapZoom();
 
-        // Render Target Page Immediately (Also updates exact aspect ratio dynamically)
+        // Update aspect ratio from target page
         const firstPage = await pdf.getPage(initialTargetPage);
         const firstViewport = firstPage.getViewport({ scale: 1.0 });
         basePageAspectRatio = (firstViewport.height / firstViewport.width) || 1.414;
         firstPage.cleanup();
 
+        // Render Current Page first, then immediately preload +1, -1, +2, -2 pages!
         await executePageRender(pdf, initialTargetPage, false);
-        if (initialTargetPage + 1 <= pdf.numPages) {
-            queuePageRender(initialTargetPage + 1, false);
-        }
+        preloadSurroundingPages(initialTargetPage, false);
 
     } catch (err) {
         console.warn("PDF Load Attempt Error:", err);
