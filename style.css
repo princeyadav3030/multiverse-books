@@ -19,7 +19,7 @@ body { background-color: #000000; color: #ffffff; display: flex; justify-content
 .spidy-fallback-logo { display: none !important; }
 .custom-logo-token { width: 44px !important; height: 44px !important; min-width: 44px !important; min-height: 44px !important; border-radius: 13px !important; background: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.25) !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 5px !important; box-sizing: border-box !important; overflow: hidden !important; }
 
-/* 1. HEADER (BORDERLESS CLEAN BOLD BUTTONS & LOGO) */
+/* 1. HEADER */
 header#main-header.modern-glow-header, header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(10, 12, 16, 0.94) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; z-index: 100; gap: 8px; position: relative; flex-shrink: 0; min-height: 56px; border-bottom: 1px solid rgba(255, 255, 255, 0.09) !important; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75) !important; }
 .header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
 .modern-menu-box { width: 38px !important; height: 38px !important; background: transparent !important; border: none !important; border-radius: 11px !important; display: flex !important; align-items: center !important; justify-content: center !important; box-shadow: none !important; outline: none !important; -webkit-tap-highlight-color: transparent !important; flex-shrink: 0; cursor: pointer; }
@@ -111,7 +111,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .section-header-title { font-family: 'Playfair Display', 'Merriweather', Georgia, serif !important; font-size: 18px !important; font-weight: 800 !important; color: #ffffff !important; letter-spacing: 0.3px !important; text-transform: capitalize !important; display: flex; align-items: center; gap: 8px; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.6)); }
 .section-header-title i { font-size: 17px; filter: none; }
 
-/* 6. BOOKS GRID & CARDS (ZERO SMUDGE CLEAN FREE BADGE) */
+/* 6. BOOKS GRID & CARDS */
 .book-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 25px; }
 .book-card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: transform 0.2s, box-shadow 0.2s; }
 .book-card:not(:has(.bookmark-btn:active)):not(:has(.bookmark-btn:hover)):active { transform: scale(0.98); }
@@ -135,6 +135,10 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .no-results-title { font-size: 16.5px !important; font-weight: 900 !important; color: #ffffff !important; margin-bottom: 8px; font-family: 'Poppins', 'Inter', sans-serif !important; letter-spacing: 0.6px; text-transform: uppercase; }
 .no-results-desc { font-size: 12.5px !important; color: #cbd5e1 !important; margin-bottom: 20px; line-height: 1.55; max-width: 250px; font-family: 'Playfair Display', 'Merriweather', Georgia, serif !important; font-weight: 700 !important; font-style: normal !important; }
 .no-results-badge { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.15); color: #d4d4d8; font-size: 9px; font-weight: 700; padding: 8px 16px; border-radius: 30px; letter-spacing: 1px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+
+/* 6.1 CLEAN MINIMALIST PAGINATION LOADER SPINNER */
+#infinite-loader { display: none; flex-direction: row; align-items: center; justify-content: center; width: 100%; gap: 10px; padding: 20px 0 30px 0; margin-top: 6px; margin-bottom: 15px; box-sizing: border-box; }
+.pagination-spinner-ring { width: 17px; height: 17px; min-width: 17px; min-height: 17px; border: 2px solid rgba(255, 255, 255, 0.16); border-top-color: #38bdf8; border-radius: 50%; animation: spinRing 0.8s linear infinite; flex-shrink: 0; box-sizing: border-box; }
 
 /* 7. TELEGRAM PROMPTS & CLICK-COPY STYLING */
 .tg-copy-card { background: #1f1f23 !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; border-left: 3.5px solid #ffffff !important; border-radius: 12px !important; margin: 10px 0 !important; padding: 0 !important; overflow: hidden !important; width: 100% !important; display: flex !important; flex-direction: column !important; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important; pointer-events: auto !important; position: relative !important; z-index: 10 !important; transform: none !important; }
