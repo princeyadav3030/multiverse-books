@@ -1352,7 +1352,7 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
              return; 
         }
         
-        btn.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i> Ready..`; 
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i> Loading book..`; 
         btn.disabled = true;
 
         try {
