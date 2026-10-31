@@ -87,10 +87,10 @@ header#main-header.modern-glow-header, header { display: flex; align-items: cent
 .credits { color: var(--spidy-text-small); font-size: 8.5px; font-weight: 600; letter-spacing: 1px; }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
 
-/* 4. MAIN CONTENT AREA */
+/* 4. MAIN CONTENT AREA (FLEX LAYOUT FOR PINNED BOTTOM FOOTER) */
 main, main#mainContentArea { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0; display: flex; flex-direction: column; -webkit-overflow-scrolling: touch; transform: translate3d(0, 0, 0); overscroll-behavior-y: contain; position: relative; }
 main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none; }
-.app-tab { display: flex; flex-direction: column; padding: 15px 18px 0px; min-height: 100%; animation: fadeInTab 0.3s ease; }
+.app-tab { display: flex; flex-direction: column; padding: 15px 18px 0px; flex: 1; min-height: 100%; box-sizing: border-box; animation: fadeInTab 0.3s ease; }
 @keyframes fadeInTab { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
 /* 5. PROMO CAROUSEL */
@@ -467,7 +467,7 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .loader-progress-text { width: 290px; display: flex; justify-content: space-between; margin-top: 10px; z-index: 5; font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; color: #a1a1aa; letter-spacing: 0.3px; }
 .loader-powered-text { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); color: #ffffff; font-size: 10.5px; font-weight: 900; letter-spacing: 1.5px; font-family: 'Poppins', sans-serif; text-transform: uppercase; z-index: 10; white-space: nowrap; }
 
-/* 22. COMMUNITY POPUP (EQUAL BUTTON WIDTH FIXED FOR WHATSAPP/TG TEXT CUT) */
+/* 22. COMMUNITY POPUP */
 .community-popup-overlay { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-height: 100dvh !important; background: rgba(0, 0, 0, 0.82) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; display: none !important; align-items: center !important; justify-content: center !important; padding: 16px !important; box-sizing: border-box !important; z-index: 99999999 !important; opacity: 0; transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 .community-popup-overlay.active { display: flex !important; opacity: 1 !important; }
 .community-popup-wrapper { position: relative; width: 100%; max-width: 380px; margin: auto; display: flex; justify-content: center; align-items: center; }
@@ -726,8 +726,8 @@ main::-webkit-scrollbar, main#mainContentArea::-webkit-scrollbar { display: none
 .btn-cancel-logout:active { transform: scale(0.96); background: #e2e8f0 !important; }
 .btn-confirm-logout { flex: 1; background: #ef4444; color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; }
 
-/* 30. COPYRIGHT LINE */
-.app-footer-copyright, .copyright-bar, .copyright-footer, .copyright-text, footer.copyright-section, .app-tab > footer, .app-tab > .copyright-text, .app-tab > .copyright-bar, .app-tab > .app-footer-copyright, .download-modal .copyright-bar, .download-modal .copyright-footer, .download-modal .app-footer-copyright { margin-left: -18px !important; margin-right: -18px !important; width: calc(100% + 36px) !important; max-width: none !important; border-top: 1px solid rgba(255, 255, 255, 0.15) !important; padding-top: 16px !important; padding-bottom: 22px !important; margin-top: auto !important; text-align: center !important; color: #a1a1aa !important; font-size: 11px !important; font-weight: 700 !important; letter-spacing: 0.6px !important; text-transform: uppercase !important; box-sizing: border-box !important; background-color: #000000 !important; position: relative !important; z-index: 10 !important; }
+/* 30. COPYRIGHT LINE (FIXED ALWAYS AT BOTTOM & FULL EDGE-TO-EDGE BORDER) */
+.app-footer-copyright, .copyright-bar, .copyright-footer, .copyright-text, footer.copyright-section, .app-tab > footer, .app-tab > .copyright-text, .app-tab > .copyright-bar, .app-tab > .app-footer-copyright, .download-modal .copyright-bar, .download-modal .copyright-footer, .download-modal .app-footer-copyright { margin-left: -18px !important; margin-right: -18px !important; width: calc(100% + 36px) !important; max-width: none !important; border-top: 1px solid rgba(255, 255, 255, 0.08) !important; padding: 22px 10px calc(15px + env(safe-area-inset-bottom)) !important; margin-top: auto !important; text-align: center !important; color: #a1a1aa !important; font-size: clamp(8px, 2.5vw, 10px) !important; font-weight: 800 !important; letter-spacing: 0.5px !important; text-transform: uppercase !important; box-sizing: border-box !important; background-color: transparent !important; position: relative !important; z-index: 10 !important; display: flex !important; justify-content: center !important; align-items: center !important; flex-shrink: 0 !important; }
 
 /* 31. RESPONSIVE BREAKPOINTS */
 @media (max-width: 450px) { .uc-body { flex-direction: column; border-bottom: none; padding-bottom: 0; gap: 12px; } .uc-actions { border-left: none; border-top: 1px dashed rgba(255, 255, 255, 0.15); padding-left: 0; padding-top: 15px; width: 100%; } .uc-illustration { height: 75px; } }
