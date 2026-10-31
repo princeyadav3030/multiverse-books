@@ -111,7 +111,7 @@ let communityPopupTimer = null;
 
 const VERIFIED_CHECK_SVG = `
 <svg class="premium-verified-tick" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" fill="#10b981" fill-opacity="0.2" stroke="#10b981" stroke-width="2"/>
+    <circle cx="10" cy="10" r="8" fill="#10b981" fill-opacity="0.2" stroke="#10b981" stroke-width="2"/>
     <path d="M8 12.5L10.5 15L16 9.5" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
@@ -140,7 +140,7 @@ function isFilterOrSearchActive() {
 }
 
 // ==========================================
-// 2. LOADER & TRANSITION ENGINE
+// 2. LOADER & TRANSITION ENGINE (1.5s FAST TRANSITION)
 // ==========================================
 function updateLoaderUI(percent) {
     const loaderFill = document.getElementById('loaderFill');
@@ -160,11 +160,11 @@ function runSmoothLoaderTick() {
     if (hasTransitioned || isTransitioning) return;
 
     if (loadingProgress < 65) {
-        loadingProgress += 1.8;
+        loadingProgress += 3.5;
     } else if (loadingProgress < 85) {
-        loadingProgress += 1.0;
+        loadingProgress += 2.5;
     } else if (loadingProgress < 95) {
-        loadingProgress += isAppReady.data ? 2.0 : 0.3;
+        loadingProgress += isAppReady.data ? 3.0 : 0.8;
     }
 
     if (loadingProgress > 95 && !isAppReady.data) {
@@ -176,21 +176,22 @@ function runSmoothLoaderTick() {
     if (isAppReady.data && isAppReady.auth) {
         tryTransition();
     } else {
-        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 20 : 120) : 35;
+        const nextDelay = loadingProgress > 80 ? (isAppReady.data ? 15 : 40) : 25;
         loaderInterval = setTimeout(runSmoothLoaderTick, nextDelay);
     }
 }
 
 updateLoaderUI(1);
-loaderInterval = setTimeout(runSmoothLoaderTick, 35);
+loaderInterval = setTimeout(runSmoothLoaderTick, 25);
 
+// Fallback Hard Cutoff at 1.5 Seconds (1500ms)
 setTimeout(() => {
     if (!hasTransitioned) {
         isAppReady.auth = true;
         isAppReady.data = true;
         tryTransition();
     }
-}, 6000);
+}, 1500);
 
 function tryTransition() {
     if (isAppReady.auth && isAppReady.data && !hasTransitioned && !isTransitioning) {
@@ -198,13 +199,12 @@ function tryTransition() {
         clearTimeout(loaderInterval);
 
         let finishStep = setInterval(async () => {
-            loadingProgress += 4;
+            loadingProgress += 8;
             if (loadingProgress >= 100) {
                 clearInterval(finishStep);
                 loadingProgress = 100;
                 updateLoaderUI(100);
 
-                // ZERO-FLICKER LOGIC: Loader hatne se pehle modal render karwao
                 if (isDeepLinkLoad && pendingBookSlug) {
                     const targetSlug = decodeURIComponent(pendingBookSlug);
                     pendingBookSlug = null;
@@ -217,11 +217,9 @@ function tryTransition() {
                     }
                 }
 
-                // Main app reveal
                 const mainApp = document.getElementById('mainAppWrapper');
                 if (mainApp) mainApp.style.display = 'block';
 
-                // Ab loader ko fade-out karo
                 const loader = document.getElementById("loaderScreen");
                 if (loader) {
                     loader.style.opacity = "0"; 
@@ -244,7 +242,7 @@ function tryTransition() {
             } else {
                 updateLoaderUI(loadingProgress);
             }
-        }, 12);
+        }, 10);
     }
 }
 
@@ -704,7 +702,7 @@ async function renderSavedBooksUI() {
 }
 
 // ==========================================
-// 6. PAGINATION & DATA FETCH (WITH DEEPLINK PREFETCH)
+// 6. PAGINATION & DATA FETCH (POINT 3 FIX: NO JUMP)
 // ==========================================
 async function loadInitialBooksBatch() {
     try {
@@ -715,7 +713,6 @@ async function loadInitialBooksBatch() {
         const booksRef = collection(db, "books");
         const q = query(booksRef, orderBy("createdAt", "desc"), limit(BATCH_SIZE));
         
-        // PARALLEL EXECUTION: Normal Batch + Deep Link Book Ek Saath Fetch Hogi
         const batchPromise = getDocs(q);
         let deepLinkPromise = Promise.resolve(null);
 
@@ -806,11 +803,7 @@ async function loadNextBooksBatch(isFastFilterFetch = false) {
     const infiniteLoader = document.getElementById('infinite-loader');
     if (infiniteLoader) {
         infiniteLoader.style.display = 'flex';
-        if (!isFastFilterFetch) {
-            setTimeout(() => {
-                infiniteLoader.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }, 50);
-        }
+        // POINT 3 FIX: Removed abrupt scrollIntoView jump
     }
 
     try {
@@ -1202,7 +1195,7 @@ window.readModulePdfDirectly = async function(pdfKeyOrUrl, title) {
 };
 
 // ==========================================
-// 8. BOOK DETAIL & READ ONLINE (100% IN-MEMORY / FIRESTORE LOOKUP)
+// 8. BOOK DETAIL & READ ONLINE
 // ==========================================
 async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
     if (!idOrSlug) return;
@@ -1215,18 +1208,15 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
     const cleanKey = decodeURIComponent(String(idOrSlug).trim());
     const cleanLowerKey = cleanKey.toLowerCase();
 
-    // 1. In-memory check: Match Document ID or Slug
     let book = booksData.find(b => 
         (b.id && b.id === cleanKey) || 
         (b.slug && (b.slug === cleanKey || b.slug.toLowerCase() === cleanLowerKey))
     );
 
-    // 2. Check local bookmark cache
     if (!book && savedBooksCache[cleanKey]) {
         book = savedBooksCache[cleanKey];
     }
 
-    // 3. Direct Firestore Document ID lookup
     if (!book) {
         try {
             const docSnap = await getDoc(doc(db, "books", cleanKey));
@@ -1243,7 +1233,6 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
         }
     }
 
-    // 4. Firestore Query by 'slug' field
     if (!book) {
         try {
             const slugQuery = query(collection(db, "books"), where("slug", "==", cleanKey), limit(1));
@@ -1262,7 +1251,6 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
         }
     }
 
-    // 5. Fallback: Title lookup in case cleanKey resembles title
     if (!book) {
         try {
             const guessedTitle = cleanKey.replace(/[-_]/g, ' ').trim();
@@ -1280,7 +1268,6 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
         } catch (e) {}
     }
 
-    // 6. Deep Scan Fallback: Agar Firestore indexes me slug na mile
     if (!book && booksData.length < 50) {
         try {
             const fallbackSnap = await getDocs(query(collection(db, "books"), limit(50)));
@@ -1299,7 +1286,7 @@ async function openDownloadPageLocal(idOrSlug, skipPushState = false) {
     }
 
     if (!book) {
-        showToast("Book not found or link expired", "error");[span_1](start_span)[span_1](end_span)[span_2](start_span)[span_2](end_span)
+        showToast("Book not found or link expired", "error");
         return;
     }
     
@@ -1438,7 +1425,7 @@ function closeDownloadPageLocal() {
 }
 
 // ==========================================
-// 9. EVENT LISTENERS & POPSTATE ENGINE
+// 9. EVENT LISTENERS & POPSTATE ENGINE (POINT 1 FIX)
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
     loadInitialBooksBatch();
@@ -1529,76 +1516,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    document.getElementById('reportLinkBtn')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        clearActiveElementFocus();
-        const reportModal = document.getElementById('reportModalOverlay');
-        if (reportModal) {
-            safePushHistory({ popup: 'reportModal' });
-            reportModal.classList.add('active');
-        }
-    });
-
-    document.getElementById('closeReportBtn')?.addEventListener('click', () => {
-        clearActiveElementFocus();
-        if (history.state && history.state.popup === 'reportModal') {
-            history.back();
-        } else {
-            document.getElementById('reportModalOverlay')?.classList.remove('active');
-        }
-    });
-
-    document.getElementById('reportModalOverlay')?.addEventListener('click', (e) => {
-        if (e.target === document.getElementById('reportModalOverlay')) {
-            clearActiveElementFocus();
-            if (history.state && history.state.popup === 'reportModal') history.back();
-            else document.getElementById('reportModalOverlay')?.classList.remove('active');
-        }
-    });
-
-    const reportOptions = document.querySelectorAll('.rm-option');
-    const submitReportBtn = document.getElementById('submitReportBtn');
-
-    reportOptions.forEach(opt => {
-        opt.addEventListener('click', () => {
-            reportOptions.forEach(o => o.classList.remove('selected'));
-            opt.classList.add('selected');
-            if (submitReportBtn) submitReportBtn.classList.add('enabled');
-        });
-    });
-
-    submitReportBtn?.addEventListener('click', async () => {
-        const selectedOption = document.querySelector('.rm-option.selected');
-        if (selectedOption) {
-            const issueType = selectedOption.querySelector('span')?.innerText || "General Issue";
-            try {
-                await addDoc(collection(db, "reports"), {
-                    bookTitle: activeBookTitle || "Unknown",
-                    bookSlug: activeBookSlug || "Unknown",
-                    issueType: issueType,
-                    status: 'Pending',
-                    reportedBy: (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : 'Unknown User',
-                    createdAt: serverTimestamp()
-                });
-            } catch (error) {}
-
-            submitReportBtn.innerHTML = '<i class="fas fa-check-circle"></i> Successfully Reported';
-            submitReportBtn.style.background = '#10b981';
-            
-            setTimeout(() => {
-                clearActiveElementFocus();
-                if (history.state && history.state.popup === 'reportModal') history.back();
-                else document.getElementById('reportModalOverlay')?.classList.remove('active');
-                setTimeout(() => {
-                    submitReportBtn.innerHTML = 'Submit Report';
-                    submitReportBtn.style.background = '#ef4444';
-                    submitReportBtn.classList.remove('enabled');
-                    reportOptions.forEach(o => o.classList.remove('selected'));
-                }, 400);
-            }, 1200);
-        }
-    });
+    // POINT 1 FIX: Removed reportLinkBtn, closeReportBtn & submitReportBtn completely
 
     const sentinel = document.getElementById('scroll-sentinel');
     if (sentinel) {
@@ -1612,7 +1530,6 @@ document.addEventListener("DOMContentLoaded", () => {
         infiniteScrollObserver.observe(sentinel);
     }
 
-    // STRICT BOOK ID PRIORITY: Never sends invalid slug to database
     document.getElementById('bookContainer')?.addEventListener('click', (e) => {
         const card = e.target.closest('.book-card');
         if(card) {
@@ -1722,11 +1639,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return; 
         }
 
-        const reportModal = document.getElementById('reportModalOverlay');
-        if (reportModal && reportModal.classList.contains('active')) {
-            reportModal.classList.remove('active');
-            return;
-        }
+        // POINT 1 FIX: Removed reportModalOverlay check from popstate
 
         const subFilterModal = document.getElementById('subFilterModalOverlay');
         if (subFilterModal && subFilterModal.classList.contains('active')) {
