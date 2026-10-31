@@ -1,5 +1,6 @@
 // File: modules/pdf-engine.js
-// HYPER-PREFETCH ENGINE v3.0 (Current Page + 2 Up + 2 Down Instant Preload & Fast Streaming)
+// ZERO-RAM-CRASH BYTE-RANGE ENGINE (Fixes "Array buffer allocation failed" on 700MB-1GB+ PDFs)
+// Features: Current Page + 2 Up + 2 Down Instant Preload + Canvas Memory Recycler Pool
 
 import { showToast } from "./helpers.js";
 
@@ -20,7 +21,7 @@ export let isDoubleTapBound = false;
 // STRICT 5-PAGE WINDOW: Current Page + 2 Pages Above + 2 Pages Below
 const RENDER_BUFFER_DISTANCE = 2; 
 const MAX_RENDERED_PAGES = 6; 
-const MAX_CONCURRENT_RENDERS = 2; // Renders 2 pages in parallel for zero scroll wait
+const MAX_CONCURRENT_RENDERS = 2; // Parallel rendering for zero scroll wait
 
 let renderQueue = [];
 let activeWorkersCount = 0;
@@ -28,7 +29,7 @@ let lastContainerScrollTime = 0;
 let activeLoadingTask = null;
 let scrollDebounceTimer = null;
 
-// Recycled Canvas Pool (Zero RAM Crash on Mobile)
+// Recycled Canvas Pool (Prevents Mobile GPU / RAM Crashes)
 const canvasRecyclePool = [];
 
 function acquirePooledCanvas() {
@@ -218,7 +219,7 @@ function processRenderQueue() {
             const distA = Math.abs(a.pageNum - currentPdfPageInView);
             const distB = Math.abs(b.pageNum - currentPdfPageInView);
             if (distA !== distB) return distA - distB;
-            // Tie-breaker: prefer forward page (+1, +2) over backward page (-1, -2)
+            // Prefer forward pages (+1, +2) over backward pages (-1, -2)
             return b.pageNum - a.pageNum;
         });
 
@@ -382,7 +383,7 @@ export function initVirtualizationObserver(pdf) {
         });
     }, {
         root: document.getElementById('pdfContainer'),
-        rootMargin: '1400px 0px 1400px 0px', // Covers 2 full pages above and 2 full pages below
+        rootMargin: '1400px 0px 1400px 0px', // Pre-triggers 2 full pages above and 2 full pages below
         threshold: 0.01
     });
 
@@ -499,7 +500,7 @@ export function initTargetLockedDoubleTapZoom() {
         } else {
             isMovingGesture = true;
             lastTapTime = 0;
-        }
+            }
     }, { passive: true });
 
     container.addEventListener('touchend', (e) => {
@@ -635,7 +636,7 @@ export function executeGoToPage() {
 }
 
 // ==========================================
-// 7. RENDER PDF IN MODAL (FAST 1MB STREAMING + 5-PAGE PREFETCH)
+// 7. RENDER PDF IN MODAL (ZERO-ALLOCATION-CRASH HTTP-206 ENGINE)
 // ==========================================
 export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docType = "book", activeBookSlug = "", retryCount = 0) {
     const scrollContainer = document.getElementById('pdfScrollContainer');
@@ -667,17 +668,17 @@ export async function renderPdfInModal(pdfUrl, keepExistingLoader = false, docTy
     }
 
     try {
-        // HIGH-THROUGHPUT 1MB RANGE ENGINE:
-        // Cuts down network round-trips by 8x compared to 128KB chunks while keeping disableAutoFetch: true
-        // so ONLY the required index and viewed pages are downloaded!
+        // CRITICAL FIX FOR "Array buffer allocation failed" ON 700MB-1GB+ PDFs:
+        // disableStream: true + disableAutoFetch: true prevents PDF.js from ever allocating
+        // a 707MB ArrayBuffer in mobile RAM! It strictly fetches 512KB byte-ranges via HTTP 206.
         activeLoadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
             cMapPacked: true,
             disableRange: false,
             disableAutoFetch: true,
-            disableStream: false,
-            rangeChunkSize: 1048576, // 1MB Chunk (8x fewer network round-trips on large files)
+            disableStream: true,
+            rangeChunkSize: 524288, // 512KB Chunk (Fast range seeks without exhausting Mobile RAM)
             maxImageSize: 16777216,
             isEvalSupported: false
         });
