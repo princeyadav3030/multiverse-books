@@ -111,7 +111,7 @@ let communityPopupTimer = null;
 
 const VERIFIED_CHECK_SVG = `
 <svg class="premium-verified-tick" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="10" cy="10" r="8" fill="#10b981" fill-opacity="0.2" stroke="#10b981" stroke-width="2"/>
+    <circle cx="12" cy="12" r="10" fill="#10b981" fill-opacity="0.2" stroke="#10b981" stroke-width="2"/>
     <path d="M8 12.5L10.5 15L16 9.5" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
